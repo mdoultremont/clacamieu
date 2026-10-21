@@ -159,7 +159,7 @@ function HomeCard({
               <ItemTitle>{view.vacuum.state}</ItemTitle>
               {view.vacuum.battery !== null && (
                 <ItemDescription className="tabular-nums">
-                  {view.vacuum.battery} %
+                  {t.battery(view.vacuum.battery)}
                 </ItemDescription>
               )}
             </ItemContent>

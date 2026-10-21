@@ -10,6 +10,7 @@ export const en = {
   noClimate: "No sensors",
   averageRooms: (count: number) =>
     `Average of ${count} room${count === 1 ? "" : "s"}`,
+  battery: (level: string) => `Battery ${level} %`,
   atHome: "At home",
   nobodyHome: "Nobody home",
   alarmLabel: "Alarm",
@@ -105,6 +106,7 @@ export const fr: Messages = {
   outside: "Dehors",
   noClimate: "Aucun capteur",
   averageRooms: (count) => `Moyenne de ${count} pièce${count === 1 ? "" : "s"}`,
+  battery: (level) => `Batterie ${level} %`,
   atHome: "À la maison",
   nobodyHome: "Personne à la maison",
   alarmLabel: "Alarme",
