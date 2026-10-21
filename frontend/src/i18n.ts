@@ -126,6 +126,8 @@ export const en = {
   energySelectBar: "Select a bar to see its consumption.",
   energyPartial:
     "Some statistics are missing. Totals include available readings.",
+  energyDevicesOnly:
+    "No grid meter readings. Totals add up the measured devices.",
   energyNoData: "No data",
   energyNoDevices: "No measured devices configured.",
   energyEmpty: "Set up energy in Home Assistant to see consumption here.",
@@ -354,6 +356,8 @@ export const fr: Messages = {
   energySelectBar: "Sélectionnez une barre pour voir sa consommation.",
   energyPartial:
     "Certaines statistiques manquent. Les totaux incluent les relevés disponibles.",
+  energyDevicesOnly:
+    "Aucun relevé du compteur réseau. Les totaux additionnent les appareils mesurés.",
   energyNoData: "Aucune donnée",
   energyNoDevices: "Aucun appareil mesuré configuré.",
   energyEmpty:

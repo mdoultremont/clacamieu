@@ -245,16 +245,26 @@ describe("energy view", () => {
     expect(view.cost).toBeNull();
     expect(view.devices[0].share).toBeNull();
   });
-  it("keeps actual zero readings distinct from missing data and avoids infinite changes", () => {
+  it("keeps actual zero readings distinct from missing data", () => {
     const data = history();
     data.current["sensor.grid"] = [point(0, 0)];
-    data.previous["sensor.grid"][0].change = 0;
     const view = buildEnergyView(prefs, data, hass(), "day", now);
+    expect(view.source).toBe("grid");
     expect(view.kwh).toBe(0);
     expect(view.cost).toBe(0);
     expect(view.buckets[0].kwh).toBe(0);
     expect(view.buckets[1].kwh).toBeNull();
-    expect(view.change).toBeNull();
+    expect(view.change).toBe(-100);
+  });
+  it("adds up measured devices when the grid statistic has no reading in either period", () => {
+    const data = history();
+    data.current["sensor.grid"] = [point(0, 0), point(2, 0)];
+    data.previous["sensor.grid"][0].change = 0;
+    const view = buildEnergyView(prefs, data, hass(), "day", now);
+    expect(view.source).toBe("devices");
+    expect(view.kwh).toBe(3.5);
+    expect(view.cost).toBeNull();
+    expect(view.buckets[0].kwh).toBe(1.5);
   });
   it("renders an empty preferences object without requiring the Clacamieu Energy family", () => {
     const view = buildEnergyView(

@@ -41,6 +41,7 @@ export interface EnergyBucket {
 }
 export interface EnergyView {
   configured: boolean;
+  source: "grid" | "devices";
   watts: number | null;
   kwh: number | null;
   cost: number | null;
@@ -176,14 +177,12 @@ export function energySources(prefs: EnergyPrefs) {
       prefs.device_consumption?.map((device) => device.stat_consumption) ?? [],
     ),
   ];
-  const totalIds = flows.length
-    ? [...new Set(flows.map((flow) => flow.stat_energy_from))]
-    : deviceIds;
+  const gridIds = [...new Set(flows.map((flow) => flow.stat_energy_from))];
   return {
     flows,
     deviceIds,
-    totalIds,
-    statisticIds: [...new Set([...totalIds, ...deviceIds])],
+    gridIds,
+    statisticIds: [...new Set([...gridIds, ...deviceIds])],
   };
 }
 
@@ -221,7 +220,14 @@ export function buildEnergyView(
 ): EnergyView {
   const timeZone = energyTimeZone(hass);
   const range = energyRange(period, now, timeZone);
-  const { flows, deviceIds, totalIds } = energySources(prefs);
+  const { flows, deviceIds, gridIds } = energySources(prefs);
+  // An imported grid statistic can be configured yet empty or stuck at zero.
+  const gridHasReadings = gridIds.some((id) =>
+    [...(statistics.current[id] ?? []), ...(statistics.previous[id] ?? [])].some(
+      (point) => (numeric(point.change) ?? 0) !== 0,
+    ),
+  );
+  const totalIds = gridHasReadings ? gridIds : deviceIds;
   const totals = totalIds.map((id) =>
     consumption(statistics.current, id, range.start, range.end),
   );
@@ -247,7 +253,7 @@ export function buildEnergyView(
       ? prices[0]
       : null;
   const cost =
-    flows.length &&
+    gridHasReadings &&
     prices.every((price) => price !== null) &&
     totals.every((value) => value !== null)
       ? sum(
@@ -297,6 +303,7 @@ export function buildEnergyView(
   });
   return {
     configured: totalIds.length > 0,
+    source: gridHasReadings ? "grid" : "devices",
     watts: sum(
       plugPowerEntities(hass).map((entity) => watts(hass, entity.entity_id)),
     ),

@@ -156,6 +156,11 @@ function EnergyContent({
         summary={t.energyChartSummary(energy(view.kwh))}
         language={language}
       />
+      {view.configured && view.source === "devices" && (
+        <p className="px-4 text-xs text-muted-foreground">
+          {t.energyDevicesOnly}
+        </p>
+      )}
       {view.partial && (
         <p className="px-4 text-xs text-muted-foreground">{t.energyPartial}</p>
       )}
