@@ -72,7 +72,7 @@ describe("panel lifecycle and screens", () => {
     expect(panel.shadowRoot?.textContent).toContain("No sensors");
     expect(
       panel.shadowRoot?.querySelectorAll(".nav-inner button:disabled"),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
   it("renders saved card order and calls homeassistant.toggle from an entity row", async () => {
     const hass = fixture();
@@ -494,4 +494,45 @@ describe("panel lifecycle and screens", () => {
       { entity_id: "alarm_control_panel.example" },
     );
   });
+});
+
+it("navigates to Security and emits a composed camera event from the panel", async () => {
+  const hass = fixture();
+  hass.states["camera.example"] = {
+    entity_id: "camera.example",
+    state: "unavailable",
+    attributes: { friendly_name: "Example camera" },
+    last_changed: "",
+    last_updated: "",
+    context: { id: "test", parent_id: null, user_id: null },
+  };
+  const panel = await mount(hass);
+  const events: CustomEvent[] = [];
+  const listener = (event: Event) => events.push(event as CustomEvent);
+  document.body.addEventListener("hass-more-info", listener);
+  try {
+    await act(async () => {
+      Array.from(
+        panel.shadowRoot!.querySelectorAll<HTMLButtonElement>("nav button"),
+      )
+        .find((button) => button.textContent?.includes("Security"))!
+        .click();
+    });
+    expect(location.pathname).toBe("/clacamieu/securite");
+    expect(panel.shadowRoot!.querySelector("h1")?.textContent).toBe("Security");
+    await act(async () => {
+      Array.from(
+        panel.shadowRoot!.querySelectorAll<HTMLButtonElement>("button"),
+      )
+        .find((button) => button.textContent?.includes("Example camera"))!
+        .click();
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].detail).toEqual({ entityId: "camera.example" });
+    expect(events[0].bubbles).toBe(true);
+    expect(events[0].composed).toBe(true);
+    expect(events[0].target).toBe(panel);
+  } finally {
+    document.body.removeEventListener("hass-more-info", listener);
+  }
 });

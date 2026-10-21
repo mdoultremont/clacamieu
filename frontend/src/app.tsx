@@ -3,6 +3,8 @@ import { Ellipsis, House, LayoutGrid, Shield, Zap } from "lucide-react";
 import { Configuration } from "./components/configuration";
 import { Home } from "./components/home";
 import { Room } from "./components/room";
+import { Security } from "./components/security";
+import { buildSecurityView } from "./security-view";
 import { Rooms } from "./components/rooms";
 import { buildRoomView, buildRoomsView } from "./room-view";
 import { navigate, parseRoute, routePath } from "./navigation";
@@ -155,6 +157,20 @@ export function App({
                       : undefined
                   }
                 />
+              ) : route.screen === "security" ? (
+                <Security
+                  view={buildSecurityView(hass, config, now)}
+                  hass={hass}
+                  onCamera={(entityId) =>
+                    host.dispatchEvent(
+                      new CustomEvent("hass-more-info", {
+                        bubbles: true,
+                        composed: true,
+                        detail: { entityId },
+                      }),
+                    )
+                  }
+                />
               ) : route.screen === "rooms" ||
                 (route.screen === "room" && !room) ? (
                 <Rooms
@@ -201,14 +217,14 @@ export function App({
               {tabs.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
-                  disabled={key !== "home" && key !== "more" && key !== "rooms"}
+                  disabled={key === "energy"}
                   aria-current={
                     (route.screen === "room" ? "rooms" : route.screen) === key
                       ? "page"
                       : undefined
                   }
                   onClick={() => {
-                    if (key === "home" || key === "more" || key === "rooms") {
+                    if (key !== "energy") {
                       navigate(routePath({ screen: key }));
                       setError(null);
                     }

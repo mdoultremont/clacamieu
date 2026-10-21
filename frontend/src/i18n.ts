@@ -1,4 +1,38 @@
 export const en = {
+  cameras: "Cameras",
+  cameraLoading: "Loading image…",
+  openings: "Openings",
+  leaks: "Water leaks",
+  detectors: "Detectors",
+  securityModes: {
+    disarmed: "Disarmed",
+    armed_home: "Home",
+    armed_away: "Away",
+    armed_night: "Night",
+    armed_vacation: "Vacation",
+    armed_custom_bypass: "Custom",
+  },
+  securitySince: (time: string) => `Since ${time}`,
+  securityChangedBy: (name: string) => `by ${name}`,
+  securityArmConfirm: (mode: string) => `Arm in ${mode} mode?`,
+  securityDisarmConfirm: "Disarm the alarm?",
+  securityConfirmDescription: "Confirm this change to the house alarm.",
+  securityCode: "Alarm code",
+  securityConfirm: "Confirm",
+  securityWorking: "Sending…",
+  securityAlarmError:
+    "The alarm rejected the action. Check the code and try again.",
+  securityClosed: (closed: number, total: number) =>
+    `${closed} / ${total} closed`,
+  securityLeaks: (count: number) =>
+    `${count} leak${count === 1 ? "" : "s"} detected`,
+  securityAlerts: (count: number) => `${count} alert${count === 1 ? "" : "s"}`,
+  securityUnavailable: (count: number) => `${count} unavailable`,
+  securityNoLeak: "No leaks",
+  securityNoAlert: "No alerts",
+  securityDetected: "Detected",
+  securityClear: "Clear",
+
   climate: "Climate",
   lights: "Lights",
   scenes: "Scenes",
@@ -167,6 +201,41 @@ type Messages = {
 };
 
 export const fr: Messages = {
+  cameras: "Caméras",
+  cameraLoading: "Chargement…",
+  openings: "Ouvertures",
+  leaks: "Fuites d'eau",
+  detectors: "Détecteurs",
+  securityModes: {
+    disarmed: "Désarmée",
+    armed_home: "Maison",
+    armed_away: "Absent",
+    armed_night: "Nuit",
+    armed_vacation: "Vacances",
+    armed_custom_bypass: "Personnalisé",
+  },
+  securitySince: (time) => `Depuis ${time}`,
+  securityChangedBy: (name) => `par ${name}`,
+  securityArmConfirm: (mode) => `Armer en mode ${mode} ?`,
+  securityDisarmConfirm: "Désarmer l'alarme ?",
+  securityConfirmDescription:
+    "Confirmez ce changement de l'alarme de la maison.",
+  securityCode: "Code de l'alarme",
+  securityConfirm: "Confirmer",
+  securityWorking: "Envoi…",
+  securityAlarmError:
+    "L'alarme a refusé l'action. Vérifiez le code et réessayez.",
+  securityClosed: (closed, total) => `${closed} / ${total} fermées`,
+  securityLeaks: (count) =>
+    `${count} fuite${count === 1 ? "" : "s"} détectée${count === 1 ? "" : "s"}`,
+  securityAlerts: (count) => `${count} alerte${count === 1 ? "" : "s"}`,
+  securityUnavailable: (count) =>
+    `${count} indisponible${count === 1 ? "" : "s"}`,
+  securityNoLeak: "Aucune fuite",
+  securityNoAlert: "Aucune alerte",
+  securityDetected: "Détecté",
+  securityClear: "Normal",
+
   climate: "Climat",
   lights: "Lumières",
   scenes: "Scènes",

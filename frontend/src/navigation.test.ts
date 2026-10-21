@@ -12,6 +12,7 @@ describe("Maison routes", () => {
     ["/clacamieu/pieces", { screen: "rooms" }],
     ["/clacamieu/pieces/room_a", { screen: "room", areaId: "room_a" }],
     ["/clacamieu/pieces/room%20a", { screen: "room", areaId: "room a" }],
+    ["/clacamieu/securite", { screen: "security" }],
     ["/clacamieu/plus", { screen: "more" }],
     ["/clacamieu/configuration", { screen: "configuration" }],
   ])("parses %s and round trips through its canonical path", (path, route) => {

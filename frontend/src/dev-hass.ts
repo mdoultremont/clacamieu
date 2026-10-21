@@ -131,6 +131,7 @@ export async function createDevHass(
       .catch(() => null);
     let snapshot: HassLike = {
       ...developmentDashboardCalls(calls, parseDashboardConfig(dashboard)),
+      hassUrl: (path) => new URL(path, url).href,
       states: {},
       areas: Object.fromEntries(areas.map((area) => [area.area_id, area])),
       devices: Object.fromEntries(devices.map((device) => [device.id, device])),

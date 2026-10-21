@@ -1,5 +1,5 @@
 export type Route =
-  | { screen: "home" | "rooms" | "more" | "configuration" }
+  | { screen: "home" | "rooms" | "security" | "more" | "configuration" }
   | { screen: "room"; areaId: string };
 
 export interface PanelRoute {
@@ -11,6 +11,7 @@ export function parseRoute(path: string): Route {
   const parts = path.replace(/\/$/, "").split("/");
   if (parts[0] !== "" || parts[1] !== "clacamieu") return { screen: "home" };
   if (parts.length === 3) {
+    if (parts[2] === "securite") return { screen: "security" };
     if (parts[2] === "pieces") return { screen: "rooms" };
     if (parts[2] === "plus") return { screen: "more" };
     if (parts[2] === "configuration") return { screen: "configuration" };
@@ -29,6 +30,8 @@ export function routePath(route: Route): string {
   switch (route.screen) {
     case "home":
       return "/clacamieu";
+    case "security":
+      return "/clacamieu/securite";
     case "rooms":
       return "/clacamieu/pieces";
     case "room":

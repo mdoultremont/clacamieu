@@ -41,6 +41,7 @@ export interface HassLike {
   user: { id: string; name: string; is_admin: boolean };
   language: string;
   themes?: { darkMode?: boolean };
+  hassUrl?(path: string): string;
   formatEntityState?: (state: HassEntity) => string;
   callService(
     domain: string,
