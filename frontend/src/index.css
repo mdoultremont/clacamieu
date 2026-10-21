@@ -2,6 +2,7 @@
 @import "@fontsource/geist/latin-500.css";
 @import "@fontsource/geist/latin-600.css";
 @import "tailwindcss";
+@import "../node_modules/vaul/style.css";
 @source "./**/*.{ts,tsx}";
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -263,4 +264,47 @@ a {
     transition-duration: 0s !important;
     animation: none !important;
   }
+}
+
+.config-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 4px;
+}
+.config-content {
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+}
+.config-drawer {
+  max-width: 720px;
+  margin-inline: auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.config-drawer-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.config-drawer input {
+  font-size: 16px;
+  min-height: 44px;
+}
+.config-drawer [data-slot="button"],
+[data-slot="alert-dialog-content"] [data-slot="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+[data-slot="select-content"] {
+  max-width: calc(100vw - 24px);
+}
+[data-slot="select-item"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+[data-drag-handle] {
+  touch-action: none;
 }

@@ -1,3 +1,4 @@
+import { resolveRoomSensors } from "./room-sensors";
 import { locale, messages, translatedState } from "./i18n";
 import type {
   DashboardConfig,
@@ -53,29 +54,16 @@ export function buildHomeView(
     const entities = states.filter(
       (entity) => visible(entity) && areaOf(entity) === area.area_id,
     );
-    const climate = (deviceClass: string, explicit?: string | null) =>
-      sensorValue(
-        explicit
-          ? hass.states[explicit]
-          : entities.find(
-              (entity) =>
-                entity.entity_id.startsWith("sensor.") &&
-                entity.attributes.device_class === deviceClass,
-            ),
-      );
+    const [temperature, humidity, co2] = resolveRoomSensors(hass, room).map(
+      ({ entity }) => sensorValue(entity),
+    );
     return [
       {
         id: area.area_id,
         name: area.name,
-        temperature: climate(
-          "temperature",
-          room.temperature_entity_id ?? area.temperature_entity_id,
-        ),
-        humidity: climate(
-          "humidity",
-          room.humidity_entity_id ?? area.humidity_entity_id,
-        ),
-        co2: climate("carbon_dioxide", room.co2_entity_id),
+        temperature,
+        humidity,
+        co2,
         lights: entities.filter((entity) =>
           entity.entity_id.startsWith("light."),
         ),
@@ -418,9 +406,10 @@ export function resolveDashboardConfig(
   if (plugPowerEntities(hass).length)
     automatic.push({ id: "auto-power", type: "power" });
   return {
-    home_cards: config.home_cards ?? automatic,
-    rooms:
+    home_cards: (config.home_cards ?? automatic).filter((card) => !card.hidden),
+    rooms: (
       config.rooms ??
-      Object.values(hass.areas).map((area) => ({ area_id: area.area_id })),
+      Object.values(hass.areas).map((area) => ({ area_id: area.area_id }))
+    ).filter((room: RoomConfig) => !room.hidden),
   };
 }

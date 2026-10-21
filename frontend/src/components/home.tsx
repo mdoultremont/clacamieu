@@ -1,4 +1,4 @@
-import { Bot, DoorOpen, Plug, Shield, Users } from "lucide-react";
+import { Bot, Settings2, DoorOpen, Plug, Shield, Users } from "lucide-react";
 import { Fragment, useId } from "react";
 import { messages } from "../i18n";
 import type { HomeView, HomeCardView, ServiceAction } from "../types";
@@ -22,12 +22,28 @@ type ActionProps = {
   busy: boolean;
 };
 
-export function Home({ view, ...props }: { view: HomeView } & ActionProps) {
+export function Home({
+  view,
+  onConfigure,
+  ...props
+}: { view: HomeView; onConfigure?: () => void } & ActionProps) {
   const t = messages(props.language);
   return (
     <>
       <header className="space-y-2">
-        <h1 className="text-xl font-semibold tracking-tight">{t.home}</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold tracking-tight">{t.home}</h1>
+          {onConfigure && (
+            <Button
+              variant="ghost"
+              className="min-h-11 min-w-11"
+              onClick={onConfigure}
+            >
+              <Settings2 />
+              {t.edit}
+            </Button>
+          )}
+        </div>
         <p className="text-muted-foreground">{view.date}</p>
       </header>
       {view.cards.map((card) => (

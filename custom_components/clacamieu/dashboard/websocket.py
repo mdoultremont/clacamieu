@@ -55,6 +55,7 @@ CARD_SCHEMA = vol.Any(
             {
                 vol.Required("id"): vol.All(str, vol.Length(min=1)),
                 vol.Required("type"): card_type,
+                vol.Optional("hidden"): bool,
             }
         )
         for card_type in ("summary", "presence", "rooms", "power")
@@ -64,6 +65,7 @@ CARD_SCHEMA = vol.Any(
             {
                 vol.Required("id"): vol.All(str, vol.Length(min=1)),
                 vol.Required("type"): card_type,
+                vol.Optional("hidden"): bool,
                 vol.Required("entity_id"): _domain_entity(domain),
             }
         )
@@ -76,6 +78,7 @@ CARD_SCHEMA = vol.Any(
         {
             vol.Required("id"): vol.All(str, vol.Length(min=1)),
             vol.Required("type"): "entities",
+            vol.Optional("hidden"): bool,
             vol.Required("title"): str,
             vol.Required("entity_ids"): vol.All(
                 [cv.entity_id], vol.Length(max=MAX_ENTITIES)
@@ -86,6 +89,7 @@ CARD_SCHEMA = vol.Any(
 ROOM_SCHEMA = vol.Schema(
     {
         vol.Required("area_id"): vol.All(str, vol.Length(min=1)),
+        vol.Optional("hidden"): bool,
         **{
             vol.Optional(key): vol.Any(None, cv.entity_id)
             for key in ("temperature_entity_id", "humidity_entity_id", "co2_entity_id")

@@ -592,3 +592,90 @@ describe("dashboard configuration", () => {
     });
   });
 });
+
+describe("hidden dashboard items", () => {
+  it("parses both boolean values, rejects malformed flags, and keeps options", () => {
+    expect(
+      parseDashboardConfig({
+        home_cards: [
+          {
+            id: "a",
+            type: "alarm",
+            entity_id: "alarm_control_panel.example",
+            hidden: true,
+          },
+          {
+            id: "e",
+            type: "entities",
+            title: "Devices",
+            entity_ids: ["sensor.example"],
+            hidden: false,
+          },
+          { id: "bad", type: "summary", hidden: "false" },
+        ],
+        rooms: [
+          {
+            area_id: "room_a",
+            hidden: true,
+            temperature_entity_id: "sensor.example",
+          },
+          { area_id: "room_b", hidden: 0 },
+        ],
+      }),
+    ).toEqual({
+      home_cards: [
+        {
+          id: "a",
+          type: "alarm",
+          entity_id: "alarm_control_panel.example",
+          hidden: true,
+        },
+        {
+          id: "e",
+          type: "entities",
+          title: "Devices",
+          entity_ids: ["sensor.example"],
+          hidden: false,
+        },
+      ],
+      rooms: [
+        {
+          area_id: "room_a",
+          hidden: true,
+          temperature_entity_id: "sensor.example",
+        },
+      ],
+    });
+  });
+  it("omits hidden cards and rooms and excludes hidden temperatures from the average", () => {
+    const hass = fixture();
+    add(
+      hass,
+      entity("sensor.a", "20", { device_class: "temperature" }),
+      "room_a",
+    );
+    add(
+      hass,
+      entity("sensor.b", "30", { device_class: "temperature" }),
+      "room_b",
+    );
+    const config = {
+      home_cards: [
+        { id: "s", type: "summary" as const },
+        { id: "p", type: "presence" as const, hidden: true },
+        { id: "r", type: "rooms" as const },
+      ],
+      rooms: [{ area_id: "room_a" }, { area_id: "room_b", hidden: true }],
+    };
+    expect(
+      resolveDashboardConfig(hass, config).home_cards.map((card) => card.id),
+    ).toEqual(["s", "r"]);
+    expect(resolveDashboardConfig(hass, config).rooms).toEqual([
+      { area_id: "room_a" },
+    ]);
+    expect(buildHomeView(hass, config, now).cards).toMatchObject([
+      { type: "summary", indoorSensorCount: 1, indoorTemperature: "20,0" },
+      { type: "rooms", rooms: [{ id: "room_a" }] },
+    ]);
+  });
+});

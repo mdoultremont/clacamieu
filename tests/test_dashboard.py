@@ -136,6 +136,7 @@ async def test_settings_default_and_round_trip(
                 "id": "a",
                 "type": "entities",
                 "title": "Devices",
+                "hidden": True,
                 "entity_ids": ["switch.missing", "sensor.missing"],
             },
             {"id": "b", "type": "alarm", "entity_id": "alarm_control_panel.missing"},
@@ -148,6 +149,7 @@ async def test_settings_default_and_round_trip(
         "rooms": [
             {
                 "area_id": bedroom.id,
+                "hidden": True,
                 "temperature_entity_id": "sensor.missing",
                 "humidity_entity_id": None,
                 "co2_entity_id": "sensor.co2",
@@ -231,6 +233,42 @@ async def test_settings_migrate_v1_store(
                 }
             ]
         },
+        *[
+            {"home_cards": [{"id": "a", "type": kind, "hidden": "false"}]}
+            for kind in ("summary", "presence", "rooms", "power")
+        ],
+        {
+            "home_cards": [
+                {
+                    "id": "a",
+                    "type": "alarm",
+                    "entity_id": "alarm_control_panel.test",
+                    "hidden": 1,
+                }
+            ]
+        },
+        {
+            "home_cards": [
+                {
+                    "id": "a",
+                    "type": "vacuum",
+                    "entity_id": "vacuum.test",
+                    "hidden": None,
+                }
+            ]
+        },
+        {
+            "home_cards": [
+                {
+                    "id": "a",
+                    "type": "entities",
+                    "title": "",
+                    "entity_ids": [],
+                    "hidden": [],
+                }
+            ]
+        },
+        {"rooms": [{"area_id": "kitchen", "hidden": "true"}]},
         {"home_cards": "automatic"},
         {"rooms": "automatic"},
         {"rooms": [{"area_id": "kitchen"}, {"area_id": "kitchen"}]},

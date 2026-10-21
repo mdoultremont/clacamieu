@@ -51,12 +51,14 @@ export interface HassLike {
   callWS<T>(message: { type: string } & Record<string, unknown>): Promise<T>;
 }
 
-export type HomeCard =
+export type HomeCard = { hidden?: boolean } & (
   | { id: string; type: "summary" | "presence" | "rooms" | "power" }
   | { id: string; type: "alarm" | "vacuum"; entity_id: string }
-  | { id: string; type: "entities"; title: string; entity_ids: string[] };
+  | { id: string; type: "entities"; title: string; entity_ids: string[] }
+);
 
 export interface RoomConfig {
+  hidden?: boolean;
   area_id: string;
   temperature_entity_id?: string | null;
   humidity_entity_id?: string | null;

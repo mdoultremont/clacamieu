@@ -16,8 +16,10 @@ module URL carries the bundle modification time, which changes the URL after
 every installed update. Unloading the entry removes the panel.
 
 `dashboard/runtime.py` stores version 2 settings in `clacamieu.dashboard`.
-`home_cards` selects ordered Accueil cards and `rooms` selects ordered visible
-areas with optional temperature, humidity, and CO₂ entity overrides. A null list
+`home_cards` selects ordered Accueil cards and `rooms` selects ordered
+areas with optional temperature, humidity, and CO₂ entity overrides. Cards and
+rooms can retain their position and options with `hidden: true`. Absent or false
+means visible. Hidden rooms do not contribute to the indoor average. A null list
 uses automatic configuration; an empty list hides every card or room. The Store
 subclass uses Home Assistant's `_async_migrate_func` hook to migrate version 1
 `room_area_ids` without changing the room order. An empty version 1 list becomes
@@ -47,6 +49,11 @@ the WebSocket boundary. `resolveDashboardConfig` fills null lists. Automatic
 cards are summary, presence when people exist, the first alarm, the first vacuum,
 rooms, and power when smart plug power sensors exist. Saved lists control order
 and visibility. `HomeView.cards` holds a discriminated union for ordered rendering.
+The admin-only Configuration screen edits a local draft through `config-editor.ts`.
+Opening materializes automatic lists and appends missing areas as hidden. Reset
+sets both lists to null. Done sends one complete replacement, while Cancel
+discards the draft. Drawers, Select menus, confirmation
+dialogs, and drag announcements mount in the panel's shadow-root portal container.
 The view contains the date. The summary contains the indoor average, its room
 count, and weather. Entities
 cards show ordered entity names and states, with `homeassistant.toggle` controls

@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Ellipsis, House, LayoutGrid, Shield, Zap } from "lucide-react";
+import { Configuration } from "./components/configuration";
 import { Home } from "./components/home";
 import { More } from "./components/more";
 import { parseDashboardConfig } from "./dashboard-config";
@@ -25,6 +26,8 @@ export function App({
       ? "more"
       : "home",
   );
+  const [editing, setEditing] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [config, setConfig] = useState<DashboardConfig>({
     home_cards: null,
     rooms: null,
@@ -39,10 +42,16 @@ export function App({
     hass
       .callWS<unknown>({ type: "clacamieu/dashboard/config" })
       .then((value) => {
-        if (current) setConfig(parseDashboardConfig(value));
+        if (current) {
+          setConfig(parseDashboardConfig(value));
+          setConfigLoaded(true);
+        }
       })
       .catch(() => {
-        if (current) setConfig({ home_cards: null, rooms: null });
+        if (current) {
+          setConfig({ home_cards: null, rooms: null });
+          setConfigLoaded(true);
+        }
       });
     return () => {
       current = false;
@@ -91,56 +100,87 @@ export function App({
       className={`panel-shell ${narrow ? "narrow" : "wide"}`}
       lang={hass.language}
     >
-      <main className="page-scroll">
-        <div className="page-content">
-          {tab === "home" ? (
-            <Home
-              view={buildHomeView(hass, config, now)}
-              language={hass.language}
-              onAction={runAction}
-              busy={busy}
-            />
-          ) : (
-            <More
-              hass={hass}
-              panel={panel}
-              toggleMenu={() =>
-                host.dispatchEvent(
-                  new Event("hass-toggle-menu", {
-                    bubbles: true,
-                    composed: true,
-                  }),
-                )
-              }
-            />
-          )}
-          {tab === "home" && error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-        </div>
-      </main>
-      <nav className="bottom-nav" aria-label={panel.title ?? t.home}>
-        <div className="nav-inner">
-          {tabs.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              disabled={key !== "home" && key !== "more"}
-              aria-current={tab === key ? "page" : undefined}
-              onClick={() => {
-                if (key === "home" || key === "more") {
-                  setTab(key);
-                  setError(null);
-                }
-              }}
-            >
-              <Icon size={20} strokeWidth={1.7} />
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
+      {editing && hass.user.is_admin ? (
+        <Configuration
+          hass={hass}
+          config={config}
+          onCancel={() => {
+            setEditing(false);
+            setTab("home");
+          }}
+          onSave={async (draft) => {
+            const saved = await hass.callWS<unknown>({
+              type: "clacamieu/dashboard/config/update",
+              ...draft,
+            });
+            setConfig(parseDashboardConfig(saved));
+            setEditing(false);
+            setTab("home");
+            setError(null);
+          }}
+        />
+      ) : (
+        <>
+          <main className="page-scroll">
+            <div className="page-content">
+              {tab === "home" ? (
+                <Home
+                  view={buildHomeView(hass, config, now)}
+                  language={hass.language}
+                  onAction={runAction}
+                  busy={busy}
+                  onConfigure={
+                    hass.user.is_admin && configLoaded
+                      ? () => setEditing(true)
+                      : undefined
+                  }
+                />
+              ) : (
+                <More
+                  hass={hass}
+                  panel={panel}
+                  onConfigure={
+                    configLoaded ? () => setEditing(true) : undefined
+                  }
+                  toggleMenu={() =>
+                    host.dispatchEvent(
+                      new Event("hass-toggle-menu", {
+                        bubbles: true,
+                        composed: true,
+                      }),
+                    )
+                  }
+                />
+              )}
+              {tab === "home" && error && (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              )}
+            </div>
+          </main>
+          <nav className="bottom-nav" aria-label={panel.title ?? t.home}>
+            <div className="nav-inner">
+              {tabs.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  disabled={key !== "home" && key !== "more"}
+                  aria-current={tab === key ? "page" : undefined}
+                  onClick={() => {
+                    if (key === "home" || key === "more") {
+                      setTab(key);
+                      setError(null);
+                    }
+                  }}
+                >
+                  <Icon size={20} strokeWidth={1.7} />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        </>
+      )}
     </div>
   );
 }

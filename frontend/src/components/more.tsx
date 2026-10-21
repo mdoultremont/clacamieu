@@ -35,10 +35,12 @@ export function More({
   hass,
   panel,
   toggleMenu,
+  onConfigure,
 }: {
   hass: HassLike;
   panel: PanelInfo;
   toggleMenu: () => void;
+  onConfigure?: () => void;
 }) {
   const t = messages(hass.language);
   const [preference, setPreference] = useState<PreferenceState>({
@@ -121,6 +123,30 @@ export function More({
         </ItemSection>
       )}
       <ItemSection title={t.preferences}>
+        {hass.user.is_admin && onConfigure && (
+          <>
+            <div role="listitem">
+              <Item size="sm" asChild>
+                <button
+                  type="button"
+                  className="min-h-11 w-full text-left hover:bg-accent/50"
+                  onClick={onConfigure}
+                >
+                  <ItemMedia className="text-muted-foreground">
+                    <House className="size-4" />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{t.configureMaison}</ItemTitle>
+                  </ItemContent>
+                  <ItemActions className="text-muted-foreground">
+                    <ChevronRight className="size-4" />
+                  </ItemActions>
+                </button>
+              </Item>
+            </div>
+            <ItemSeparator />
+          </>
+        )}
         {hass.user.is_admin && (
           <>
             <div role="listitem">
