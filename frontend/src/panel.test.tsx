@@ -279,9 +279,9 @@ describe("panel lifecycle and screens", () => {
       panel.route = { prefix: "/clacamieu", path: "/pieces/room_a" };
     });
     const shadow = panel.shadowRoot!;
-    const scene = shadow.querySelector(
-      '[data-slot="toggle-group-item"]',
-    ) as HTMLButtonElement;
+    const scene = Array.from(shadow.querySelectorAll("button")).find(
+      (button) => button.textContent === "Example scene",
+    )!;
     await act(async () => {
       scene.click();
     });
@@ -291,7 +291,7 @@ describe("panel lifecycle and screens", () => {
       {},
       { entity_id: "scene.example" },
     );
-    expect(scene.getAttribute("aria-pressed")).toBe("false");
+    expect(scene.hasAttribute("aria-pressed")).toBe(false);
     await act(async () => {
       (
         shadow.querySelector(
@@ -329,6 +329,7 @@ describe("panel lifecycle and screens", () => {
       { brightness_pct: 51 },
       { entity_id: "light.example" },
     );
+    expect(slider.getAttribute("aria-valuenow")).toBe("51");
     expect(shadow.querySelector('[data-slot="badge"]')?.textContent).toBe(
       "Poor air",
     );
@@ -370,6 +371,20 @@ describe("panel lifecycle and screens", () => {
         .querySelector('[aria-label="Example lamp"]')
         ?.getAttribute("aria-checked"),
     ).toBe("true");
+    await act(async () => {
+      shadow
+        .querySelector('[role="slider"]')!
+        .dispatchEvent(
+          new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+        );
+    });
+    await act(async () => {
+      reject(
+        Object.assign(new Error("blocked"), {
+          name: "DevelopmentWriteBlocked",
+        }),
+      );
+    });
     expect(
       shadow.querySelector('[role="slider"]')?.getAttribute("aria-valuenow"),
     ).toBe("50");

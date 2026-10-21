@@ -123,13 +123,15 @@ export function buildRoomView(
       ];
     },
   );
+  const lit = lights.filter((entity) => entity.state === "on");
+  const litMembers = lit.filter(
+    (entity) => !Array.isArray(entity.attributes.entity_id),
+  ).length;
   return {
     id: areaId,
     name: area.name,
-    lightsOn: lights.filter(
-      (entity) =>
-        entity.state === "on" && !Array.isArray(entity.attributes.entity_id),
-    ).length,
+    // A group whose members sit in other areas is the only sign this room is lit.
+    lightsOn: litMembers || lit.length,
     climate,
     air,
     lights: orderedLights.map((entity) => {

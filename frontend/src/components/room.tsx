@@ -27,9 +27,11 @@ import {
 } from "./ui/item";
 import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 
-type ActionProps = { busy: boolean; onAction: (action: ServiceAction) => void };
+type ActionProps = {
+  busy: boolean;
+  onAction: (action: ServiceAction) => Promise<boolean>;
+};
 
 export function Room({
   view,
@@ -107,45 +109,47 @@ export function Room({
           {view.lights.map((light, index) => (
             <Fragment key={light.id}>
               {index > 0 && <ItemSeparator />}
-              <Item size="sm" asChild>
-                <label className="cursor-pointer">
-                  <ItemMedia className="text-muted-foreground">
-                    <Lightbulb className="size-4" />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{light.name}</ItemTitle>
-                    <ItemDescription className="tabular-nums">
-                      {!light.available
-                        ? t.unavailable
-                        : !light.on
-                          ? t.lightOff
-                          : light.brightness !== null
-                            ? `${light.brightness} %`
-                            : t.deviceOn}
-                    </ItemDescription>
-                  </ItemContent>
-                  <ItemActions className="switch-target">
-                    <Switch
-                      aria-label={light.name}
-                      checked={light.on}
-                      disabled={busy || !light.available}
-                      onCheckedChange={() =>
-                        onAction({
-                          domain: "light",
-                          service: "toggle",
-                          entityId: light.id,
-                          label: light.name,
-                        })
-                      }
-                    />
-                  </ItemActions>
-                </label>
-              </Item>
+              <div role="listitem">
+                <Item size="sm" asChild>
+                  <label className="cursor-pointer">
+                    <ItemMedia className="text-muted-foreground">
+                      <Lightbulb className="size-4" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{light.name}</ItemTitle>
+                      <ItemDescription className="tabular-nums">
+                        {!light.available
+                          ? t.unavailable
+                          : !light.on
+                            ? t.lightOff
+                            : light.brightness !== null
+                              ? `${light.brightness} %`
+                              : t.deviceOn}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions className="switch-target">
+                      <Switch
+                        aria-label={light.name}
+                        checked={light.on}
+                        disabled={busy || !light.available}
+                        onCheckedChange={() =>
+                          onAction({
+                            domain: "light",
+                            service: "toggle",
+                            entityId: light.id,
+                            label: light.name,
+                          })
+                        }
+                      />
+                    </ItemActions>
+                  </label>
+                </Item>
+              </div>
               {light.on && light.dimmable && (
                 <>
                   <ItemSeparator />
                   <Brightness
-                    key={`${light.id}-${light.brightness}-${busy}`}
+                    key={`${light.id}-${light.brightness}`}
                     light={light}
                     language={language}
                     busy={busy}
@@ -160,18 +164,11 @@ export function Room({
       {view.scenes.length > 0 && (
         <ItemSection title={t.scenes}>
           <div role="listitem" className="p-3">
-            <ToggleGroup
-              type="multiple"
-              value={[]}
-              spacing={2}
-              variant="outline"
-              className="flex w-full flex-wrap justify-start gap-2"
-              aria-label={t.scenes}
-            >
+            <div className="flex w-full flex-wrap gap-2">
               {view.scenes.map((scene) => (
-                <ToggleGroupItem
+                <Button
                   key={scene.id}
-                  value={scene.id}
+                  variant="outline"
                   disabled={busy}
                   className="min-h-11 max-w-full h-auto whitespace-normal break-words px-4 py-2"
                   onClick={() =>
@@ -184,9 +181,9 @@ export function Room({
                   }
                 >
                   {scene.name}
-                </ToggleGroupItem>
+                </Button>
               ))}
-            </ToggleGroup>
+            </div>
           </div>
         </ItemSection>
       )}
@@ -274,15 +271,16 @@ function Brightness({
           step={1}
           disabled={busy || !light.available}
           onValueChange={([next]) => setValue(next)}
-          onValueCommit={([next]) =>
-            onAction({
+          onValueCommit={async ([next]) => {
+            const done = await onAction({
               domain: "light",
               service: "turn_on",
               entityId: light.id,
               label: light.name,
               data: { brightness_pct: next },
-            })
-          }
+            });
+            if (!done) setValue(light.brightness ?? 100);
+          }}
         />
       </ItemContent>
       <ItemActions className="w-12 justify-end tabular-nums">

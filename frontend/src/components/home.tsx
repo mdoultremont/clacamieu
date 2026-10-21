@@ -242,22 +242,24 @@ function HomeCard({
             return (
               <Fragment key={room.id}>
                 {index > 0 && <ItemSeparator />}
-                <Item size="sm" asChild>
-                  <RouteLink route={{ screen: "room", areaId: room.id }}>
-                    <ItemContent>
-                      <ItemTitle>{room.name}</ItemTitle>
-                      {description && (
-                        <ItemDescription className="tabular-nums">
-                          {description}
-                        </ItemDescription>
-                      )}
-                    </ItemContent>
-                    <ItemActions className="text-base font-medium tabular-nums">
-                      {room.temperature !== null && `${room.temperature}°`}
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    </ItemActions>
-                  </RouteLink>
-                </Item>
+                <div role="listitem">
+                  <Item size="sm" asChild>
+                    <RouteLink route={{ screen: "room", areaId: room.id }}>
+                      <ItemContent>
+                        <ItemTitle>{room.name}</ItemTitle>
+                        {description && (
+                          <ItemDescription className="tabular-nums">
+                            {description}
+                          </ItemDescription>
+                        )}
+                      </ItemContent>
+                      <ItemActions className="text-base font-medium tabular-nums">
+                        {room.temperature !== null && `${room.temperature}°`}
+                        <ChevronRight className="size-4 text-muted-foreground" />
+                      </ItemActions>
+                    </RouteLink>
+                  </Item>
+                </div>
               </Fragment>
             );
           })}

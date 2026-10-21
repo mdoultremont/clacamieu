@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Ellipsis, House, LayoutGrid, Shield, Zap } from "lucide-react";
 import { Configuration } from "./components/configuration";
 import { Home } from "./components/home";
@@ -39,6 +39,7 @@ export function App({
     rooms: null,
   });
   const [now, setNow] = useState(() => new Date());
+  const openedInPanel = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = messages(hass?.language ?? navigator.language);
@@ -69,8 +70,8 @@ export function App({
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
-  async function runAction(action: ServiceAction) {
-    if (!hass || busy) return;
+  async function runAction(action: ServiceAction): Promise<boolean> {
+    if (!hass || busy) return false;
     setBusy(true);
     setError(null);
     try {
@@ -80,12 +81,14 @@ export function App({
         "data" in action ? action.data : {},
         { entity_id: action.entityId },
       );
+      return true;
     } catch (reason) {
       setError(
         reason instanceof Error && reason.name === "DevelopmentWriteBlocked"
           ? t.blockedError
           : t.actionError,
       );
+      return false;
     } finally {
       setBusy(false);
     }
@@ -105,6 +108,17 @@ export function App({
     { key: "energy", label: t.energy, icon: Zap },
     { key: "more", label: t.more, icon: Ellipsis },
   ] as const;
+  function openConfiguration() {
+    openedInPanel.current = true;
+    navigate(routePath({ screen: "configuration" }));
+  }
+  function leaveConfiguration() {
+    // Going back keeps one Accueil entry in history, so the next Back leaves the panel.
+    if (openedInPanel.current) {
+      openedInPanel.current = false;
+      history.back();
+    } else navigate(routePath({ screen: "home" }), { replace: true });
+  }
   return (
     <div
       className={`panel-shell ${narrow ? "narrow" : "wide"}`}
@@ -114,16 +128,14 @@ export function App({
         <Configuration
           hass={hass}
           config={config}
-          onCancel={() => {
-            navigate(routePath({ screen: "home" }), { replace: true });
-          }}
+          onCancel={leaveConfiguration}
           onSave={async (draft) => {
             const saved = await hass.callWS<unknown>({
               type: "clacamieu/dashboard/config/update",
               ...draft,
             });
             setConfig(parseDashboardConfig(saved));
-            navigate(routePath({ screen: "home" }), { replace: true });
+            leaveConfiguration();
             setError(null);
           }}
         />
@@ -139,7 +151,7 @@ export function App({
                   busy={busy}
                   onConfigure={
                     hass.user.is_admin && configLoaded
-                      ? () => navigate(routePath({ screen: "configuration" }))
+                      ? openConfiguration
                       : undefined
                   }
                 />
@@ -164,7 +176,7 @@ export function App({
                   panel={panel}
                   onConfigure={
                     configLoaded
-                      ? () => navigate(routePath({ screen: "configuration" }))
+                      ? openConfiguration
                       : undefined
                   }
                   toggleMenu={() =>

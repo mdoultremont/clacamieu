@@ -13,9 +13,10 @@ const routeListeners: (() => void)[] = [];
 afterEach(async () => {
   routeListeners
     .splice(0)
-    .forEach((listener) =>
-      window.removeEventListener("location-changed", listener),
-    );
+    .forEach((listener) => {
+      window.removeEventListener("location-changed", listener);
+      window.removeEventListener("popstate", listener);
+    });
   history.replaceState(null, "", "/clacamieu");
   await act(async () => {
     panels.splice(0).forEach((panel) => panel.remove());
@@ -65,6 +66,7 @@ async function mount(admin = true, readFails = false) {
   };
   history.replaceState(null, "", "/clacamieu");
   window.addEventListener("location-changed", updateRoute);
+  window.addEventListener("popstate", updateRoute);
   routeListeners.push(updateRoute);
   panels.push(panel);
   await act(async () => {
@@ -75,6 +77,15 @@ async function mount(admin = true, readFails = false) {
     Array.from(shadow.querySelectorAll("button")).find(
       (button) => button.textContent === text,
     )!;
+  const clickAndGoBack = async (text: string) => {
+    const back = new Promise((resolve) =>
+      window.addEventListener("popstate", resolve, { once: true }),
+    );
+    await act(async () => {
+      button(text).click();
+      await back;
+    });
+  };
   const click = async (text: string) => {
     await act(async () => {
       button(text).click();
@@ -84,6 +95,7 @@ async function mount(admin = true, readFails = false) {
     hass,
     shadow,
     click,
+    clickAndGoBack,
     button,
     failSave: (value: boolean) => {
       reject = value;
@@ -106,8 +118,7 @@ describe("configuration flow", () => {
     expect(shadow.textContent).not.toContain("Configure Maison");
   });
   it("discards draft changes, then saves the complete configuration exactly once", async () => {
-    const { shadow, click, hass } = await mount();
-    const replace = vi.spyOn(history, "replaceState");
+    const { shadow, click, clickAndGoBack, hass } = await mount();
     await click("Edit");
     expect(location.pathname).toBe("/clacamieu/configuration");
     expect(shadow.querySelector("nav")).toBeNull();
@@ -116,8 +127,8 @@ describe("configuration flow", () => {
         shadow.querySelector('[aria-label="Show Summary"]') as HTMLButtonElement
       ).click();
     });
-    await click("Cancel");
-    expect(replace).toHaveBeenLastCalledWith(null, "", "/clacamieu");
+    await clickAndGoBack("Cancel");
+    expect(location.pathname).toBe("/clacamieu");
     expect(shadow.textContent).toContain("Indoors");
     expect(
       vi
@@ -131,10 +142,8 @@ describe("configuration flow", () => {
         shadow.querySelector('[aria-label="Show Summary"]') as HTMLButtonElement
       ).click();
     });
-    await click("Done");
-    expect(replace).toHaveBeenCalledTimes(2);
-    expect(replace).toHaveBeenLastCalledWith(null, "", "/clacamieu");
-    replace.mockRestore();
+    await clickAndGoBack("Done");
+    expect(location.pathname).toBe("/clacamieu/plus");
     expect(
       vi
         .mocked(hass.callWS)
@@ -151,11 +160,12 @@ describe("configuration flow", () => {
         },
       ],
     ]);
-    expect(shadow.querySelector("h1")?.textContent).toBe("Home");
+    await click("Home");
     expect(shadow.textContent).not.toContain("Indoors");
   });
   it("keeps the draft after a save error and prevents duplicate in-flight writes", async () => {
-    const { shadow, click, hass, failSave, button } = await mount();
+    const { shadow, click, clickAndGoBack, hass, failSave, button } =
+      await mount();
     await click("Edit");
     await act(async () => {
       (
@@ -181,12 +191,12 @@ describe("configuration flow", () => {
         ?.getAttribute("aria-checked"),
     ).toBe("false");
     failSave(false);
-    await click("Done");
+    await clickAndGoBack("Done");
     expect(shadow.querySelector("h1")?.textContent).toBe("Home");
     expect(shadow.textContent).not.toContain("Alarm disarmed");
   });
   it("requires reset confirmation and only saves the null lists on Done", async () => {
-    const { shadow, click, hass } = await mount();
+    const { shadow, click, clickAndGoBack, hass } = await mount();
     await click("Edit");
     await click("Reset to automatic");
     const alert = shadow.querySelector('[role="alertdialog"]')!;
@@ -204,7 +214,7 @@ describe("configuration flow", () => {
         .mocked(hass.callWS)
         .mock.calls.filter(([message]) => message.type.endsWith("/update")),
     ).toHaveLength(0);
-    await click("Done");
+    await clickAndGoBack("Done");
     expect(hass.callWS).toHaveBeenLastCalledWith({
       type: "clacamieu/dashboard/config/update",
       home_cards: null,

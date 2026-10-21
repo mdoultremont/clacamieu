@@ -84,6 +84,14 @@ function fixture(): HassLike {
 }
 
 describe("room views", () => {
+  it("counts a lit group as lit when its members sit in another area", () => {
+    const hass = fixture();
+    for (const id of ["light.member_a", "light.member_b"])
+      hass.entities[id] = { entity_id: id, area_id: "room_b" };
+    const room = buildRoomView(hass, config, "room_a")!;
+    expect(room.lights.map((light) => light.id)).toEqual(["light.group"]);
+    expect(room.lightsOn).toBe(1);
+  });
   it("resolves areas through devices and lists groups before their members without double counting", () => {
     const room = buildRoomView(fixture(), config, "room_a")!;
     expect(room.lights.map((light) => light.id)).toEqual([

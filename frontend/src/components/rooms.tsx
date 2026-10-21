@@ -26,7 +26,7 @@ export function Rooms({
       <header>
         <h1 className="text-xl font-semibold tracking-tight">{t.rooms}</h1>
       </header>
-      <ItemSection title={t.rooms}>
+      <ItemSection label={t.rooms}>
         {rooms.map((room, index) => {
           const temperature = room.climate.find(
             (sensor) => sensor.label === "temperature",
@@ -34,30 +34,32 @@ export function Rooms({
           return (
             <Fragment key={room.id}>
               {index > 0 && <ItemSeparator />}
-              <Item size="sm" asChild>
-                <RouteLink route={{ screen: "room", areaId: room.id }}>
-                  <ItemContent>
-                    <ItemTitle>{room.name}</ItemTitle>
-                    <ItemDescription className="tabular-nums">
-                      {[
-                        room.lightsOn ? t.lightsOn(room.lightsOn) : t.roomOff,
-                        ...room.climate
-                          .filter((sensor) => sensor.label !== "temperature")
-                          .map((sensor) => `${sensor.value} ${sensor.unit}`),
-                      ].join(" · ")}
-                    </ItemDescription>
-                  </ItemContent>
-                  <ItemActions className="text-base font-medium tabular-nums">
-                    {temperature && `${temperature.value}°`}
-                    <ChevronRight className="size-4 text-muted-foreground" />
-                  </ItemActions>
-                </RouteLink>
-              </Item>
+              <div role="listitem">
+                <Item size="sm" asChild>
+                  <RouteLink route={{ screen: "room", areaId: room.id }}>
+                    <ItemContent>
+                      <ItemTitle>{room.name}</ItemTitle>
+                      <ItemDescription className="tabular-nums">
+                        {[
+                          room.lightsOn ? t.lightsOn(room.lightsOn) : t.roomOff,
+                          ...room.climate
+                            .filter((sensor) => sensor.label !== "temperature")
+                            .map((sensor) => `${sensor.value} ${sensor.unit}`),
+                        ].join(" · ")}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions className="text-base font-medium tabular-nums">
+                      {temperature && `${temperature.value}°`}
+                      <ChevronRight className="size-4 text-muted-foreground" />
+                    </ItemActions>
+                  </RouteLink>
+                </Item>
+              </div>
             </Fragment>
           );
         })}
         {!rooms.length && (
-          <Item size="sm">
+          <Item size="sm" role="listitem">
             <ItemDescription>{t.noRooms}</ItemDescription>
           </Item>
         )}
