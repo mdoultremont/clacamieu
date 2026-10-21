@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Ellipsis, House, LayoutGrid, Shield, Zap } from "lucide-react";
 import { Configuration } from "./components/configuration";
+import { Energy } from "./components/energy";
 import { Home } from "./components/home";
 import { Room } from "./components/room";
 import { Security } from "./components/security";
@@ -186,6 +187,8 @@ export function App({
                   busy={busy}
                   error={error}
                 />
+              ) : route.screen === "energy" ? (
+                <Energy hass={hass} />
               ) : (
                 <More
                   hass={hass}
@@ -217,17 +220,14 @@ export function App({
               {tabs.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
-                  disabled={key === "energy"}
                   aria-current={
                     (route.screen === "room" ? "rooms" : route.screen) === key
                       ? "page"
                       : undefined
                   }
                   onClick={() => {
-                    if (key !== "energy") {
-                      navigate(routePath({ screen: key }));
-                      setError(null);
-                    }
+                    navigate(routePath({ screen: key }));
+                    setError(null);
                   }}
                 >
                   <Icon size={20} strokeWidth={1.7} />

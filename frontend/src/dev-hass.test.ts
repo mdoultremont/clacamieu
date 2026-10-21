@@ -47,6 +47,9 @@ describe("development transport", () => {
     "get_config",
     "clacamieu/dashboard/config",
     "frontend/get_user_data",
+    "energy/get_prefs",
+    "recorder/statistics_during_period",
+    "recorder/get_statistics_metadata",
   ])("forwards the allowlisted read %s", async (type) => {
     const send = vi.fn().mockResolvedValue({ value: true });
     await expect(readOnlyCalls(send).callWS({ type })).resolves.toEqual({

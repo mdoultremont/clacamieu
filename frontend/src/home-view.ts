@@ -353,7 +353,7 @@ export function buildHomeView(
   return { date: data.date, cards };
 }
 
-function plugPowerEntities(hass: HassLike): HassEntity[] {
+export function plugPowerEntities(hass: HassLike): HassEntity[] {
   const states = Object.values(hass.states);
   const plugDevices = new Set(
     states

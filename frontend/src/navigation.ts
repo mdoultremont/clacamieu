@@ -1,5 +1,13 @@
 export type Route =
-  | { screen: "home" | "rooms" | "security" | "more" | "configuration" }
+  | {
+      screen:
+        | "home"
+        | "rooms"
+        | "security"
+        | "energy"
+        | "more"
+        | "configuration";
+    }
   | { screen: "room"; areaId: string };
 
 export interface PanelRoute {
@@ -13,6 +21,7 @@ export function parseRoute(path: string): Route {
   if (parts.length === 3) {
     if (parts[2] === "securite") return { screen: "security" };
     if (parts[2] === "pieces") return { screen: "rooms" };
+    if (parts[2] === "energie") return { screen: "energy" };
     if (parts[2] === "plus") return { screen: "more" };
     if (parts[2] === "configuration") return { screen: "configuration" };
   }
@@ -36,6 +45,8 @@ export function routePath(route: Route): string {
       return "/clacamieu/pieces";
     case "room":
       return `/clacamieu/pieces/${encodeURIComponent(route.areaId)}`;
+    case "energy":
+      return "/clacamieu/energie";
     case "more":
       return "/clacamieu/plus";
     case "configuration":

@@ -72,7 +72,7 @@ describe("panel lifecycle and screens", () => {
     expect(panel.shadowRoot?.textContent).toContain("No sensors");
     expect(
       panel.shadowRoot?.querySelectorAll(".nav-inner button:disabled"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
   it("renders saved card order and calls homeassistant.toggle from an entity row", async () => {
     const hass = fixture();

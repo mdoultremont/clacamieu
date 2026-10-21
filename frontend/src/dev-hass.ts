@@ -29,6 +29,9 @@ const readTypes = new Set([
   "get_config",
   "clacamieu/dashboard/config",
   "frontend/get_user_data",
+  "energy/get_prefs",
+  "recorder/statistics_during_period",
+  "recorder/get_statistics_metadata",
 ]);
 
 export function readOnlyCalls(
@@ -124,7 +127,9 @@ export async function createDevHass(
       }),
       calls.callWS<Record<string, PanelEntry>>({ type: "get_panels" }),
       calls.callWS<HassLike["user"]>({ type: "auth/current_user" }),
-      calls.callWS<{ language: string }>({ type: "get_config" }),
+      calls.callWS<{ language: string; time_zone: string }>({
+        type: "get_config",
+      }),
     ]);
     const dashboard = await calls
       .callWS<unknown>({ type: "clacamieu/dashboard/config" })
@@ -139,6 +144,7 @@ export async function createDevHass(
       panels,
       user,
       language: config.language,
+      config: { time_zone: config.time_zone },
     };
     const unsubscribe = subscribeEntities(connection, (states) => {
       snapshot = { ...snapshot, states };

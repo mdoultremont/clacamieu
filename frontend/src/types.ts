@@ -42,6 +42,7 @@ export interface HassLike {
   language: string;
   themes?: { darkMode?: boolean };
   hassUrl?(path: string): string;
+  config?: { time_zone?: string };
   formatEntityState?: (state: HassEntity) => string;
   callService(
     domain: string,
