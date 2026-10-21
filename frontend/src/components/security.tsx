@@ -234,14 +234,14 @@ function CameraStill({
   const [failedSource, setFailedSource] = useState<string | null>(null);
   useEffect(() => {
     let timer: number | undefined;
-    const updateVisibility = () => {
+    const schedule = (refreshNow: boolean) => {
       window.clearInterval(timer);
-      if (document.visibilityState !== "hidden") {
-        setRefresh(Date.now());
-        timer = window.setInterval(() => setRefresh(Date.now()), 10_000);
-      }
+      if (document.visibilityState === "hidden") return;
+      if (refreshNow) setRefresh(Date.now());
+      timer = window.setInterval(() => setRefresh(Date.now()), 10_000);
     };
-    updateVisibility();
+    const updateVisibility = () => schedule(true);
+    schedule(false);
     document.addEventListener("visibilitychange", updateVisibility);
     return () => {
       window.clearInterval(timer);
@@ -264,7 +264,7 @@ function CameraStill({
         {image && failedSource !== image && (
           <img
             src={image}
-            alt={camera.name}
+            alt=""
             className={`absolute inset-0 h-full w-full object-cover ${loaded ? "" : "opacity-0"}`}
             onLoad={() => setLoaded(true)}
             onError={() => {

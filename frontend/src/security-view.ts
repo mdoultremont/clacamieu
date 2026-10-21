@@ -68,11 +68,10 @@ export function buildSecurityView(
   );
   const cameraDevices = new Set<string>();
   const alarm =
-    configured?.type === "alarm"
+    (configured?.type === "alarm"
       ? hass.states[configured.entity_id]
-      : states.find((entity) =>
-          entity.entity_id.startsWith("alarm_control_panel."),
-        );
+      : undefined) ??
+    states.find((entity) => entity.entity_id.startsWith("alarm_control_panel."));
   const name = (entity: HassEntity): string =>
     entity.attributes.friendly_name ??
     hass.entities[entity.entity_id]?.name ??
@@ -172,8 +171,8 @@ export function buildSecurityView(
                   ? t.securityDisarmConfirm
                   : t.securityArmConfirm(t.securityModes[mode.state]),
               needsCode:
-                !!alarm.attributes.code_format ||
-                (mode.state !== "disarmed" &&
+                !!alarm.attributes.code_format &&
+                (mode.state === "disarmed" ||
                   alarm.attributes.code_arm_required === true),
             })),
         }
@@ -211,13 +210,13 @@ export function buildSecurityView(
     leaks: group(
       ["moisture"],
       t.securityLeaks,
-      (closed, total) => (closed === total ? t.securityNoLeak : ""),
+      (closed) => (closed > 0 ? t.securityNoLeak : ""),
       { on: t.leak, off: t.sensorDry },
     ),
     detectors: group(
       ["smoke", "gas", "carbon_monoxide", "safety"],
       t.securityAlerts,
-      (closed, total) => (closed === total ? t.securityNoAlert : ""),
+      (closed) => (closed > 0 ? t.securityNoAlert : ""),
       { on: t.securityDetected, off: t.securityClear },
     ),
   };

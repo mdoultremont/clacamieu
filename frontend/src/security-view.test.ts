@@ -150,25 +150,42 @@ describe("security view", () => {
     ]);
   });
   it.each(["number", "text"])(
-    "requires a code for every mode with code_format %s",
+    "with code_format %s, asks for a code to disarm and to arm only when arming requires one",
     (format) => {
       const hass = securityFixture();
-      hass.states["alarm_control_panel.example"].attributes.code_format =
-        format;
-      expect(
-        buildSecurityView(hass, config, now).alarm?.modes.every(
-          (mode) => mode.needsCode,
-        ),
-      ).toBe(true);
+      const attributes = hass.states["alarm_control_panel.example"].attributes;
+      attributes.code_format = format;
+      attributes.code_arm_required = false;
+      let modes = buildSecurityView(hass, config, now).alarm!.modes;
+      expect(modes[0]).toMatchObject({ state: "disarmed", needsCode: true });
+      expect(modes.slice(1).some((mode) => mode.needsCode)).toBe(false);
+      attributes.code_arm_required = true;
+      modes = buildSecurityView(hass, config, now).alarm!.modes;
+      expect(modes.every((mode) => mode.needsCode)).toBe(true);
     },
   );
-  it("requires an arming code independently of code_format", () => {
+  it("asks for no code without a code format, like Home Assistant's own controls", () => {
     const hass = securityFixture();
     hass.states["alarm_control_panel.example"].attributes.code_arm_required =
       true;
-    const modes = buildSecurityView(hass, config, now).alarm!.modes;
-    expect(modes[0].needsCode).toBe(false);
-    expect(modes.slice(1).every((mode) => mode.needsCode)).toBe(true);
+    expect(
+      buildSecurityView(hass, config, now).alarm!.modes.some(
+        (mode) => mode.needsCode,
+      ),
+    ).toBe(false);
+  });
+  it("falls back to the first alarm when the configured one no longer exists", () => {
+    const view = buildSecurityView(
+      securityFixture(),
+      {
+        home_cards: [
+          { id: "a", type: "alarm", entity_id: "alarm_control_panel.removed" },
+        ],
+        rooms: null,
+      },
+      now,
+    );
+    expect(view.alarm?.id).toBe("alarm_control_panel.example");
   });
   it("omits the alarm group when no alarm exists", () => {
     const hass = securityFixture();
@@ -229,7 +246,7 @@ describe("security view", () => {
     });
     expect(view.detectors.sensors).toHaveLength(4);
   });
-  it("shows closed counts and does not treat offline sensors as safe", () => {
+  it("shows closed counts and counts offline sensors separately", () => {
     const hass = securityFixture();
     hass.states["binary_sensor.door"].state = "off";
     hass.states["binary_sensor.leak"].state = "off";
@@ -240,7 +257,7 @@ describe("security view", () => {
     hass.states["binary_sensor.leak"].state = "unknown";
     view = buildSecurityView(hass, config, now);
     expect(view.openings.summary).toBe("2 / 3 fermées · 1 indisponible");
-    expect(view.leaks.summary).toBe("1 indisponible");
+    expect(view.leaks.summary).toBe("Aucune fuite · 1 indisponible");
     expect(
       view.leaks.sensors.find((sensor) => sensor.id === "binary_sensor.leak")
         ?.state,
