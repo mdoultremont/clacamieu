@@ -1,4 +1,4 @@
-"""Shared runtime for one HA Toolkit config entry."""
+"""Shared runtime for one Clacamieu config entry."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import dt as dt_util
 
-from custom_components.ha_toolkit.const import REFRESH_INTERVAL
+from custom_components.clacamieu.const import REFRESH_INTERVAL
 
 from .coordinator import MeterSourceRuntime, PriceRuntime
 from .discovery import resolve_meter_targets
@@ -109,7 +109,7 @@ class MeterTargetRuntime:
 
 
 @dataclass(slots=True)
-class HAToolkitRuntimeData:
+class ClacamieuRuntimeData:
     """Own all live state and subscriptions for one config entry."""
 
     hass: HomeAssistant

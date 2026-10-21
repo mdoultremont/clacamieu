@@ -1,4 +1,4 @@
-"""Tests for the HA Toolkit config flow."""
+"""Tests for the Clacamieu config flow."""
 
 from homeassistant import config_entries
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
@@ -9,12 +9,12 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ha_toolkit.config_flow import (
+from custom_components.clacamieu.config_flow import (
     CONF_ENTITY_ID,
     CONF_INDIVIDUAL_SOURCES,
     CONF_KEEP_SEPARATE,
 )
-from custom_components.ha_toolkit.const import (
+from custom_components.clacamieu.const import (
     CONF_ATTACH_ENTITY_IDS,
     CONF_CONFIGURATION_TYPE,
     CONF_GROUP_ENTITY_IDS,
@@ -28,7 +28,7 @@ from custom_components.ha_toolkit.const import (
     CONFIGURATION_TYPE_LIGHT_GROUP_PLUS,
     DOMAIN,
 )
-from custom_components.ha_toolkit.energy.models import ConfigurationType
+from custom_components.clacamieu.energy.models import ConfigurationType
 
 
 def _add_energy_source(hass: HomeAssistant) -> str:

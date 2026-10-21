@@ -1,4 +1,4 @@
-"""Home Assistant light platform adapter for HA Toolkit."""
+"""Home Assistant light platform adapter for Clacamieu."""
 
 from .lights.group import async_setup_entry
 

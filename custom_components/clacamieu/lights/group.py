@@ -1,4 +1,4 @@
-"""Light Group+ implementation for HA Toolkit."""
+"""Light Group+ implementation for Clacamieu."""
 
 from __future__ import annotations
 

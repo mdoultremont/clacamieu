@@ -1,4 +1,4 @@
-"""Config flow adapter for HA Toolkit feature families."""
+"""Config flow adapter for Clacamieu feature families."""
 
 from __future__ import annotations
 
@@ -140,8 +140,8 @@ class _MeterFlowMixin:
         raise NotImplementedError
 
 
-class HAToolkitConfigFlow(_MeterFlowMixin, config_entries.ConfigFlow, domain=DOMAIN):
-    """Route setup to one HA Toolkit feature family."""
+class ClacamieuConfigFlow(_MeterFlowMixin, config_entries.ConfigFlow, domain=DOMAIN):
+    """Route setup to one Clacamieu feature family."""
 
     VERSION = 1
 
@@ -209,24 +209,24 @@ class HAToolkitConfigFlow(_MeterFlowMixin, config_entries.ConfigFlow, domain=DOM
     ) -> config_entries.ConfigFlowResult:
         if len(self._source_entity_ids) == 1 and not self._groups:
             state = self.hass.states.get(self._source_entity_ids[0])
-            title = state.name if state else "HA Toolkit"
+            title = state.name if state else "Clacamieu"
         elif not self._source_entity_ids and len(self._groups) == 1:
             title = self._groups[0].name
         else:
-            title = "HA Toolkit"
+            title = "Clacamieu"
         return self.async_create_entry(title=title, data=configuration)
 
     @staticmethod
     @callback
     def async_get_options_flow(
         config_entry: ConfigEntry,
-    ) -> HAToolkitOptionsFlow:
+    ) -> ClacamieuOptionsFlow:
         """Return the options flow."""
-        return HAToolkitOptionsFlow(config_entry)
+        return ClacamieuOptionsFlow(config_entry)
 
 
-class HAToolkitOptionsFlow(_MeterFlowMixin, config_entries.OptionsFlow):
-    """Route options to the configured HA Toolkit feature family."""
+class ClacamieuOptionsFlow(_MeterFlowMixin, config_entries.OptionsFlow):
+    """Route options to the configured Clacamieu feature family."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize options from the effective entry configuration."""

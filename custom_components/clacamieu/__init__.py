@@ -1,4 +1,4 @@
-"""HA Toolkit custom integration lifecycle."""
+"""Clacamieu custom integration lifecycle."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from .const import (
     METER_PLATFORMS,
 )
 from .energy.models import ConfigurationType, MeterGroup
-from .energy.runtime import HAToolkitRuntimeData
+from .energy.runtime import ClacamieuRuntimeData
 from .lights.models import LightGroupPlusConfig
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up HA Toolkit from a config entry."""
+    """Set up Clacamieu from a config entry."""
     config = {**entry.data, **entry.options}
     if config.get(CONF_CONFIGURATION_TYPE) == CONFIGURATION_TYPE_LIGHT_GROUP_PLUS:
         entry.runtime_data = LightGroupPlusConfig.from_dict(config)
@@ -33,7 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         entry.async_on_unload(entry.add_update_listener(_async_options_updated))
         return True
-    runtime_data = HAToolkitRuntimeData(
+    runtime_data = ClacamieuRuntimeData(
         hass=hass,
         entry=entry,
         configuration_type=ConfigurationType(config[CONF_CONFIGURATION_TYPE]),
@@ -50,7 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a HA Toolkit config entry."""
+    """Unload a Clacamieu config entry."""
     if entry.runtime_data is None:
         return True
     config = {**entry.data, **entry.options}
@@ -61,7 +61,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     if not await hass.config_entries.async_unload_platforms(entry, platforms):
         return False
-    if isinstance(entry.runtime_data, HAToolkitRuntimeData):
+    if isinstance(entry.runtime_data, ClacamieuRuntimeData):
         await entry.runtime_data.async_stop()
     return True
 

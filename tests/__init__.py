@@ -1,1 +1,1 @@
-"""Tests for HA Toolkit."""
+"""Tests for Clacamieu."""

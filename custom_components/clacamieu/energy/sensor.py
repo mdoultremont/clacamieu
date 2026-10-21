@@ -1,4 +1,4 @@
-"""Calendar, rolling and cost sensors for HA Toolkit."""
+"""Calendar, rolling and cost sensors for Clacamieu."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.util import dt as dt_util
 
-from custom_components.ha_toolkit.const import DOMAIN, NAME
+from custom_components.clacamieu.const import DOMAIN, NAME
 
 from .discovery import target_object_id
 from .models import TargetKind
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .periods import CumulativeSeries
-    from .runtime import HAToolkitRuntimeData, MeterTargetRuntime
+    from .runtime import ClacamieuRuntimeData, MeterTargetRuntime
 
 
 class ValueKind(StrEnum):
@@ -45,8 +45,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up all configured individual and group sensors."""
-    runtime_data: HAToolkitRuntimeData = entry.runtime_data
-    entities: list[HAToolkitSensor] = []
+    runtime_data: ClacamieuRuntimeData = entry.runtime_data
+    entities: list[ClacamieuSensor] = []
     for target in runtime_data.targets:
         entities.extend(MeasurementMetricSensor(target, metric) for metric in METRICS)
         if runtime_data.price is not None:
@@ -55,7 +55,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class HAToolkitSensor(SensorEntity):
+class ClacamieuSensor(SensorEntity):
     """Base entity for one target and cumulative metric."""
 
     _attr_has_entity_name = True
@@ -212,7 +212,7 @@ class HAToolkitSensor(SensorEntity):
             )
 
 
-class MeasurementMetricSensor(HAToolkitSensor):
+class MeasurementMetricSensor(ClacamieuSensor):
     """Consumption by a target in one metric window."""
 
     _attr_state_class = SensorStateClass.TOTAL
@@ -226,7 +226,7 @@ class MeasurementMetricSensor(HAToolkitSensor):
         super().__init__(runtime, metric, ValueKind.MEASUREMENT)
 
 
-class CostMetricSensor(HAToolkitSensor):
+class CostMetricSensor(ClacamieuSensor):
     """Cost accumulated by a target in one metric window."""
 
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -247,7 +247,7 @@ def _window_type(metric: Metric) -> str:
 
 @callback
 def _remove_stale_registry_entries(
-    entry: ConfigEntry, entities: list[HAToolkitSensor]
+    entry: ConfigEntry, entities: list[ClacamieuSensor]
 ) -> None:
     """Remove generated entities and virtual devices no longer in the config."""
     hass = entry.runtime_data.hass

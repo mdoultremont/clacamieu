@@ -1,4 +1,4 @@
-"""Pure cumulative-series calculations for HA Toolkit meters."""
+"""Pure cumulative-series calculations for Clacamieu meters."""
 
 from __future__ import annotations
 

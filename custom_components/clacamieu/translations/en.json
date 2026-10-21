@@ -1,5 +1,5 @@
 {
-  "title": "HA Toolkit",
+  "title": "Clacamieu",
   "config": {
     "step": {
       "user": {
@@ -23,12 +23,14 @@
         "title": "Meter configuration",
         "description": "Configure individual sensors, groups, device links, and an optional current price per {price_unit}.",
         "data": {
-          "individual_sources": "Individual sensors",
+          "source_entity_ids": "Individual sensors",
+          "detach_entity_ids": "Keep separate from the source device",
           "groups": "Groups",
           "price_entity_id": "Current unit price entity"
         },
         "data_description": {
-          "individual_sources": "Add each sensor and choose whether its virtual meter stays separate from the source device.",
+          "source_entity_ids": "Each selected sensor receives its own virtual meter and derived sensors.",
+          "detach_entity_ids": "By default, each virtual meter is linked below its source device. Select standalone meters here.",
           "groups": "Each named group receives a virtual device containing the sum of its members.",
           "price_entity_id": "Leave empty to omit cost sensors. Historical price changes are applied when they occurred."
         }
@@ -81,7 +83,7 @@
     "error": {
       "no_targets": "Select at least one individual sensor or create a group.",
       "invalid_sources": "One or more sensors no longer match this source type.",
-      "duplicate_source": "An individual sensor can only be added once.",
+      "invalid_detached_sources": "Only selected individual sensors can be kept separate from their source device.",
       "invalid_price": "The selected price entity must currently contain a non-negative number.",
       "duplicate_group_name": "A group already uses this name.",
       "duplicate_entity": "Each member light and scene can only be selected once.",
@@ -108,12 +110,14 @@
         "title": "Meter configuration",
         "description": "Configure individual sensors, groups, device links, and an optional current price per {price_unit}.",
         "data": {
-          "individual_sources": "Individual sensors",
+          "source_entity_ids": "Individual sensors",
+          "detach_entity_ids": "Keep separate from the source device",
           "groups": "Groups",
           "price_entity_id": "Current unit price entity"
         },
         "data_description": {
-          "individual_sources": "Add each sensor and choose whether its virtual meter stays separate from the source device.",
+          "source_entity_ids": "Each selected sensor receives its own virtual meter and derived sensors.",
+          "detach_entity_ids": "By default, each virtual meter is linked below its source device. Select standalone meters here.",
           "groups": "Each named group receives a virtual device containing the sum of its members.",
           "price_entity_id": "Leave empty to omit cost sensors. Historical price changes are applied when they occurred."
         }
@@ -166,7 +170,7 @@
     "error": {
       "no_targets": "Select at least one individual sensor or create a group.",
       "invalid_sources": "One or more sensors no longer match this source type.",
-      "duplicate_source": "An individual sensor can only be added once.",
+      "invalid_detached_sources": "Only selected individual sensors can be kept separate from their source device.",
       "invalid_price": "The selected price entity must currently contain a non-negative number.",
       "duplicate_group_name": "A group already uses this name.",
       "duplicate_entity": "Each member light and scene can only be selected once.",
@@ -176,12 +180,6 @@
     }
   },
   "selector": {
-    "individual_source": {
-      "fields": {
-        "entity_id": {"name": "Sensor"},
-        "keep_separate": {"name": "Keep separate from the source device"}
-      }
-    },
     "configuration_type": {
       "options": {
         "electricity_energy": "Electricity · cumulative energy",

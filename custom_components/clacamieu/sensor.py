@@ -1,4 +1,4 @@
-"""Home Assistant sensor platform adapter for HA Toolkit."""
+"""Home Assistant sensor platform adapter for Clacamieu."""
 
 from .energy.sensor import async_setup_entry
 

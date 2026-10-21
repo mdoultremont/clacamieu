@@ -1,5 +1,5 @@
 [project]
-name = "ha-toolkit"
+name = "clacamieu"
 version = "0.2.0"
 description = "Personal toolkit for Home Assistant energy, lighting, and devices"
 license = "MIT"

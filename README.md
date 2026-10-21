@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/ha-toolkit-logo.png" alt="HA Toolkit logo" width="240">
+  <img src="assets/clacamieu-logo.png" alt="Clacamieu logo" width="240">
 </p>
 
-# HA Toolkit
+# Clacamieu
 
-HA Toolkit is a Home Assistant custom integration that adds calendar,
+Clacamieu is a Home Assistant custom integration that adds calendar,
 rolling and lifetime totals to utility meters and instantaneous rate sensors.
 It supports electricity, water and gas, named aggregates, historical
 reconstruction and time-varying unit prices. It also provides Light Group+,
@@ -37,10 +37,10 @@ Sources are selected as sensor entities, not devices. This supports devices with
 several channels, such as a two-valve water controller or a multi-socket power
 strip. A source device does not need a `switch` entity.
 
-An individual source receives a virtual HA Toolkit meter containing its
+An individual source receives a virtual Clacamieu meter containing its
 derived sensors. By default, the meter is linked below the physical source
 device, but it can remain standalone. Named groups create virtual
-HA Toolkit devices containing the sum of their selected members. A source
+Clacamieu devices containing the sum of their selected members. A source
 may belong to any number of groups and does not need to be selected as an
 individual source.
 
@@ -64,10 +64,10 @@ with the day clamped when needed. It is not treated as 90 days.
 ## Pricing
 
 Each config entry accepts an optional numeric entity containing the current
-price per kWh or m³. When configured, HA Toolkit creates ten matching
+price per kWh or m³. When configured, Clacamieu creates ten matching
 monetary sensors in the Home Assistant currency.
 
-The price may change over time. HA Toolkit applies the active price to later
+The price may change over time. Clacamieu applies the active price to later
 increments, so tariff changes do not revalue older consumption. Tariff
 schedules, supplier APIs and automations remain outside the integration.
 
@@ -81,7 +81,7 @@ saving them.
 
 ## History
 
-Recorder is the source of truth. HA Toolkit reads closed hourly statistics,
+Recorder is the source of truth. Clacamieu reads closed hourly statistics,
 normalizes cumulative meter resets and integrates hourly means for power and
 flow sources. It reconstructs only periods supported by continuous history and
 never imports the open Recorder hour.
@@ -94,29 +94,30 @@ attributes describe the current result.
 ## Installation with HACS
 
 1. Add this repository as a custom HACS repository with category `Integration`.
-2. Install HA Toolkit and restart Home Assistant.
-3. Add HA Toolkit from **Settings > Devices & services**.
+2. Install Clacamieu and restart Home Assistant.
+3. Add Clacamieu from **Settings > Devices & services**.
 4. Choose a meter source type or Light Group+. Meter configurations accept
    individual sensor rows, named groups and an optional current price. Light
    Group+ accepts member lights and an ordered scene list.
 
 The minimum supported Home Assistant version is 2026.2.
 
-### Replacing MattsAssistant
+### Replacing HA Toolkit
 
-HA Toolkit uses a new Home Assistant domain and does not migrate MattsAssistant
-config entries. Recreate those entries after installing HA Toolkit.
+Clacamieu was previously published as HA Toolkit with the `ha_toolkit` domain.
+Home Assistant treats the new `clacamieu` domain as a different integration, so
+existing HA Toolkit entries are not migrated. Recreate them after installing
+Clacamieu.
 
-If HACS already knew this repository under its previous name:
-
-1. Remove the MattsAssistant integration entries from **Settings > Devices & services**.
-2. Remove the old download and custom repository entry from HACS.
+1. Note the sources, groups, prices, and Light Group+ settings of each HA Toolkit
+   entry, then remove the entries from **Settings > Devices & services**.
+2. Remove the HA Toolkit download and its custom repository entry from HACS.
 3. Restart Home Assistant before adding the repository again. GitHub repository
    renames preserve an internal identifier, so HACS may otherwise retain the old
-   `mattsassistant` installation directory.
-4. Add `https://github.com/matthieudou/ha-toolkit` as a custom repository with
+   `ha_toolkit` installation directory.
+4. Add `https://github.com/mdoultremont/clacamieu` as a custom repository with
    category `Integration`.
-5. Confirm that HACS proposes `/config/custom_components/ha_toolkit`, install the
+5. Confirm that HACS proposes `/config/custom_components/clacamieu`, install the
    release, restart Home Assistant, and recreate the entries.
 
 ## Development

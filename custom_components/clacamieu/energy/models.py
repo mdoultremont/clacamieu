@@ -1,4 +1,4 @@
-"""Domain models for HA Toolkit meter entries."""
+"""Domain models for Clacamieu meter entries."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from homeassistant.util.unit_conversion import (
     VolumeFlowRateConverter,
 )
 
-from custom_components.ha_toolkit.const import (
+from custom_components.clacamieu.const import (
     CONF_GROUP_ENTITY_IDS,
     CONF_GROUP_ID,
     CONF_GROUP_NAME,

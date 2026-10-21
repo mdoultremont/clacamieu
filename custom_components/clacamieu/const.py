@@ -1,11 +1,11 @@
-"""Constants for the HA Toolkit integration."""
+"""Constants for the Clacamieu integration."""
 
 from datetime import timedelta
 
 from homeassistant.const import Platform
 
-DOMAIN = "ha_toolkit"
-NAME = "HA Toolkit"
+DOMAIN = "clacamieu"
+NAME = "Clacamieu"
 
 CONF_CONFIGURATION_TYPE = "configuration_type"
 CONF_SOURCE_ENTITY_IDS = "source_entity_ids"

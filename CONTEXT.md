@@ -1,12 +1,12 @@
-# HA Toolkit
+# Clacamieu
 
-HA Toolkit collects optional improvements to existing Home Assistant features in one custom integration.
+Clacamieu collects optional improvements to existing Home Assistant features in one custom integration.
 
 ## Product language
 
-**HA Toolkit**
+**Clacamieu**
 The umbrella integration installed by the user.
-Avoid: MattsAssistant, assistant
+Avoid: HA Toolkit, MattsAssistant, assistant
 
 **Energy**
 Features that calculate civil, rolling, and lifetime consumption or cost from Home Assistant history.

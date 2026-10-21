@@ -10,7 +10,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ha_toolkit.const import (
+from custom_components.clacamieu.const import (
     CONF_ATTACH_ENTITY_IDS,
     CONF_CONFIGURATION_TYPE,
     CONF_GROUP_ENTITY_IDS,
@@ -21,8 +21,8 @@ from custom_components.ha_toolkit.const import (
     CONF_SOURCE_ENTITY_IDS,
     DOMAIN,
 )
-from custom_components.ha_toolkit.energy.models import ConfigurationType
-from custom_components.ha_toolkit.energy.periods import (
+from custom_components.clacamieu.energy.models import ConfigurationType
+from custom_components.clacamieu.energy.periods import (
     CumulativeSample,
     CumulativeSeries,
     PriceSample,
@@ -88,11 +88,11 @@ async def test_setup_creates_ten_sensors_with_source_based_entity_ids(
     entry.add_to_hass(hass)
     with (
         patch(
-            "custom_components.ha_toolkit.energy.runtime.MeterSourceRuntime.async_start",
+            "custom_components.clacamieu.energy.runtime.MeterSourceRuntime.async_start",
             _start_source,
         ),
         patch(
-            "custom_components.ha_toolkit.energy.sensor.async_backfill_statistics",
+            "custom_components.clacamieu.energy.sensor.async_backfill_statistics",
             AsyncMock(return_value=0),
         ),
     ):
@@ -120,11 +120,11 @@ async def test_setup_creates_ten_sensors_with_source_based_entity_ids(
 
     with (
         patch(
-            "custom_components.ha_toolkit.energy.runtime.MeterSourceRuntime.async_start",
+            "custom_components.clacamieu.energy.runtime.MeterSourceRuntime.async_start",
             _start_source,
         ),
         patch(
-            "custom_components.ha_toolkit.energy.sensor.async_backfill_statistics",
+            "custom_components.clacamieu.energy.sensor.async_backfill_statistics",
             AsyncMock(return_value=0),
         ),
     ):
@@ -144,7 +144,7 @@ async def test_setup_creates_ten_sensors_with_source_based_entity_ids(
     assert virtual_device.via_device_id is None
 
     with patch(
-        "custom_components.ha_toolkit.energy.sensor.async_backfill_statistics",
+        "custom_components.clacamieu.energy.sensor.async_backfill_statistics",
         AsyncMock(return_value=0),
     ):
         assert await hass.config_entries.async_unload(entry.entry_id)
@@ -195,15 +195,15 @@ async def test_group_with_price_creates_virtual_device_and_cost_sensors(
 
     with (
         patch(
-            "custom_components.ha_toolkit.energy.runtime.MeterSourceRuntime.async_start",
+            "custom_components.clacamieu.energy.runtime.MeterSourceRuntime.async_start",
             _start_source,
         ),
         patch(
-            "custom_components.ha_toolkit.energy.runtime.PriceRuntime.async_start",
+            "custom_components.clacamieu.energy.runtime.PriceRuntime.async_start",
             start_price,
         ),
         patch(
-            "custom_components.ha_toolkit.energy.sensor.async_backfill_statistics",
+            "custom_components.clacamieu.energy.sensor.async_backfill_statistics",
             AsyncMock(return_value=0),
         ),
     ):

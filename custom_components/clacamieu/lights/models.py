@@ -1,11 +1,11 @@
-"""Domain models for HA Toolkit light entries."""
+"""Domain models for Clacamieu light entries."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
-from custom_components.ha_toolkit.const import (
+from custom_components.clacamieu.const import (
     CONF_MEMBER_ENTITY_IDS,
     CONF_NAME,
     CONF_SCENE_ENTITY_IDS,

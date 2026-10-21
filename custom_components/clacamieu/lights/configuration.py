@@ -7,7 +7,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.helpers import selector
 
-from custom_components.ha_toolkit.const import (
+from custom_components.clacamieu.const import (
     CONF_MEMBER_ENTITY_IDS,
     CONF_NAME,
     CONF_SCENE_ENTITY_IDS,

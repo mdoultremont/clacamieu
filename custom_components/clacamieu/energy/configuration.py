@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import selector
 
-from custom_components.ha_toolkit.const import (
+from custom_components.clacamieu.const import (
     CONF_ATTACH_ENTITY_IDS,
     CONF_GROUP_ENTITY_IDS,
     CONF_GROUP_NAME,

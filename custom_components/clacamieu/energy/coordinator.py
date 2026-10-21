@@ -1,4 +1,4 @@
-"""Per-source runtime state for HA Toolkit meter sensors."""
+"""Per-source runtime state for Clacamieu meter sensors."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.util import dt as dt_util
 
-from custom_components.ha_toolkit.const import REFRESH_INTERVAL
+from custom_components.clacamieu.const import REFRESH_INTERVAL
 
 from .models import MeterSource, SourceMode
 from .periods import (

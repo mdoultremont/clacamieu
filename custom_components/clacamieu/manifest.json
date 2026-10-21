@@ -1,0 +1,13 @@
+{
+  "domain": "clacamieu",
+  "name": "Clacamieu",
+  "codeowners": ["@mdoultremont"],
+  "config_flow": true,
+  "dependencies": ["recorder"],
+  "documentation": "https://github.com/mdoultremont/clacamieu",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/mdoultremont/clacamieu/issues",
+  "requirements": [],
+  "version": "0.2.0"
+}

@@ -1,6 +1,6 @@
-# HA Toolkit architecture
+# Clacamieu architecture
 
-HA Toolkit has two independent config-entry families. Meter entries own
+Clacamieu has two independent config-entry families. Meter entries own
 Recorder-backed sensor calculations. Light Group+ entries own one native light
 entity and do not create or edit scenes.
 
