@@ -1,41 +1,37 @@
-import {
-  Bot,
-  CloudSun,
-  Droplets,
-  Lightbulb,
-  Play,
-  ShieldCheck,
-  Thermometer,
-  Wind,
-  Zap,
-} from "lucide-react";
-import { Fragment } from "react";
-import { Switch } from "./ui/switch";
+import { Bot, DoorOpen, Plug, Shield, Users } from "lucide-react";
+import { Fragment, useId } from "react";
 import { messages } from "../i18n";
 import type { HomeView, HomeCardView, ServiceAction } from "../types";
+import { ItemSection } from "./item-section";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemSeparator,
+  ItemTitle,
+} from "./ui/item";
+import { Switch } from "./ui/switch";
 
-export function Home({
-  view,
-  language,
-  onAction,
-  busy,
-}: {
-  view: HomeView;
+type ActionProps = {
   language: string;
   onAction: (action: ServiceAction) => void;
   busy: boolean;
-}) {
+};
+
+export function Home({ view, ...props }: { view: HomeView } & ActionProps) {
+  const t = messages(props.language);
   return (
     <>
+      <header className="space-y-2">
+        <h1 className="text-xl font-semibold tracking-tight">{t.home}</h1>
+        <p className="text-muted-foreground">{view.date}</p>
+      </header>
       {view.cards.map((card) => (
-        <HomeCard
-          key={card.id}
-          view={card}
-          language={language}
-          onAction={onAction}
-          busy={busy}
-        />
+        <HomeCard key={card.id} view={card} {...props} />
       ))}
     </>
   );
@@ -46,192 +42,242 @@ function HomeCard({
   language,
   onAction,
   busy,
-}: {
-  view: HomeCardView;
-  language: string;
-  onAction: (action: ServiceAction) => void;
-  busy: boolean;
-}) {
+}: { view: HomeCardView } & ActionProps) {
   const t = messages(language);
+  const id = useId();
   switch (view.type) {
     case "summary":
       return (
-        <>
-          <header className="greeting">
-            <p className="eyebrow">{view.date}</p>
-            <h1>{view.greeting}</h1>
-          </header>
-          <section className="hero" aria-label={t.inside}>
-            {view.indoorTemperature !== null && (
-              <div className="big-number">
-                {view.indoorTemperature}
-                <span>°</span>
-              </div>
-            )}
-            <div className="hero-label">
-              <p>{t.inside}</p>
-              {view.weather && (
-                <p className="weather">
-                  <CloudSun size={13} />
-                  {t.outside}{" "}
-                  {view.weather.temperature !== null &&
-                    `${view.weather.temperature}° · `}
-                  {view.weather.condition}
-                </p>
-              )}
-            </div>
-          </section>
-        </>
+        <section className="grid grid-cols-2 gap-3" aria-label={t.home}>
+          <div className="flex min-w-0 flex-col gap-2 rounded-2xl border bg-card p-4 text-card-foreground">
+            <p className="text-muted-foreground">{t.inside}</p>
+            <p className="text-2xl font-semibold tabular-nums">
+              {view.indoorTemperature !== null
+                ? `${view.indoorTemperature}°`
+                : "—"}
+            </p>
+            <p className="text-muted-foreground">
+              {view.indoorSensorCount
+                ? t.averageRooms(view.indoorSensorCount)
+                : t.noClimate}
+            </p>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2 rounded-2xl border bg-card p-4 text-card-foreground">
+            <p className="text-muted-foreground">{t.outside}</p>
+            <p className="text-2xl font-semibold tabular-nums">
+              {view.weather?.temperature != null
+                ? `${view.weather.temperature}°`
+                : "—"}
+            </p>
+            <p className="text-muted-foreground">
+              {view.weather?.condition ?? t.weather.unavailable}
+            </p>
+          </div>
+        </section>
       );
-    case "presence":
+    case "presence": {
+      const people = view.people.filter((person) => person.home);
       return (
-        <Fragment>
-          {view.people.length > 0 && (
-            <div className="people">
-              {view.people.map((person) => (
-                <span
-                  key={person.id}
-                  className={`person ${person.currentUser ? "current" : ""}`}
-                >
-                  <span
-                    className={`presence ${person.home ? "at-home" : ""}`}
-                  />
-                  {person.name}
-                </span>
-              ))}
-            </div>
-          )}
-        </Fragment>
+        <ItemSection title={t.atHome}>
+          <Item role="listitem" size="sm">
+            <ItemMedia className="text-muted-foreground">
+              <Users className="size-4" />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>
+                {people.map((person) => person.name).join(", ") || t.nobodyHome}
+              </ItemTitle>
+            </ItemContent>
+            <ItemActions className="text-base font-medium tabular-nums">
+              {people.length}
+            </ItemActions>
+          </Item>
+        </ItemSection>
       );
+    }
     case "alarm":
       return (
-        <section className="status-card" aria-label={view.alarm.title}>
-          <div className={`status-icon ${view.alarm.tone}`}>
-            <ShieldCheck size={18} />
-          </div>
-          <div className="status-copy">
-            <h2>{view.alarm.title}</h2>
-            {view.alarm.subtitle && <p>{view.alarm.subtitle}</p>}
-          </div>
-          {view.alarm.action && (
-            <Button
-              disabled={busy}
-              onClick={() => view.alarm?.action && onAction(view.alarm.action)}
-            >
-              {view.alarm.action.label}
-            </Button>
-          )}
-        </section>
+        <ItemSection title={t.alarmLabel}>
+          <Item role="listitem" size="sm">
+            <ItemMedia className="text-muted-foreground">
+              <Shield className="size-4" />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>{view.alarm.title}</ItemTitle>
+            </ItemContent>
+            {view.alarm.action && (
+              <ItemActions>
+                <Button
+                  variant="outline"
+                  className="min-h-11 min-w-11"
+                  disabled={busy}
+                  onClick={() =>
+                    view.alarm.action && onAction(view.alarm.action)
+                  }
+                >
+                  {view.alarm.action.label}
+                </Button>
+              </ItemActions>
+            )}
+          </Item>
+          <ItemSeparator />
+          <Item role="listitem" size="sm">
+            <ItemMedia className="text-muted-foreground">
+              <DoorOpen className="size-4" />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>{t.openingsLeaks}</ItemTitle>
+              <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+                {view.alarm.safety.length
+                  ? view.alarm.safety.map((sensor) =>
+                      sensor.alert ? (
+                        <Badge
+                          key={sensor.text}
+                          variant="outline"
+                          className="border-destructive/50 text-destructive"
+                        >
+                          {sensor.text}
+                        </Badge>
+                      ) : (
+                        <span key={sensor.text}>{sensor.text}</span>
+                      ),
+                    )
+                  : t.noSafetySensors}
+              </div>
+            </ItemContent>
+          </Item>
+        </ItemSection>
       );
     case "vacuum":
       return (
-        <section className="status-card" aria-label={view.vacuum.name}>
-          <div className="status-icon sky">
-            <Bot size={18} />
-          </div>
-          <div className="status-copy">
-            <h2>{view.vacuum.name}</h2>
-            <p>
-              {view.vacuum.state}
-              {view.vacuum.battery !== null && ` · ${view.vacuum.battery} %`}
-            </p>
-          </div>
-          {view.vacuum.action && (
-            <Button
-              disabled={busy}
-              onClick={() =>
-                view.vacuum?.action && onAction(view.vacuum.action)
-              }
-            >
-              {view.vacuum.action.service === "start" && <Play size={12} />}
-              {view.vacuum.action.label}
-            </Button>
-          )}
-        </section>
-      );
-    case "rooms":
-      return (
-        <section className="rooms-section" aria-labelledby={`rooms-${view.id}`}>
-          <div className="section-heading">
-            <h2 id={`rooms-${view.id}`}>{t.rooms}</h2>
-            <span>{t.lightsOn(view.lightsOn)}</span>
-          </div>
-          <div className="room-grid">
-            {view.rooms.map((room) => (
-              <article className="room" key={room.id}>
-                <div className="room-top">
-                  <h3>{room.name}</h3>
-                  <span className={`lamp ${room.lightsOn ? "on" : ""}`}>
-                    <Lightbulb size={14} />
-                  </span>
-                </div>
-                <div className="climate">
-                  {room.temperature !== null && (
-                    <span className="temperature">
-                      <Thermometer size={12} />
-                      <b>{room.temperature}°</b>
-                    </span>
-                  )}
-                  {room.humidity !== null && (
-                    <span>
-                      <Droplets size={12} />
-                      {room.humidity} %
-                    </span>
-                  )}
-                  {room.co2 !== null && (
-                    <span>
-                      <Wind size={12} />
-                      {room.co2} ppm
-                    </span>
-                  )}
-                  {room.temperature === null &&
-                    room.humidity === null &&
-                    room.co2 === null && <span>{t.noClimate}</span>}
-                </div>
-              </article>
-            ))}
-          </div>
-          {!view.rooms.length && <p className="muted">{t.noRooms}</p>}
-        </section>
+        <ItemSection title={view.vacuum.name}>
+          <Item role="listitem" size="sm">
+            <ItemMedia className="text-muted-foreground">
+              <Bot className="size-4" />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>{view.vacuum.state}</ItemTitle>
+              {view.vacuum.battery !== null && (
+                <ItemDescription className="tabular-nums">
+                  {view.vacuum.battery} %
+                </ItemDescription>
+              )}
+            </ItemContent>
+            {view.vacuum.action && (
+              <ItemActions>
+                <Button
+                  variant="outline"
+                  className="min-h-11 min-w-11"
+                  disabled={busy}
+                  onClick={() =>
+                    view.vacuum.action && onAction(view.vacuum.action)
+                  }
+                >
+                  {view.vacuum.action.label}
+                </Button>
+              </ItemActions>
+            )}
+          </Item>
+        </ItemSection>
       );
     case "power":
       return (
-        <section className="power-card" aria-label={t.plugPower}>
-          <p className="power-label">
-            <Zap size={13} />
-            {t.plugPower}
-          </p>
-          <div className="power-number">
-            {view.plugPower.total} <span>W</span>
-          </div>
-          <p className="muted">{view.plugPower.topConsumer}</p>
-        </section>
+        <ItemSection title={t.plugs}>
+          <Item role="listitem" size="sm">
+            <ItemMedia className="text-muted-foreground">
+              <Plug className="size-4" />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>{t.plugPower}</ItemTitle>
+              {view.plugPower.topConsumer && (
+                <ItemDescription className="tabular-nums">
+                  {view.plugPower.topConsumer}
+                </ItemDescription>
+              )}
+            </ItemContent>
+            <ItemActions className="text-base font-medium tabular-nums">
+              {view.plugPower.total === t.unavailable
+                ? t.unavailable
+                : `${view.plugPower.total} W`}
+            </ItemActions>
+          </Item>
+        </ItemSection>
+      );
+    case "rooms":
+      return (
+        <ItemSection title={t.rooms} description={t.lightsOn(view.lightsOn)}>
+          {view.rooms.map((room, index) => (
+            <Fragment key={room.id}>
+              {index > 0 && <ItemSeparator />}
+              <Item role="listitem" size="sm">
+                <ItemContent>
+                  <ItemTitle>{room.name}</ItemTitle>
+                  <ItemDescription className="tabular-nums">
+                    {[
+                      room.humidity !== null ? `${room.humidity} %` : null,
+                      room.co2 !== null ? `${room.co2} ppm` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") ||
+                      (room.temperature === null ? t.noClimate : null)}
+                  </ItemDescription>
+                </ItemContent>
+                {room.temperature !== null && (
+                  <ItemActions className="text-base font-medium tabular-nums">
+                    {room.temperature}°
+                  </ItemActions>
+                )}
+              </Item>
+            </Fragment>
+          ))}
+          {!view.rooms.length && (
+            <Item role="listitem" size="sm">
+              <ItemDescription>{t.noRooms}</ItemDescription>
+            </Item>
+          )}
+        </ItemSection>
       );
     case "entities":
       return (
-        <section className="rooms-section" aria-label={view.title}>
-          <div className="section-heading">
-            <h2>{view.title}</h2>
-          </div>
+        <ItemSection title={view.title}>
           {view.entities.map((entity, index) => (
-            <div className="status-card" key={`${entity.id}-${index}`}>
-              <div className="status-copy">
-                <h3>{entity.name}</h3>
-                <p>{entity.state}</p>
-              </div>
-              {entity.action && (
-                <Switch
-                  aria-label={entity.name}
-                  checked={entity.on}
-                  disabled={busy || !entity.available}
-                  onCheckedChange={() =>
-                    entity.action && onAction(entity.action)
-                  }
-                />
-              )}
-            </div>
+            <Fragment key={`${entity.id}-${index}`}>
+              {index > 0 && <ItemSeparator />}
+              <Item role="listitem" size="sm" asChild={!!entity.action}>
+                {entity.action ? (
+                  <label htmlFor={`${id}-${index}`} className="cursor-pointer">
+                    <ItemContent>
+                      <ItemTitle>{entity.name}</ItemTitle>
+                      <ItemDescription className="tabular-nums">
+                        {entity.state}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions className="switch-target">
+                      <Switch
+                        id={`${id}-${index}`}
+                        aria-label={entity.name}
+                        checked={entity.on}
+                        disabled={busy || !entity.available}
+                        onCheckedChange={() =>
+                          entity.action && onAction(entity.action)
+                        }
+                      />
+                    </ItemActions>
+                  </label>
+                ) : (
+                  <>
+                    <ItemContent>
+                      <ItemTitle>{entity.name}</ItemTitle>
+                      <ItemDescription className="tabular-nums">
+                        {entity.state}
+                      </ItemDescription>
+                    </ItemContent>
+                  </>
+                )}
+              </Item>
+            </Fragment>
           ))}
-        </section>
+        </ItemSection>
       );
   }
 }

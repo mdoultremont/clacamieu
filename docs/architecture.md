@@ -47,7 +47,8 @@ the WebSocket boundary. `resolveDashboardConfig` fills null lists. Automatic
 cards are summary, presence when people exist, the first alarm, the first vacuum,
 rooms, and power when smart plug power sensors exist. Saved lists control order
 and visibility. `HomeView.cards` holds a discriminated union for ordered rendering.
-The summary contains the date, greeting, indoor average, and weather. Entities
+The view contains the date. The summary contains the indoor average, its room
+count, and weather. Entities
 cards show ordered entity names and states, with `homeassistant.toggle` controls
 for lights, switches, fans, and input booleans. Missing or unavailable entities
 keep their rows, with disabled toggles.
@@ -61,6 +62,9 @@ The element attaches its own shadow root, because Home Assistant renders panels
 inside its own shadow trees. Document styles cannot reach the panel, and a
 style element outside a shadow root of its own would leak into the Home
 Assistant interface. The compiled Tailwind CSS is placed in that shadow root.
+`PortalContainerContext` provides a themed container in the same shadow root
+for future Drawer, Select, Popover, and Tooltip portals. Theme tokens follow
+`hass.themes.darkMode`, falling back to the system color scheme.
 Chromium and WebKit ignore `@property` and `@font-face` rules inside a shadow
 root, so `shadow-styles.ts` moves those rules to one style element in the
 document head. Tailwind relies on `@property` for its shadow, ring, and

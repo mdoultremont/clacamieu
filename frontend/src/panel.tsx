@@ -1,6 +1,7 @@
 import { createRoot, type Root } from "react-dom/client";
 import css from "./index.css?inline";
 import { App } from "./app";
+import { PortalContainerContext } from "./portal-container";
 import { installStyles } from "./shadow-styles";
 import { createStore } from "./store";
 import type { HassLike, PanelInfo } from "./types";
@@ -21,12 +22,21 @@ export class ClacamieuPanel extends HTMLElement {
     panel: { url_path: "clacamieu" },
   });
   private root?: Root;
+  private media?: MediaQueryList;
+  private updateTheme = () => {
+    const dark = this.hass?.themes?.darkMode ?? this.media?.matches ?? false;
+    this.dataset.theme = dark ? "dark" : "light";
+    this.shadowRoot
+      ?.querySelectorAll("#root, #portal-container")
+      .forEach((element) => element.classList.toggle("dark", dark));
+  };
 
   get hass() {
     return this.store.get().hass;
   }
   set hass(hass: HassLike | null) {
     this.store.set({ ...this.store.get(), hass });
+    this.updateTheme();
   }
   get narrow() {
     return this.store.get().narrow;
@@ -48,14 +58,28 @@ export class ClacamieuPanel extends HTMLElement {
   }
 
   connectedCallback() {
+    this.media ??= window.matchMedia?.("(prefers-color-scheme: dark)");
+    this.media?.addEventListener("change", this.updateTheme);
+    this.updateTheme();
     if (this.root) return;
     const shadow = this.attachShadow({ mode: "open" });
     installStyles(shadow, css);
     const container = document.createElement("div");
     container.id = "root";
     shadow.append(container);
+    const portalContainer = document.createElement("div");
+    portalContainer.id = "portal-container";
+    shadow.append(portalContainer);
+    this.updateTheme();
     this.root = createRoot(container);
-    this.root.render(<App store={this.store} host={this} />);
+    this.root.render(
+      <PortalContainerContext value={portalContainer}>
+        <App store={this.store} host={this} />
+      </PortalContainerContext>,
+    );
+  }
+  disconnectedCallback() {
+    this.media?.removeEventListener("change", this.updateTheme);
   }
 }
 

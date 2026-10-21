@@ -55,7 +55,13 @@ const view = (hass: HassLike, ids: string[] | null = null): HomeData => {
     now,
   );
   return Object.assign(
-    { alarm: null, vacuum: null, plugPower: null, people: [] },
+    {
+      date: result.date,
+      alarm: null,
+      vacuum: null,
+      plugPower: null,
+      people: [],
+    },
     ...result.cards,
   );
 };
@@ -125,6 +131,7 @@ describe("home view", () => {
     add(hass, entity("light.other", "on"), "room_b");
     expect(view(hass, ["room_a"])).toMatchObject({
       indoorTemperature: "19,0",
+      indoorSensorCount: 1,
       lightsOn: 1,
     });
     expect(view(hass).rooms[0].lightsOn).toBe(true);
@@ -166,35 +173,19 @@ describe("home view", () => {
   it("keeps zero readings", () => {
     expect(numeric("0")).toBe(0);
   });
-  it("localizes the greeting, date, weather and numbers", () => {
+  it("localizes the date, weather, and numbers", () => {
     const hass = fixture();
     add(hass, entity("weather.example", "cloudy", { temperature: 11 }));
     expect(view(hass)).toMatchObject({
-      greeting: "Bonsoir Alex",
       date: "mercredi 21 octobre",
+      indoorSensorCount: 0,
       weather: { temperature: "11,0", condition: "Nuageux" },
     });
-    expect(
-      buildHomeView(
-        hass,
-        { home_cards: null, rooms: null },
-        new Date(2026, 9, 21, 17, 59),
-      ).cards.find((card) => card.type === "summary")?.greeting,
-    ).toBe("Bonjour Alex");
     hass.language = "en";
-    for (const [hour, greeting] of [
-      [8, "Good morning"],
-      [13, "Good afternoon"],
-      [18, "Good evening"],
-    ] as const) {
-      expect(
-        buildHomeView(
-          hass,
-          { home_cards: null, rooms: null },
-          new Date(2026, 9, 21, hour),
-        ).cards.find((card) => card.type === "summary")?.greeting,
-      ).toBe(`${greeting} Alex`);
-    }
+    expect(view(hass)).toMatchObject({
+      date: "Wednesday, October 21",
+      weather: { temperature: "11.0", condition: "Cloudy" },
+    });
   });
   it("sorts people and identifies the current user and presence", () => {
     const hass = fixture();
@@ -231,16 +222,20 @@ describe("home view", () => {
     );
     expect(view(hass).alarm).toMatchObject({
       title: "Alarme désarmée",
-      subtitle: "2 ouvertures fermées · aucune fuite",
-      tone: "green",
+      safety: [
+        { text: "2 ouvertures fermées", alert: false },
+        { text: "aucune fuite", alert: false },
+      ],
       action: { service: "alarm_arm_away" },
     });
     hass.states["binary_sensor.window"].state = "on";
     hass.states["binary_sensor.moisture"].state = "on";
     hass.states["alarm_control_panel.example"].state = "triggered";
     expect(view(hass).alarm).toMatchObject({
-      subtitle: "1 ouverte · fuite détectée",
-      tone: "red",
+      safety: [
+        { text: "1 ouverte", alert: true },
+        { text: "fuite détectée", alert: true },
+      ],
       action: { service: "alarm_disarm" },
     });
     hass.states["alarm_control_panel.example"].attributes.code_format =
@@ -253,10 +248,9 @@ describe("home view", () => {
     "armed_night",
     "armed_vacation",
     "arming",
-  ])("shows the amber alarm tone for %s", (state) => {
+  ])("translates the alarm state %s", (state) => {
     const hass = fixture();
     add(hass, entity("alarm_control_panel.example", state));
-    expect(view(hass).alarm?.tone).toBe("amber");
     expect(view(hass).alarm?.title).toBe(
       fr.alarm[state as keyof typeof fr.alarm],
     );
@@ -345,6 +339,33 @@ describe("home view", () => {
       topConsumer: "",
     });
   });
+  it("uses the injected Home Assistant state formatter for entities", () => {
+    const hass = fixture();
+    const state = entity("sensor.example", "12.5", {
+      unit_of_measurement: "W",
+    });
+    add(hass, state);
+    const config = {
+      rooms: [],
+      home_cards: [
+        {
+          id: "e",
+          type: "entities" as const,
+          title: "Devices",
+          entity_ids: [state.entity_id],
+        },
+      ],
+    };
+    expect(buildHomeView(hass, config, now).cards[0]).toMatchObject({
+      entities: [{ state: "12.5 W" }],
+    });
+    hass.formatEntityState = vi.fn().mockReturnValue("12,5 W");
+    expect(buildHomeView(hass, config, now).cards[0]).toMatchObject({
+      entities: [{ state: "12,5 W" }],
+    });
+    expect(hass.formatEntityState).toHaveBeenCalledExactlyOnceWith(state);
+  });
+
   it("has matching English and French message keys", () => {
     expect(Object.keys(fr)).toEqual(Object.keys(en));
     for (const key of ["alarm", "vacuum", "weather"] as const)
@@ -464,10 +485,15 @@ describe("dashboard configuration", () => {
       vacuum: { action: { entityId: "vacuum.b", service: "return_to_base" } },
     });
     expect(result.cards[1]).toMatchObject({
-      alarm: { tone: "red", action: { entityId: "alarm_control_panel.b" } },
+      alarm: {
+        title: fr.alarm.triggered,
+        action: { entityId: "alarm_control_panel.b" },
+      },
     });
     expect(result.cards[2]).toMatchObject({ rooms: [] });
-    expect(buildHomeView(hass, { rooms: null, home_cards: [] }, now)).toEqual({
+    expect(
+      buildHomeView(hass, { rooms: null, home_cards: [] }, now),
+    ).toMatchObject({
       cards: [],
     });
   });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   ChevronRight,
   House,
@@ -14,6 +14,16 @@ import {
   type CorePreferences,
 } from "../preferences";
 import type { HassLike, PanelInfo } from "../types";
+import { ItemSection } from "./item-section";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemMedia,
+  ItemSeparator,
+  ItemTitle,
+} from "./ui/item";
+import { Skeleton } from "./ui/skeleton";
 import { Switch } from "./ui/switch";
 
 type PreferenceState =
@@ -64,100 +74,143 @@ export function More({
       );
     }
   }
+  const dashboards = Object.values(hass.panels).filter(
+    (entry) => entry.component_name === "lovelace",
+  );
   return (
     <>
-      <header className="greeting">
-        <h1>{t.more}</h1>
+      <header>
+        <h1 className="text-xl font-semibold tracking-tight">{t.more}</h1>
       </header>
-      <section aria-labelledby="dashboards-heading">
-        <div className="section-heading">
-          <h2 id="dashboards-heading">{t.dashboards}</h2>
-        </div>
-        <div className="link-list">
-          {Object.values(hass.panels)
-            .filter((entry) => entry.component_name === "lovelace")
-            .map((entry) => (
-              <a
-                key={entry.url_path}
-                href={`/${entry.url_path}`}
-                onClick={(event) => {
-                  if (
-                    event.button ||
-                    event.metaKey ||
-                    event.ctrlKey ||
-                    event.shiftKey ||
-                    event.altKey
-                  )
-                    return;
-                  event.preventDefault();
-                  navigate(`/${entry.url_path}`);
-                }}
-                className="link-row"
-              >
-                <LayoutDashboard size={18} />
-                <span>{entry.title ?? t.overview}</span>
-                <ChevronRight size={16} />
-              </a>
-            ))}
-        </div>
-      </section>
-      <section aria-labelledby="preferences-heading">
-        <div className="section-heading">
-          <h2 id="preferences-heading">{t.preferences}</h2>
-        </div>
-        <div className="link-list">
-          {hass.user.is_admin && (
-            <a
-              className="link-row"
-              href="/config"
-              onClick={(event) => {
-                if (
-                  event.button ||
-                  event.metaKey ||
-                  event.ctrlKey ||
-                  event.shiftKey ||
-                  event.altKey
-                )
-                  return;
-                event.preventDefault();
-                navigate("/config");
-              }}
+      {dashboards.length > 0 && (
+        <ItemSection title={t.dashboards}>
+          {dashboards.map((entry, index) => (
+            <Fragment key={entry.url_path}>
+              {index > 0 && <ItemSeparator />}
+              <div role="listitem">
+                <Item size="sm" asChild>
+                  <a
+                    href={`/${entry.url_path}`}
+                    onClick={(event) => {
+                      if (
+                        event.button ||
+                        event.metaKey ||
+                        event.ctrlKey ||
+                        event.shiftKey ||
+                        event.altKey
+                      )
+                        return;
+                      event.preventDefault();
+                      navigate(`/${entry.url_path}`);
+                    }}
+                  >
+                    <ItemMedia className="text-muted-foreground">
+                      <LayoutDashboard className="size-4" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{entry.title ?? t.overview}</ItemTitle>
+                    </ItemContent>
+                    <ItemActions className="text-muted-foreground">
+                      <ChevronRight className="size-4" />
+                    </ItemActions>
+                  </a>
+                </Item>
+              </div>
+            </Fragment>
+          ))}
+        </ItemSection>
+      )}
+      <ItemSection title={t.preferences}>
+        {hass.user.is_admin && (
+          <>
+            <div role="listitem">
+              <Item size="sm" asChild>
+                <a
+                  href="/config"
+                  onClick={(event) => {
+                    if (
+                      event.button ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    )
+                      return;
+                    event.preventDefault();
+                    navigate("/config");
+                  }}
+                >
+                  <ItemMedia className="text-muted-foreground">
+                    <Settings className="size-4" />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{t.settings}</ItemTitle>
+                  </ItemContent>
+                  <ItemActions className="text-muted-foreground">
+                    <ChevronRight className="size-4" />
+                  </ItemActions>
+                </a>
+              </Item>
+            </div>
+            <ItemSeparator />
+          </>
+        )}
+        <div role="listitem">
+          <Item size="sm" asChild>
+            <button
+              type="button"
+              className="w-full text-left hover:bg-accent/50"
+              onClick={toggleMenu}
             >
-              <Settings size={18} />
-              <span>{t.settings}</span>
-              <ChevronRight size={16} />
-            </a>
-          )}
-          <button className="link-row" onClick={toggleMenu}>
-            <Menu size={18} />
-            <span>{t.haMenu}</span>
-            <ChevronRight size={16} />
-          </button>
-          <div className="link-row">
-            <House size={18} />
-            <label htmlFor="default-panel">{t.defaultPanel}</label>
-            <Switch
-              id="default-panel"
-              checked={
-                "value" in preference &&
-                preference.value.default_panel === panel.url_path
-              }
-              disabled={preference.status !== "ready"}
-              onCheckedChange={changeDefault}
-            />
-          </div>
+              <ItemMedia className="text-muted-foreground">
+                <Menu className="size-4" />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle>{t.haMenu}</ItemTitle>
+              </ItemContent>
+              <ItemActions className="text-muted-foreground">
+                <ChevronRight className="size-4" />
+              </ItemActions>
+            </button>
+          </Item>
         </div>
-        {preference.status === "error" && (
-          <p className="error" role="alert">
-            {t.preferenceError}
-          </p>
-        )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-      </section>
+        <ItemSeparator />
+        <Item role="listitem" size="sm" asChild>
+          <label htmlFor="default-panel" className="cursor-pointer">
+            <ItemMedia className="text-muted-foreground">
+              <House className="size-4" />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>{t.defaultPanel}</ItemTitle>
+            </ItemContent>
+            <ItemActions className="switch-target">
+              {preference.status === "loading" ? (
+                <Skeleton className="h-5 w-8 rounded-full" />
+              ) : (
+                <Switch
+                  id="default-panel"
+                  checked={
+                    "value" in preference &&
+                    preference.value.default_panel === panel.url_path
+                  }
+                  disabled={preference.status !== "ready"}
+                  onCheckedChange={changeDefault}
+                />
+              )}
+            </ItemActions>
+          </label>
+        </Item>
+      </ItemSection>
+      {preference.status === "error" && (
+        <p className="error" role="alert">
+          {t.preferenceError}
+        </p>
+      )}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
     </>
   );
 }

@@ -112,20 +112,28 @@ export function buildHomeView(
   const moisture = binarySensors.filter(
     (entity) => entity.attributes.device_class === "moisture",
   );
-  const alarmSubtitle = [
-    openings.length
-      ? openCount
-        ? t.openingsOpen(openCount)
-        : t.openingsClosed(openings.length)
-      : null,
-    moisture.length
-      ? moisture.some((entity) => entity.state === "on")
-        ? t.leak
-        : t.noLeak
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const safety = [
+    ...(openings.length
+      ? [
+          {
+            text: openCount
+              ? t.openingsOpen(openCount)
+              : t.openingsClosed(openings.length),
+            alert: openCount > 0,
+          },
+        ]
+      : []),
+    ...(moisture.length
+      ? [
+          {
+            text: moisture.some((entity) => entity.state === "on")
+              ? t.leak
+              : t.noLeak,
+            alert: moisture.some((entity) => entity.state === "on"),
+          },
+        ]
+      : []),
+  ];
   const powerByDevice = new Map<string, number>();
   let hasPlugPower = false;
   for (const entity of plugPowerEntities(hass)) {
@@ -149,12 +157,7 @@ export function buildHomeView(
     return alarm
       ? {
           title: translatedState(t.alarm, alarm.state),
-          subtitle: alarmSubtitle,
-          tone: ["pending", "triggered"].includes(alarm.state)
-            ? "red"
-            : alarm.state === "disarmed"
-              ? "green"
-              : "amber",
+          safety,
           action:
             alarm.attributes.code_format != null ||
             ![
@@ -181,8 +184,7 @@ export function buildHomeView(
         }
       : {
           title: t.alarm.unavailable,
-          subtitle: "",
-          tone: "amber",
+          safety,
           action: null,
         };
   };
@@ -227,10 +229,7 @@ export function buildHomeView(
         }
       : { name: entityId, state: t.unavailable, battery: null, action: null };
   };
-  const hour = now.getHours();
-  const firstName = hass.user.name.trim().split(/\s+/)[0];
   const data = {
-    greeting: `${hour >= 18 ? t.evening : hour >= 12 ? t.afternoon : t.morning}${firstName ? ` ${firstName}` : ""}`,
     date: new Intl.DateTimeFormat(language, {
       weekday: "long",
       day: "numeric",
@@ -243,6 +242,7 @@ export function buildHomeView(
           1,
         )
       : null,
+    indoorSensorCount: temperatures.length,
     weather: weather
       ? {
           temperature: outdoor == null ? null : number(outdoor, 1),
@@ -286,8 +286,7 @@ export function buildHomeView(
         return {
           id: card.id,
           type: card.type,
-          greeting: data.greeting,
-          date: data.date,
+          indoorSensorCount: data.indoorSensorCount,
           indoorTemperature: data.indoorTemperature,
           weather: data.weather,
         };
@@ -337,7 +336,8 @@ export function buildHomeView(
               id,
               name,
               state: entity
-                ? `${entity.state}${entity.attributes.unit_of_measurement ? ` ${entity.attributes.unit_of_measurement}` : ""}`
+                ? (hass.formatEntityState?.(entity) ??
+                  `${entity.state}${entity.attributes.unit_of_measurement ? ` ${entity.attributes.unit_of_measurement}` : ""}`)
                 : t.unavailable,
               on: entity?.state === "on",
               available:
@@ -355,7 +355,7 @@ export function buildHomeView(
         };
     }
   });
-  return { cards };
+  return { date: data.date, cards };
 }
 
 function plugPowerEntities(hass: HassLike): HassEntity[] {

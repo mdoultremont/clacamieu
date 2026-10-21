@@ -40,6 +40,8 @@ export interface HassLike {
   panels: Record<string, PanelEntry>;
   user: { id: string; name: string; is_admin: boolean };
   language: string;
+  themes?: { darkMode?: boolean };
+  formatEntityState?: (state: HassEntity) => string;
   callService(
     domain: string,
     service: string,
@@ -81,9 +83,9 @@ export interface ServiceAction {
 }
 
 export interface HomeData {
-  greeting: string;
   date: string;
   indoorTemperature: string | null;
+  indoorSensorCount: number;
   weather: { temperature: string | null; condition: string } | null;
   people: { id: string; name: string; home: boolean; currentUser: boolean }[];
   rooms: {
@@ -97,8 +99,7 @@ export interface HomeData {
   lightsOn: number;
   alarm: {
     title: string;
-    subtitle: string;
-    tone: "green" | "amber" | "red";
+    safety: { text: string; alert: boolean }[];
     action: ServiceAction | null;
   } | null;
   vacuum: {
@@ -113,7 +114,7 @@ export interface HomeData {
 export type HomeCardView = { id: string } & (
   | ({ type: "summary" } & Pick<
       HomeData,
-      "greeting" | "date" | "indoorTemperature" | "weather"
+      "indoorTemperature" | "indoorSensorCount" | "weather"
     >)
   | ({ type: "presence" } & Pick<HomeData, "people">)
   | ({ type: "rooms" } & Pick<HomeData, "rooms" | "lightsOn">)
@@ -135,5 +136,6 @@ export type HomeCardView = { id: string } & (
 );
 
 export interface HomeView {
+  date: string;
   cards: HomeCardView[];
 }
