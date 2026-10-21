@@ -17,9 +17,11 @@ from .const import (
     CONF_GROUPS,
     CONF_PRICE_ENTITY_ID,
     CONF_SOURCE_ENTITY_IDS,
+    CONFIGURATION_TYPE_DASHBOARD,
     CONFIGURATION_TYPE_LIGHT_GROUP_PLUS,
     DOMAIN,
 )
+from .dashboard.panel import PANEL_TITLE
 from .energy.configuration import (
     CONF_ENTITY_ID,
     CONF_INDIVIDUAL_SOURCES,
@@ -150,6 +152,13 @@ class ClacamieuConfigFlow(_MeterFlowMixin, config_entries.ConfigFlow, domain=DOM
     ) -> config_entries.ConfigFlowResult:
         """Select the feature to configure."""
         if user_input is not None:
+            if user_input[CONF_CONFIGURATION_TYPE] == CONFIGURATION_TYPE_DASHBOARD:
+                await self.async_set_unique_id(CONFIGURATION_TYPE_DASHBOARD)
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=PANEL_TITLE,
+                    data={CONF_CONFIGURATION_TYPE: CONFIGURATION_TYPE_DASHBOARD},
+                )
             await self.async_set_unique_id(uuid4().hex)
             if (
                 user_input[CONF_CONFIGURATION_TYPE]
@@ -174,6 +183,7 @@ class ClacamieuConfigFlow(_MeterFlowMixin, config_entries.ConfigFlow, domain=DOM
                             options=[
                                 *[item.value for item in ConfigurationType],
                                 CONFIGURATION_TYPE_LIGHT_GROUP_PLUS,
+                                CONFIGURATION_TYPE_DASHBOARD,
                             ],
                             translation_key="configuration_type",
                         )
@@ -215,6 +225,15 @@ class ClacamieuConfigFlow(_MeterFlowMixin, config_entries.ConfigFlow, domain=DOM
         else:
             title = "Clacamieu"
         return self.async_create_entry(title=title, data=configuration)
+
+    @classmethod
+    @callback
+    def async_supports_options_flow(cls, config_entry: ConfigEntry) -> bool:
+        """Offer options for meters and Light Group+ only."""
+        return (
+            config_entry.data.get(CONF_CONFIGURATION_TYPE)
+            != CONFIGURATION_TYPE_DASHBOARD
+        )
 
     @staticmethod
     @callback

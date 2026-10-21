@@ -3,7 +3,7 @@
   "name": "Clacamieu",
   "codeowners": ["@mdoultremont"],
   "config_flow": true,
-  "dependencies": ["recorder"],
+  "dependencies": ["http", "panel_custom", "recorder"],
   "documentation": "https://github.com/mdoultremont/clacamieu",
   "integration_type": "helper",
   "iot_class": "calculated",

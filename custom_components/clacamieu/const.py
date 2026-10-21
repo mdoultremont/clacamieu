@@ -17,6 +17,7 @@ CONF_GROUP_ENTITY_IDS = "entity_ids"
 CONF_PRICE_ENTITY_ID = "price_entity_id"
 
 CONFIGURATION_TYPE_LIGHT_GROUP_PLUS = "light_group_plus"
+CONFIGURATION_TYPE_DASHBOARD = "dashboard"
 CONF_NAME = "name"
 CONF_MEMBER_ENTITY_IDS = "member_entity_ids"
 CONF_SCENE_ENTITY_IDS = "scene_entity_ids"

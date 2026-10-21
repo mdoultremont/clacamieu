@@ -90,7 +90,8 @@
       "missing_entity": "One or more selected lights or scenes are unavailable.",
       "duplicate_scene_name": "Every selected scene must have a unique visible name.",
       "required": "This field is required."
-    }
+    },
+    "abort": {"already_configured": "The Maison dashboard is already set up."}
   },
   "options": {
     "step": {
@@ -188,7 +189,8 @@
         "water_flow": "Water · instantaneous flow",
         "gas_volume": "Gas · cumulative volume",
         "gas_flow": "Gas · instantaneous flow",
-        "light_group_plus": "Light Group+"
+        "light_group_plus": "Light Group+",
+        "dashboard": "Maison dashboard"
       }
     }
   },

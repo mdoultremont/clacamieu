@@ -10,10 +10,12 @@ from .const import (
     CONF_GROUPS,
     CONF_PRICE_ENTITY_ID,
     CONF_SOURCE_ENTITY_IDS,
+    CONFIGURATION_TYPE_DASHBOARD,
     CONFIGURATION_TYPE_LIGHT_GROUP_PLUS,
     LIGHT_GROUP_PLUS_PLATFORMS,
     METER_PLATFORMS,
 )
+from .dashboard import async_setup_dashboard_entry, async_unload_dashboard_entry
 from .energy.models import ConfigurationType, MeterGroup
 from .energy.runtime import ClacamieuRuntimeData
 from .lights.models import LightGroupPlusConfig
@@ -26,6 +28,8 @@ if TYPE_CHECKING:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Clacamieu from a config entry."""
     config = {**entry.data, **entry.options}
+    if config.get(CONF_CONFIGURATION_TYPE) == CONFIGURATION_TYPE_DASHBOARD:
+        return await async_setup_dashboard_entry(hass, entry)
     if config.get(CONF_CONFIGURATION_TYPE) == CONFIGURATION_TYPE_LIGHT_GROUP_PLUS:
         entry.runtime_data = LightGroupPlusConfig.from_dict(config)
         await hass.config_entries.async_forward_entry_setups(
@@ -54,6 +58,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.runtime_data is None:
         return True
     config = {**entry.data, **entry.options}
+    if config.get(CONF_CONFIGURATION_TYPE) == CONFIGURATION_TYPE_DASHBOARD:
+        async_unload_dashboard_entry(hass)
+        return True
     platforms = (
         LIGHT_GROUP_PLUS_PLATFORMS
         if config.get(CONF_CONFIGURATION_TYPE) == CONFIGURATION_TYPE_LIGHT_GROUP_PLUS
