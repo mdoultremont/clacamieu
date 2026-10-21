@@ -24,7 +24,8 @@
   --ring: #a1a1aa;
   --radius: 0.625rem;
   display: block;
-  height: 100%;
+  /* Home Assistant wraps the panel in an inline element without a height. */
+  height: 100dvh;
   min-height: 0;
   color-scheme: dark;
   background: var(--background);
