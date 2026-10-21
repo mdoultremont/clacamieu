@@ -382,9 +382,11 @@ p {
   color: #71717a;
   opacity: 0.65;
 }
-.nav-inner button:not(:disabled):hover,
-.link-row:hover {
-  background: var(--accent);
+@media (hover: hover) {
+  .nav-inner button:not(:disabled):hover,
+  .link-row:hover {
+    background: var(--accent);
+  }
 }
 .nav-inner button:focus-visible,
 .link-row:focus-visible {
