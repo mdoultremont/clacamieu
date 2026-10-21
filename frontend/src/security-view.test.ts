@@ -175,6 +175,30 @@ describe("security view", () => {
     delete hass.states["alarm_control_panel.example"];
     expect(buildSecurityView(hass, config, now).alarm).toBeNull();
   });
+  it("shows one camera per device and leaves out vacuum maps", () => {
+    const hass = securityFixture();
+    const add = (id: string, state: string, device: string) => {
+      hass.states[id] = {
+        ...hass.states["camera.entry"],
+        entity_id: id,
+        state,
+        attributes: { friendly_name: id, entity_picture: `/${id}` },
+      };
+      hass.entities[id] = { entity_id: id, device_id: device };
+    };
+    add("camera.porch_snapshots", "unavailable", "porch");
+    add("camera.porch_fluent", "idle", "porch");
+    add("camera.porch_clear", "idle", "porch");
+    add("camera.robot_map", "idle", "robot");
+    add("vacuum.robot", "docked", "robot");
+    const ids = buildSecurityView(hass, config, now).cameras.map(
+      (camera) => camera.id,
+    );
+    expect(ids.filter((id) => id.startsWith("camera.porch"))).toEqual([
+      "camera.porch_fluent",
+    ]);
+    expect(ids).not.toContain("camera.robot_map");
+  });
   it("filters cameras and gives unavailable cameras a placeholder", () => {
     const view = buildSecurityView(securityFixture(), config, now);
     expect(view.cameras).toEqual([

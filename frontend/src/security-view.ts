@@ -60,6 +60,13 @@ export function buildSecurityView(
     return !entry?.hidden && !entry?.entity_category;
   });
   const configured = config.home_cards?.find((card) => card.type === "alarm");
+  const vacuumDevices = new Set(
+    states.flatMap((entity) => {
+      const device = hass.entities[entity.entity_id]?.device_id;
+      return entity.entity_id.startsWith("vacuum.") && device ? [device] : [];
+    }),
+  );
+  const cameraDevices = new Set<string>();
   const alarm =
     configured?.type === "alarm"
       ? hass.states[configured.entity_id]
@@ -173,6 +180,19 @@ export function buildSecurityView(
       : null,
     cameras: visible
       .filter((entity) => entity.entity_id.startsWith("camera."))
+      .sort(
+        (a, b) =>
+          Number(["unavailable", "unknown"].includes(a.state)) -
+          Number(["unavailable", "unknown"].includes(b.state)),
+      )
+      // A device exposes one camera entity per stream, and a vacuum exposes its map as one.
+      .filter((entity) => {
+        const device = hass.entities[entity.entity_id]?.device_id;
+        if (!device) return true;
+        if (vacuumDevices.has(device) || cameraDevices.has(device)) return false;
+        cameraDevices.add(device);
+        return true;
+      })
       .map((entity) => ({
         id: entity.entity_id,
         name: name(entity),
