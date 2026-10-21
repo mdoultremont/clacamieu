@@ -21,7 +21,7 @@ const initial: DashboardConfig = {
   ],
   rooms: [{ area_id: "example" }],
 };
-async function mount(admin = true) {
+async function mount(admin = true, readFails = false) {
   let config = structuredClone(initial);
   let reject = false;
   const hass: HassLike = {
@@ -36,8 +36,10 @@ async function mount(admin = true) {
     language: "en",
     callService: vi.fn(),
     callWS: vi.fn().mockImplementation(async (message) => {
-      if (message.type === "clacamieu/dashboard/config")
+      if (message.type === "clacamieu/dashboard/config") {
+        if (readFails) throw new Error("Dashboard not set up");
         return structuredClone(config);
+      }
       if (message.type === "clacamieu/dashboard/config/update") {
         if (reject) throw new Error("failed");
         config = { home_cards: message.home_cards, rooms: message.rooms };
@@ -76,6 +78,13 @@ async function mount(admin = true) {
 describe("configuration flow", () => {
   it("hides both configuration entry points from non-admins", async () => {
     const { shadow, click } = await mount(false);
+    expect(shadow.textContent).not.toContain("Edit");
+    await click("More");
+    expect(shadow.textContent).not.toContain("Configure Maison");
+  });
+  it("offers no editing when the stored settings could not be read", async () => {
+    const { shadow, click } = await mount(true, true);
+    expect(shadow.textContent).toContain("Indoors");
     expect(shadow.textContent).not.toContain("Edit");
     await click("More");
     expect(shadow.textContent).not.toContain("Configure Maison");

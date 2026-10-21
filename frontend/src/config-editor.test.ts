@@ -5,6 +5,7 @@ import {
   defaultCard,
   editorLists,
   moveItem,
+  newCardId,
 } from "./config-editor";
 import type { DashboardConfig, HassLike, HomeCard } from "./types";
 
@@ -35,6 +36,21 @@ const config: DashboardConfig = {
   home_cards: cards,
   rooms: [{ area_id: "b", temperature_entity_id: "sensor.override" }],
 };
+
+describe("card ids", () => {
+  it("are unique without randomUUID, as on a plain HTTP origin", () => {
+    vi.stubGlobal("crypto", {
+      getRandomValues: globalThis.crypto.getRandomValues.bind(globalThis.crypto),
+    });
+    try {
+      const ids = new Set(Array.from({ length: 50 }, () => newCardId()));
+      expect(ids.size).toBe(50);
+      for (const id of ids) expect(id).toMatch(/^[0-9a-f]{32}$/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
 
 describe("configuration draft", () => {
   it("materializes automatic cards and rooms in registry order", () => {

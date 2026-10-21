@@ -12,6 +12,7 @@ import {
   createConfigEditor,
   defaultCard,
   editorLists,
+  newCardId,
   type ConfigEditorAction,
 } from "../config-editor";
 import { numeric } from "../home-view";
@@ -153,7 +154,7 @@ export function Configuration({
     }
   }
   function add(type: HomeCard["type"]) {
-    const card = defaultCard(type, crypto.randomUUID(), hass, t.entitiesLabel);
+    const card = defaultCard(type, newCardId(), hass, t.entitiesLabel);
     if (card) {
       dispatch({ type: "add-card", card });
       setSelection({ type: "card", id: card.id });

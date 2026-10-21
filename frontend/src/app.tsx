@@ -48,10 +48,8 @@ export function App({
         }
       })
       .catch(() => {
-        if (current) {
-          setConfig({ home_cards: null, rooms: null });
-          setConfigLoaded(true);
-        }
+        // Editing without the stored settings would overwrite them on save.
+        if (current) setConfig({ home_cards: null, rooms: null });
       });
     return () => {
       current = false;

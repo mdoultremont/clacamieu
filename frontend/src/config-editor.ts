@@ -138,6 +138,14 @@ export function configEditorReducer(
   return { ...state, config: { home_cards: cards, rooms } };
 }
 
+export function newCardId(): string {
+  // Home Assistant is often served over plain HTTP on the LAN, where randomUUID does not exist.
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
 export function defaultCard(
   type: HomeCard["type"],
   id: string,
