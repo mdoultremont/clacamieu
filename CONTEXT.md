@@ -22,4 +22,5 @@ Avoid: Device Enhancer
 
 **Maison**
 The household dashboard that Clacamieu adds to the Home Assistant sidebar as a custom panel. Its name stays Maison in every language.
+Its Accueil screen contains ordered cards and rooms. Each room represents a Home Assistant area and can override its climate sensors.
 Avoid: Home, Lovelace dashboard

@@ -8,17 +8,90 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import config_validation as cv
 
 from custom_components.clacamieu.const import DOMAIN
 
-from .models import CONF_ROOM_AREA_IDS, DashboardConfig
+from .models import CONF_HOME_CARDS, CONF_ROOMS, DashboardConfig
 from .runtime import DashboardRuntime
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from homeassistant.components.websocket_api import ActiveConnection
 
 COMMAND_GET_CONFIG = f"{DOMAIN}/dashboard/config"
 COMMAND_UPDATE_CONFIG = f"{DOMAIN}/dashboard/config/update"
+
+
+MAX_CARDS = 100
+MAX_ROOMS = 500
+MAX_ENTITIES = 500
+
+
+def _unique(key: str) -> Callable[[list[dict[str, Any]]], list[dict[str, Any]]]:
+    def validate(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        values = [item[key] for item in items]
+        if len(set(values)) != len(values):
+            raise vol.Invalid(f"Duplicate {key}")
+        return items
+
+    return validate
+
+
+def _domain_entity(domain: str) -> Callable[[str], str]:
+    def validate(value: str) -> str:
+        entity_id = cv.entity_id(value)
+        if entity_id.split(".", 1)[0] != domain:
+            raise vol.Invalid(f"Expected {domain} entity")
+        return entity_id
+
+    return validate
+
+
+CARD_SCHEMA = vol.Any(
+    *[
+        vol.Schema(
+            {
+                vol.Required("id"): vol.All(str, vol.Length(min=1)),
+                vol.Required("type"): card_type,
+            }
+        )
+        for card_type in ("summary", "presence", "rooms", "power")
+    ],
+    *[
+        vol.Schema(
+            {
+                vol.Required("id"): vol.All(str, vol.Length(min=1)),
+                vol.Required("type"): card_type,
+                vol.Required("entity_id"): _domain_entity(domain),
+            }
+        )
+        for card_type, domain in (
+            ("alarm", "alarm_control_panel"),
+            ("vacuum", "vacuum"),
+        )
+    ],
+    vol.Schema(
+        {
+            vol.Required("id"): vol.All(str, vol.Length(min=1)),
+            vol.Required("type"): "entities",
+            vol.Required("title"): str,
+            vol.Required("entity_ids"): vol.All(
+                [cv.entity_id], vol.Length(max=MAX_ENTITIES)
+            ),
+        }
+    ),
+)
+ROOM_SCHEMA = vol.Schema(
+    {
+        vol.Required("area_id"): vol.All(str, vol.Length(min=1)),
+        **{
+            vol.Optional(key): vol.Any(None, cv.entity_id)
+            for key in ("temperature_entity_id", "humidity_entity_id", "co2_entity_id")
+        },
+    }
+)
 
 
 @callback
@@ -45,7 +118,12 @@ def ws_get_config(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): COMMAND_UPDATE_CONFIG,
-        vol.Required(CONF_ROOM_AREA_IDS): [str],
+        vol.Required(CONF_HOME_CARDS): vol.Any(
+            None, vol.All([CARD_SCHEMA], vol.Length(max=MAX_CARDS), _unique("id"))
+        ),
+        vol.Required(CONF_ROOMS): vol.Any(
+            None, vol.All([ROOM_SCHEMA], vol.Length(max=MAX_ROOMS), _unique("area_id"))
+        ),
     }
 )
 @websocket_api.require_admin
@@ -61,9 +139,9 @@ async def ws_update_config(
         return
     areas = ar.async_get(hass)
     if unknown := [
-        area_id
-        for area_id in msg[CONF_ROOM_AREA_IDS]
-        if areas.async_get_area(area_id) is None
+        room["area_id"]
+        for room in msg[CONF_ROOMS] or []
+        if areas.async_get_area(room["area_id"]) is None
     ]:
         connection.send_error(
             msg["id"],

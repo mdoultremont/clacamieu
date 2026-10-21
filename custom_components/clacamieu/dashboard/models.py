@@ -2,29 +2,29 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-CONF_ROOM_AREA_IDS = "room_area_ids"
+CONF_HOME_CARDS = "home_cards"
+CONF_ROOMS = "rooms"
 
 
 @dataclass(frozen=True, slots=True)
 class DashboardConfig:
-    """User settings of the Maison dashboard.
+    """Validated settings, with null lists selecting automatic configuration."""
 
-    An empty room list shows every area, in area registry order.
-    """
-
-    room_area_ids: tuple[str, ...] = ()
+    home_cards: list[dict[str, Any]] | None = None
+    rooms: list[dict[str, Any]] | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DashboardConfig:
-        """Create settings from stored or WebSocket data."""
-        return cls(tuple(data.get(CONF_ROOM_AREA_IDS, ())))
+        """Create settings from migrated storage or validated WebSocket data."""
+        return cls(deepcopy(data.get(CONF_HOME_CARDS)), deepcopy(data.get(CONF_ROOMS)))
 
     def as_dict(self) -> dict[str, Any]:
-        """Return the stored and WebSocket representation."""
-        return {CONF_ROOM_AREA_IDS: list(self.room_area_ids)}
+        """Return an independent stored and WebSocket representation."""
+        return deepcopy({CONF_HOME_CARDS: self.home_cards, CONF_ROOMS: self.rooms})

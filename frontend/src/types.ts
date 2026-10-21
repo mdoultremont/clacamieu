@@ -49,8 +49,21 @@ export interface HassLike {
   callWS<T>(message: { type: string } & Record<string, unknown>): Promise<T>;
 }
 
+export type HomeCard =
+  | { id: string; type: "summary" | "presence" | "rooms" | "power" }
+  | { id: string; type: "alarm" | "vacuum"; entity_id: string }
+  | { id: string; type: "entities"; title: string; entity_ids: string[] };
+
+export interface RoomConfig {
+  area_id: string;
+  temperature_entity_id?: string | null;
+  humidity_entity_id?: string | null;
+  co2_entity_id?: string | null;
+}
+
 export interface DashboardConfig {
-  room_area_ids: string[];
+  home_cards: HomeCard[] | null;
+  rooms: RoomConfig[] | null;
 }
 
 export interface PanelInfo {
@@ -60,13 +73,14 @@ export interface PanelInfo {
 }
 
 export interface ServiceAction {
-  domain: "alarm_control_panel" | "vacuum";
-  service: "alarm_arm_away" | "alarm_disarm" | "start" | "return_to_base";
+  domain: "alarm_control_panel" | "vacuum" | "homeassistant";
+  service:
+    "alarm_arm_away" | "alarm_disarm" | "start" | "return_to_base" | "toggle";
   entityId: string;
   label: string;
 }
 
-export interface HomeView {
+export interface HomeData {
   greeting: string;
   date: string;
   indoorTemperature: string | null;
@@ -94,4 +108,32 @@ export interface HomeView {
     action: ServiceAction | null;
   } | null;
   plugPower: { total: string; topConsumer: string } | null;
+}
+
+export type HomeCardView = { id: string } & (
+  | ({ type: "summary" } & Pick<
+      HomeData,
+      "greeting" | "date" | "indoorTemperature" | "weather"
+    >)
+  | ({ type: "presence" } & Pick<HomeData, "people">)
+  | ({ type: "rooms" } & Pick<HomeData, "rooms" | "lightsOn">)
+  | { type: "alarm"; alarm: NonNullable<HomeData["alarm"]> }
+  | { type: "vacuum"; vacuum: NonNullable<HomeData["vacuum"]> }
+  | { type: "power"; plugPower: NonNullable<HomeData["plugPower"]> }
+  | {
+      type: "entities";
+      title: string;
+      entities: {
+        id: string;
+        name: string;
+        state: string;
+        on: boolean;
+        available: boolean;
+        action: ServiceAction | null;
+      }[];
+    }
+);
+
+export interface HomeView {
+  cards: HomeCardView[];
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  developmentDashboardCalls,
   decodeEntities,
   DevelopmentWriteBlocked,
   readOnlyCalls,
@@ -79,4 +80,40 @@ describe("development transport", () => {
       },
     });
   });
+});
+
+it("keeps dashboard reads and updates in memory without forwarding them", async () => {
+  const send = vi.fn().mockResolvedValue({ value: true });
+  const calls = developmentDashboardCalls(readOnlyCalls(send), {
+    home_cards: [{ id: "s", type: "summary" }],
+    rooms: null,
+  });
+  expect(await calls.callWS({ type: "clacamieu/dashboard/config" })).toEqual({
+    home_cards: [{ id: "s", type: "summary" }],
+    rooms: null,
+  });
+  const update = {
+    type: "clacamieu/dashboard/config/update",
+    home_cards: [],
+    rooms: [{ area_id: "room_a" }],
+  };
+  const result = await calls.callWS<{ rooms: { area_id: string }[] }>(update);
+  result.rooms[0].area_id = "mutated";
+  update.rooms[0].area_id = "also_mutated";
+  expect(await calls.callWS({ type: "clacamieu/dashboard/config" })).toEqual({
+    home_cards: [],
+    rooms: [{ area_id: "room_a" }],
+  });
+  expect(send).not.toHaveBeenCalled();
+  await calls.callWS({ type: "get_config" });
+  expect(send).toHaveBeenCalledExactlyOnceWith({ type: "get_config" });
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  await expect(
+    calls.callWS({ type: "frontend/set_user_data" }),
+  ).rejects.toBeInstanceOf(DevelopmentWriteBlocked);
+  await expect(
+    calls.callService("homeassistant", "toggle"),
+  ).rejects.toBeInstanceOf(DevelopmentWriteBlocked);
+  expect(send).toHaveBeenCalledTimes(1);
+  warn.mockRestore();
 });

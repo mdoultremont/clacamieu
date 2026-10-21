@@ -9,8 +9,10 @@ import {
   Wind,
   Zap,
 } from "lucide-react";
+import { Fragment } from "react";
+import { Switch } from "./ui/switch";
 import { messages } from "../i18n";
-import type { HomeView, ServiceAction } from "../types";
+import type { HomeView, HomeCardView, ServiceAction } from "../types";
 import { Button } from "./ui/button";
 
 export function Home({
@@ -24,47 +26,85 @@ export function Home({
   onAction: (action: ServiceAction) => void;
   busy: boolean;
 }) {
-  const t = messages(language);
   return (
     <>
-      <header className="greeting">
-        <p className="eyebrow">{view.date}</p>
-        <h1>{view.greeting}</h1>
-      </header>
-      <section className="hero" aria-label={t.inside}>
-        {view.indoorTemperature !== null && (
-          <div className="big-number">
-            {view.indoorTemperature}
-            <span>°</span>
-          </div>
-        )}
-        <div className="hero-label">
-          <p>{t.inside}</p>
-          {view.weather && (
-            <p className="weather">
-              <CloudSun size={13} />
-              {t.outside}{" "}
-              {view.weather.temperature !== null &&
-                `${view.weather.temperature}° · `}
-              {view.weather.condition}
-            </p>
+      {view.cards.map((card) => (
+        <HomeCard
+          key={card.id}
+          view={card}
+          language={language}
+          onAction={onAction}
+          busy={busy}
+        />
+      ))}
+    </>
+  );
+}
+
+function HomeCard({
+  view,
+  language,
+  onAction,
+  busy,
+}: {
+  view: HomeCardView;
+  language: string;
+  onAction: (action: ServiceAction) => void;
+  busy: boolean;
+}) {
+  const t = messages(language);
+  switch (view.type) {
+    case "summary":
+      return (
+        <>
+          <header className="greeting">
+            <p className="eyebrow">{view.date}</p>
+            <h1>{view.greeting}</h1>
+          </header>
+          <section className="hero" aria-label={t.inside}>
+            {view.indoorTemperature !== null && (
+              <div className="big-number">
+                {view.indoorTemperature}
+                <span>°</span>
+              </div>
+            )}
+            <div className="hero-label">
+              <p>{t.inside}</p>
+              {view.weather && (
+                <p className="weather">
+                  <CloudSun size={13} />
+                  {t.outside}{" "}
+                  {view.weather.temperature !== null &&
+                    `${view.weather.temperature}° · `}
+                  {view.weather.condition}
+                </p>
+              )}
+            </div>
+          </section>
+        </>
+      );
+    case "presence":
+      return (
+        <Fragment>
+          {view.people.length > 0 && (
+            <div className="people">
+              {view.people.map((person) => (
+                <span
+                  key={person.id}
+                  className={`person ${person.currentUser ? "current" : ""}`}
+                >
+                  <span
+                    className={`presence ${person.home ? "at-home" : ""}`}
+                  />
+                  {person.name}
+                </span>
+              ))}
+            </div>
           )}
-        </div>
-      </section>
-      {view.people.length > 0 && (
-        <div className="people">
-          {view.people.map((person) => (
-            <span
-              key={person.id}
-              className={`person ${person.currentUser ? "current" : ""}`}
-            >
-              <span className={`presence ${person.home ? "at-home" : ""}`} />
-              {person.name}
-            </span>
-          ))}
-        </div>
-      )}
-      {view.alarm && (
+        </Fragment>
+      );
+    case "alarm":
+      return (
         <section className="status-card" aria-label={view.alarm.title}>
           <div className={`status-icon ${view.alarm.tone}`}>
             <ShieldCheck size={18} />
@@ -82,8 +122,9 @@ export function Home({
             </Button>
           )}
         </section>
-      )}
-      {view.vacuum && (
+      );
+    case "vacuum":
+      return (
         <section className="status-card" aria-label={view.vacuum.name}>
           <div className="status-icon sky">
             <Bot size={18} />
@@ -107,50 +148,54 @@ export function Home({
             </Button>
           )}
         </section>
-      )}
-      <section className="rooms-section" aria-labelledby="rooms-heading">
-        <div className="section-heading">
-          <h2 id="rooms-heading">{t.rooms}</h2>
-          <span>{t.lightsOn(view.lightsOn)}</span>
-        </div>
-        <div className="room-grid">
-          {view.rooms.map((room) => (
-            <article className="room" key={room.id}>
-              <div className="room-top">
-                <h3>{room.name}</h3>
-                <span className={`lamp ${room.lightsOn ? "on" : ""}`}>
-                  <Lightbulb size={14} />
-                </span>
-              </div>
-              <div className="climate">
-                {room.temperature !== null && (
-                  <span className="temperature">
-                    <Thermometer size={12} />
-                    <b>{room.temperature}°</b>
+      );
+    case "rooms":
+      return (
+        <section className="rooms-section" aria-labelledby={`rooms-${view.id}`}>
+          <div className="section-heading">
+            <h2 id={`rooms-${view.id}`}>{t.rooms}</h2>
+            <span>{t.lightsOn(view.lightsOn)}</span>
+          </div>
+          <div className="room-grid">
+            {view.rooms.map((room) => (
+              <article className="room" key={room.id}>
+                <div className="room-top">
+                  <h3>{room.name}</h3>
+                  <span className={`lamp ${room.lightsOn ? "on" : ""}`}>
+                    <Lightbulb size={14} />
                   </span>
-                )}
-                {room.humidity !== null && (
-                  <span>
-                    <Droplets size={12} />
-                    {room.humidity} %
-                  </span>
-                )}
-                {room.co2 !== null && (
-                  <span>
-                    <Wind size={12} />
-                    {room.co2} ppm
-                  </span>
-                )}
-                {room.temperature === null &&
-                  room.humidity === null &&
-                  room.co2 === null && <span>{t.noClimate}</span>}
-              </div>
-            </article>
-          ))}
-        </div>
-        {!view.rooms.length && <p className="muted">{t.noRooms}</p>}
-      </section>
-      {view.plugPower && (
+                </div>
+                <div className="climate">
+                  {room.temperature !== null && (
+                    <span className="temperature">
+                      <Thermometer size={12} />
+                      <b>{room.temperature}°</b>
+                    </span>
+                  )}
+                  {room.humidity !== null && (
+                    <span>
+                      <Droplets size={12} />
+                      {room.humidity} %
+                    </span>
+                  )}
+                  {room.co2 !== null && (
+                    <span>
+                      <Wind size={12} />
+                      {room.co2} ppm
+                    </span>
+                  )}
+                  {room.temperature === null &&
+                    room.humidity === null &&
+                    room.co2 === null && <span>{t.noClimate}</span>}
+                </div>
+              </article>
+            ))}
+          </div>
+          {!view.rooms.length && <p className="muted">{t.noRooms}</p>}
+        </section>
+      );
+    case "power":
+      return (
         <section className="power-card" aria-label={t.plugPower}>
           <p className="power-label">
             <Zap size={13} />
@@ -161,7 +206,32 @@ export function Home({
           </div>
           <p className="muted">{view.plugPower.topConsumer}</p>
         </section>
-      )}
-    </>
-  );
+      );
+    case "entities":
+      return (
+        <section className="rooms-section" aria-label={view.title}>
+          <div className="section-heading">
+            <h2>{view.title}</h2>
+          </div>
+          {view.entities.map((entity, index) => (
+            <div className="status-card" key={`${entity.id}-${index}`}>
+              <div className="status-copy">
+                <h3>{entity.name}</h3>
+                <p>{entity.state}</p>
+              </div>
+              {entity.action && (
+                <Switch
+                  aria-label={entity.name}
+                  checked={entity.on}
+                  disabled={busy || !entity.available}
+                  onCheckedChange={() =>
+                    entity.action && onAction(entity.action)
+                  }
+                />
+              )}
+            </div>
+          ))}
+        </section>
+      );
+  }
 }

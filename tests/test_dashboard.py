@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import pytest
 from homeassistant import config_entries
 from homeassistant.components.frontend import DATA_PANELS
 from homeassistant.core import HomeAssistant
@@ -115,37 +116,157 @@ async def test_unload_removes_the_panel_and_reload_restores_it(
     assert _panel(hass) is not None
 
 
-async def test_settings_default_to_every_area_and_persist(
+async def test_settings_default_and_round_trip(
     recorder_mock: object,
     enable_custom_integrations: None,
     hass: HomeAssistant,
     hass_ws_client: WebSocketGenerator,
     hass_storage: dict[str, Any],
 ) -> None:
-    """Admins choose the ordered rooms; the choice is saved."""
+    """Saved cards and rooms retain their order, including missing entities."""
     del recorder_mock, enable_custom_integrations
     kitchen = ar.async_get(hass).async_create("Kitchen")
     bedroom = ar.async_get(hass).async_create("Bedroom")
     await _setup_dashboard(hass)
-
     default = await _ws(hass, hass_ws_client, {"type": "clacamieu/dashboard/config"})
-    updated = await _ws(
+    assert default["result"] == {"home_cards": None, "rooms": None}
+    config = {
+        "home_cards": [
+            {
+                "id": "a",
+                "type": "entities",
+                "title": "Devices",
+                "entity_ids": ["switch.missing", "sensor.missing"],
+            },
+            {"id": "b", "type": "alarm", "entity_id": "alarm_control_panel.missing"},
+            {"id": "c", "type": "vacuum", "entity_id": "vacuum.missing"},
+            *[
+                {"id": kind, "type": kind}
+                for kind in ("summary", "presence", "rooms", "power")
+            ],
+        ],
+        "rooms": [
+            {
+                "area_id": bedroom.id,
+                "temperature_entity_id": "sensor.missing",
+                "humidity_entity_id": None,
+                "co2_entity_id": "sensor.co2",
+            },
+            {"area_id": kitchen.id},
+        ],
+    }
+    for saved in (
+        config,
+        {"home_cards": [], "rooms": []},
+        {"home_cards": None, "rooms": None},
+    ):
+        updated = await _ws(
+            hass, hass_ws_client, {"type": "clacamieu/dashboard/config/update", **saved}
+        )
+        assert updated["result"] == saved
+        read_back = await _ws(
+            hass, hass_ws_client, {"type": "clacamieu/dashboard/config"}
+        )
+        assert read_back["result"] == saved
+        await hass.async_block_till_done()
+        assert hass_storage["clacamieu.dashboard"]["version"] == 2
+        assert hass_storage["clacamieu.dashboard"]["data"] == saved
+
+
+@pytest.mark.usefixtures("recorder_mock", "enable_custom_integrations")
+@pytest.mark.parametrize("area_ids", [[], ["bedroom", "kitchen"]])
+async def test_settings_migrate_v1_store(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    hass_storage: dict[str, Any],
+    area_ids: list[str],
+) -> None:
+    """An installed v1 store preserves its room selection through migration."""
+    hass_storage["clacamieu.dashboard"] = {
+        "version": 1,
+        "minor_version": 1,
+        "key": "clacamieu.dashboard",
+        "data": {"room_area_ids": area_ids},
+    }
+    await _setup_dashboard(hass)
+    result = await _ws(hass, hass_ws_client, {"type": "clacamieu/dashboard/config"})
+    assert result["result"] == {
+        "home_cards": None,
+        "rooms": [{"area_id": area_id} for area_id in area_ids] or None,
+    }
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"home_cards": [{"id": "a", "type": "future"}]},
+        {"home_cards": [{"id": "a", "type": "alarm"}]},
+        {"home_cards": [{"id": "a", "type": "vacuum"}]},
+        {"home_cards": [{"id": "a", "type": "entities", "entity_ids": []}]},
+        {"home_cards": [{"id": "a", "type": "entities", "title": "Devices"}]},
+        {"home_cards": [{"id": "", "type": "summary"}]},
+        {"home_cards": [{"type": "summary"}]},
+        {"home_cards": [{"id": "a", "type": "summary"}, {"id": "a", "type": "rooms"}]},
+        {"home_cards": [{"id": "a", "type": "alarm", "entity_id": "vacuum.other"}]},
+        {"home_cards": [{"id": "a", "type": "vacuum", "entity_id": "switch.other"}]},
+        {"home_cards": [{"id": "a", "type": "vacuum", "entity_id": "malformed"}]},
+        {
+            "home_cards": [
+                {
+                    "id": "a",
+                    "type": "entities",
+                    "title": "Devices",
+                    "entity_ids": ["bad"],
+                }
+            ]
+        },
+        {"home_cards": [{"id": str(i), "type": "summary"} for i in range(101)]},
+        {
+            "home_cards": [
+                {
+                    "id": "a",
+                    "type": "entities",
+                    "title": "Devices",
+                    "entity_ids": ["sensor.a"] * 501,
+                }
+            ]
+        },
+        {"home_cards": "automatic"},
+        {"rooms": "automatic"},
+        {"rooms": [{"area_id": "kitchen"}, {"area_id": "kitchen"}]},
+        {"rooms": [{"area_id": "kitchen", "temperature_entity_id": "bad"}]},
+        {"rooms": [{"area_id": "kitchen", "humidity_entity_id": 42}]},
+        {"rooms": [{"area_id": "kitchen", "co2_entity_id": "bad"}]},
+        {"rooms": [{"area_id": str(i)} for i in range(501)]},
+        {"rooms": [{}]},
+        {"home_cards": [{"id": "a", "type": "summary", "extra": True}]},
+    ],
+)
+async def test_settings_reject_invalid_updates(
+    recorder_mock: object,
+    enable_custom_integrations: None,
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    settings: dict[str, Any],
+) -> None:
+    """Invalid updates leave the saved configuration unchanged."""
+    del recorder_mock, enable_custom_integrations
+    ar.async_get(hass).async_create("Kitchen")
+    await _setup_dashboard(hass)
+    result = await _ws(
         hass,
         hass_ws_client,
         {
             "type": "clacamieu/dashboard/config/update",
-            "room_area_ids": [bedroom.id, kitchen.id],
+            "home_cards": None,
+            "rooms": None,
+            **settings,
         },
     )
+    assert result["success"] is False
+    assert result["error"]["code"] == "invalid_format"
     read_back = await _ws(hass, hass_ws_client, {"type": "clacamieu/dashboard/config"})
-    await hass.async_block_till_done()
-
-    assert default["result"] == {"room_area_ids": []}
-    assert updated["result"] == {"room_area_ids": [bedroom.id, kitchen.id]}
-    assert read_back["result"] == {"room_area_ids": [bedroom.id, kitchen.id]}
-    assert hass_storage["clacamieu.dashboard"]["data"] == {
-        "room_area_ids": [bedroom.id, kitchen.id]
-    }
+    assert read_back["result"] == {"home_cards": None, "rooms": None}
 
 
 async def test_settings_reject_unknown_areas_and_non_admins(
@@ -155,29 +276,37 @@ async def test_settings_reject_unknown_areas_and_non_admins(
     hass_ws_client: WebSocketGenerator,
     hass_read_only_access_token: str,
 ) -> None:
-    """Only admins change settings, and only to existing areas."""
+    """Everyone reads settings; only admins can replace them with known areas."""
     del recorder_mock, enable_custom_integrations
-    kitchen = ar.async_get(hass).async_create("Kitchen")
     await _setup_dashboard(hass)
-
     unknown = await _ws(
         hass,
         hass_ws_client,
-        {"type": "clacamieu/dashboard/config/update", "room_area_ids": ["attic"]},
+        {
+            "type": "clacamieu/dashboard/config/update",
+            "home_cards": None,
+            "rooms": [{"area_id": "attic"}],
+        },
     )
+    assert unknown["error"] == {
+        "code": "invalid_format",
+        "message": "Unknown areas: attic",
+    }
     non_admin_update = await _ws(
         hass,
         hass_ws_client,
-        {"type": "clacamieu/dashboard/config/update", "room_area_ids": [kitchen.id]},
+        {
+            "type": "clacamieu/dashboard/config/update",
+            "home_cards": [],
+            "rooms": [],
+        },
         hass_read_only_access_token,
     )
+    assert non_admin_update["error"]["code"] == "unauthorized"
     non_admin_read = await _ws(
         hass,
         hass_ws_client,
         {"type": "clacamieu/dashboard/config"},
         hass_read_only_access_token,
     )
-
-    assert unknown["success"] is False
-    assert non_admin_update["error"]["code"] == "unauthorized"
-    assert non_admin_read["result"] == {"room_area_ids": []}
+    assert non_admin_read["result"] == {"home_cards": None, "rooms": None}

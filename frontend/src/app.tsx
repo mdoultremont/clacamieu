@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Ellipsis, House, LayoutGrid, Shield, Zap } from "lucide-react";
 import { Home } from "./components/home";
 import { More } from "./components/more";
+import { parseDashboardConfig } from "./dashboard-config";
 import { buildHomeView } from "./home-view";
 import { messages } from "./i18n";
 import type { ClacamieuPanel, PanelStore } from "./panel";
@@ -24,7 +25,10 @@ export function App({
       ? "more"
       : "home",
   );
-  const [config, setConfig] = useState<DashboardConfig>({ room_area_ids: [] });
+  const [config, setConfig] = useState<DashboardConfig>({
+    home_cards: null,
+    rooms: null,
+  });
   const [now, setNow] = useState(() => new Date());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,17 +37,12 @@ export function App({
     if (!hass) return;
     let current = true;
     hass
-      .callWS<DashboardConfig>({ type: "clacamieu/dashboard/config" })
+      .callWS<unknown>({ type: "clacamieu/dashboard/config" })
       .then((value) => {
-        if (
-          current &&
-          Array.isArray(value.room_area_ids) &&
-          value.room_area_ids.every((id) => typeof id === "string")
-        )
-          setConfig(value);
+        if (current) setConfig(parseDashboardConfig(value));
       })
       .catch(() => {
-        if (current) setConfig({ room_area_ids: [] });
+        if (current) setConfig({ home_cards: null, rooms: null });
       });
     return () => {
       current = false;

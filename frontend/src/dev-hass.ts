@@ -3,7 +3,9 @@ import {
   createLongLivedTokenAuth,
   subscribeEntities,
 } from "home-assistant-js-websocket";
+import { parseDashboardConfig } from "./dashboard-config";
 import type {
+  DashboardConfig,
   AreaEntry,
   DeviceEntry,
   EntityDisplayEntry,
@@ -45,6 +47,27 @@ export function readOnlyCalls(
       readTypes.has(message.type)
         ? send<T>(message)
         : block(`Blocked WebSocket call in development: ${message.type}`),
+  };
+}
+
+export function developmentDashboardCalls(
+  calls: Pick<HassLike, "callWS" | "callService">,
+  seed: DashboardConfig,
+): Pick<HassLike, "callWS" | "callService"> {
+  let config = structuredClone(seed);
+  return {
+    ...calls,
+    callWS: async <T>(
+      message: { type: string } & Record<string, unknown>,
+    ): Promise<T> => {
+      if (message.type === "clacamieu/dashboard/config/update") {
+        config = parseDashboardConfig(message);
+        return structuredClone(config) as T;
+      }
+      if (message.type === "clacamieu/dashboard/config")
+        return structuredClone(config) as T;
+      return calls.callWS<T>(message);
+    },
   };
 }
 
@@ -103,8 +126,11 @@ export async function createDevHass(
       calls.callWS<HassLike["user"]>({ type: "auth/current_user" }),
       calls.callWS<{ language: string }>({ type: "get_config" }),
     ]);
+    const dashboard = await calls
+      .callWS<unknown>({ type: "clacamieu/dashboard/config" })
+      .catch(() => null);
     let snapshot: HassLike = {
-      ...calls,
+      ...developmentDashboardCalls(calls, parseDashboardConfig(dashboard)),
       states: {},
       areas: Object.fromEntries(areas.map((area) => [area.area_id, area])),
       devices: Object.fromEntries(devices.map((device) => [device.id, device])),

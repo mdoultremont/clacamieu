@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildHomeView, numeric } from "./home-view";
+import { buildHomeView, numeric, resolveDashboardConfig } from "./home-view";
+import { parseDashboardConfig } from "./dashboard-config";
 import { en, fr } from "./i18n";
-import type { HassEntity, HassLike } from "./types";
+import type { HassEntity, HassLike, HomeData } from "./types";
 
 const now = new Date(2026, 9, 21, 18, 0);
 function entity(
@@ -47,8 +48,17 @@ function add(
     device_id: device,
   };
 }
-const view = (hass: HassLike, ids: string[] = []) =>
-  buildHomeView(hass, { room_area_ids: ids }, now);
+const view = (hass: HassLike, ids: string[] | null = null): HomeData => {
+  const result = buildHomeView(
+    hass,
+    { home_cards: null, rooms: ids?.map((area_id) => ({ area_id })) ?? null },
+    now,
+  );
+  return Object.assign(
+    { alarm: null, vacuum: null, plugPower: null, people: [] },
+    ...result.cards,
+  );
+};
 
 describe("home view", () => {
   it("uses the configured room order, skips unknown IDs and averages only shown temperatures", () => {
@@ -61,9 +71,7 @@ describe("home view", () => {
     );
     expect(view(hass).indoorTemperature).toBe("19,2");
     expect(
-      view(hass, ["room_b", "unknown", "room_a", "room_b"]).rooms.map(
-        (room) => room.id,
-      ),
+      view(hass, ["room_b", "unknown", "room_a"]).rooms.map((room) => room.id),
     ).toEqual(["room_b", "room_a"]);
     expect(view(hass, ["room_b"]).indoorTemperature).toBe("18,4");
     expect(view(hass, ["unknown"]).rooms).toEqual([]);
@@ -167,8 +175,11 @@ describe("home view", () => {
       weather: { temperature: "11,0", condition: "Nuageux" },
     });
     expect(
-      buildHomeView(hass, { room_area_ids: [] }, new Date(2026, 9, 21, 17, 59))
-        .greeting,
+      buildHomeView(
+        hass,
+        { home_cards: null, rooms: null },
+        new Date(2026, 9, 21, 17, 59),
+      ).cards.find((card) => card.type === "summary")?.greeting,
     ).toBe("Bonjour Alex");
     hass.language = "en";
     for (const [hour, greeting] of [
@@ -177,8 +188,11 @@ describe("home view", () => {
       [18, "Good evening"],
     ] as const) {
       expect(
-        buildHomeView(hass, { room_area_ids: [] }, new Date(2026, 9, 21, hour))
-          .greeting,
+        buildHomeView(
+          hass,
+          { home_cards: null, rooms: null },
+          new Date(2026, 9, 21, hour),
+        ).cards.find((card) => card.type === "summary")?.greeting,
       ).toBe(`${greeting} Alex`);
     }
   });
@@ -335,5 +349,220 @@ describe("home view", () => {
     expect(Object.keys(fr)).toEqual(Object.keys(en));
     for (const key of ["alarm", "vacuum", "weather"] as const)
       expect(Object.keys(fr[key])).toEqual(Object.keys(en[key]));
+  });
+});
+
+describe("dashboard configuration", () => {
+  it("parses valid entries while dropping unknown, malformed, and duplicate entries", () => {
+    expect(
+      parseDashboardConfig({
+        home_cards: [
+          null,
+          { id: "future", type: "future" },
+          { id: "a", type: "summary" },
+          { id: "a", type: "rooms" },
+          { id: "bad", type: "alarm", entity_id: "vacuum.a" },
+          {
+            id: "e",
+            type: "entities",
+            title: "Devices",
+            entity_ids: ["switch.a"],
+          },
+          {
+            id: "broken",
+            type: "entities",
+            title: "Devices",
+            entity_ids: ["bad"],
+          },
+        ],
+        rooms: [
+          { area_id: "room_b", co2_entity_id: null },
+          { area_id: "room_b" },
+          { area_id: "room_a", temperature_entity_id: 3 },
+          null,
+        ],
+      }),
+    ).toEqual({
+      home_cards: [
+        { id: "a", type: "summary" },
+        {
+          id: "e",
+          type: "entities",
+          title: "Devices",
+          entity_ids: ["switch.a"],
+        },
+      ],
+      rooms: [{ area_id: "room_b", co2_entity_id: null }],
+    });
+    for (const value of [null, undefined, {}, { home_cards: 3, rooms: "bad" }])
+      expect(parseDashboardConfig(value)).toEqual({
+        home_cards: null,
+        rooms: null,
+      });
+    expect(parseDashboardConfig({ home_cards: [], rooms: [] })).toEqual({
+      home_cards: [],
+      rooms: [],
+    });
+  });
+  it("resolves automatic cards in order using the first alarm and vacuum and the plug rule", () => {
+    const hass = fixture();
+    add(hass, entity("person.a", "home"));
+    add(hass, entity("alarm_control_panel.a", "disarmed"));
+    add(hass, entity("alarm_control_panel.b", "armed_away"));
+    add(hass, entity("vacuum.a", "docked"));
+    add(hass, entity("vacuum.b", "cleaning"));
+    add(
+      hass,
+      entity("sensor.power", "90", { device_class: "power" }),
+      "",
+      "plug",
+    );
+    expect(
+      resolveDashboardConfig(hass, {
+        home_cards: null,
+        rooms: null,
+      }).home_cards.map((card) => card.type),
+    ).toEqual(["summary", "presence", "alarm", "vacuum", "rooms"]);
+    add(hass, entity("switch.plug", "on"), "", "plug");
+    const resolved = resolveDashboardConfig(hass, {
+      home_cards: null,
+      rooms: null,
+    });
+    expect(resolved.home_cards).toEqual([
+      { id: "auto-summary", type: "summary" },
+      { id: "auto-presence", type: "presence" },
+      { id: "auto-alarm", type: "alarm", entity_id: "alarm_control_panel.a" },
+      { id: "auto-vacuum", type: "vacuum", entity_id: "vacuum.a" },
+      { id: "auto-rooms", type: "rooms" },
+      { id: "auto-power", type: "power" },
+    ]);
+    expect(resolved.rooms).toEqual([
+      { area_id: "room_a" },
+      { area_id: "room_b" },
+    ]);
+  });
+  it("uses saved order and visibility and selects the configured alarm and vacuum", () => {
+    const hass = fixture();
+    add(hass, entity("alarm_control_panel.a", "disarmed"));
+    add(hass, entity("alarm_control_panel.b", "triggered"));
+    add(hass, entity("vacuum.a", "docked"));
+    add(hass, entity("vacuum.b", "cleaning"));
+    const result = buildHomeView(
+      hass,
+      {
+        rooms: [],
+        home_cards: [
+          { id: "v", type: "vacuum", entity_id: "vacuum.b" },
+          { id: "a", type: "alarm", entity_id: "alarm_control_panel.b" },
+          { id: "r", type: "rooms" },
+        ],
+      },
+      now,
+    );
+    expect(result.cards.map((card) => card.id)).toEqual(["v", "a", "r"]);
+    expect(result.cards[0]).toMatchObject({
+      vacuum: { action: { entityId: "vacuum.b", service: "return_to_base" } },
+    });
+    expect(result.cards[1]).toMatchObject({
+      alarm: { tone: "red", action: { entityId: "alarm_control_panel.b" } },
+    });
+    expect(result.cards[2]).toMatchObject({ rooms: [] });
+    expect(buildHomeView(hass, { rooms: null, home_cards: [] }, now)).toEqual({
+      cards: [],
+    });
+  });
+  it("applies room overrides before registry preferences and keeps null overrides automatic", () => {
+    const hass = fixture();
+    hass.areas.room_a.temperature_entity_id = "sensor.registry";
+    add(hass, entity("sensor.registry", "15"));
+    add(hass, entity("sensor.override", "22"));
+    add(hass, entity("sensor.humidity", "45", { device_class: "humidity" }));
+    add(hass, entity("sensor.co2", "700"));
+    const result = buildHomeView(
+      hass,
+      {
+        home_cards: [{ id: "r", type: "rooms" }],
+        rooms: [
+          {
+            area_id: "room_a",
+            temperature_entity_id: "sensor.override",
+            humidity_entity_id: null,
+            co2_entity_id: "sensor.co2",
+          },
+        ],
+      },
+      now,
+    );
+    expect(result.cards[0]).toMatchObject({
+      rooms: [{ temperature: "22,0", humidity: "45", co2: "700" }],
+    });
+  });
+  it("keeps missing configured entities visible and exposes toggles only for supported domains", () => {
+    const hass = fixture();
+    for (const domain of [
+      "switch",
+      "light",
+      "fan",
+      "input_boolean",
+      "sensor",
+      "lock",
+    ])
+      add(hass, entity(`${domain}.a`, "on", { friendly_name: domain }));
+    add(hass, entity("switch.offline", "unavailable"));
+    const ids = [
+      "sensor.missing",
+      "switch.a",
+      "light.a",
+      "fan.a",
+      "input_boolean.a",
+      "sensor.a",
+      "lock.a",
+      "switch.offline",
+    ];
+    const result = buildHomeView(
+      hass,
+      {
+        rooms: null,
+        home_cards: [
+          { id: "e", type: "entities", title: "Devices", entity_ids: ids },
+          { id: "a", type: "alarm", entity_id: "alarm_control_panel.missing" },
+          { id: "v", type: "vacuum", entity_id: "vacuum.missing" },
+          { id: "p", type: "power" },
+        ],
+      },
+      now,
+    );
+    const card = result.cards[0];
+    if (card.type !== "entities") throw new Error("Expected entities card");
+    expect(card.entities.map((row) => row.id)).toEqual(ids);
+    expect(card.entities[0]).toMatchObject({
+      name: "sensor.missing",
+      state: "Indisponible",
+      action: null,
+    });
+    expect(card.entities.slice(1, 5).map((row) => row.action)).toEqual(
+      ids.slice(1, 5).map((entityId) => ({
+        domain: "homeassistant",
+        service: "toggle",
+        entityId,
+        label: entityId.split(".")[0],
+      })),
+    );
+    expect(card.entities.slice(5, 7).every((row) => row.action === null)).toBe(
+      true,
+    );
+    expect(card.entities[7]).toMatchObject({
+      available: false,
+      action: { domain: "homeassistant", service: "toggle" },
+    });
+    expect(result.cards[1]).toMatchObject({
+      alarm: { title: "Alarme indisponible", action: null },
+    });
+    expect(result.cards[2]).toMatchObject({
+      vacuum: { state: "Indisponible", action: null },
+    });
+    expect(result.cards[3]).toMatchObject({
+      plugPower: { total: "Indisponible" },
+    });
   });
 });

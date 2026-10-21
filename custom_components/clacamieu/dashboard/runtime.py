@@ -14,7 +14,25 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 STORAGE_KEY = f"{DOMAIN}.dashboard"
-STORAGE_VERSION = 1
+STORAGE_VERSION = 2
+
+
+class DashboardStore(Store[dict[str, Any]]):
+    """Migrate the original ordered room selection."""
+
+    async def _async_migrate_func(
+        self, old_major_version: int, old_minor_version: int, old_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        del old_minor_version
+        if old_major_version != 1:
+            raise NotImplementedError
+        return {
+            "home_cards": None,
+            "rooms": [
+                {"area_id": area_id} for area_id in old_data.get("room_area_ids", [])
+            ]
+            or None,
+        }
 
 
 class DashboardRuntime:
@@ -22,7 +40,9 @@ class DashboardRuntime:
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Bind the settings store."""
-        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
+        self._store: Store[dict[str, Any]] = DashboardStore(
+            hass, STORAGE_VERSION, STORAGE_KEY
+        )
         self.config = DashboardConfig()
 
     async def async_load(self) -> None:

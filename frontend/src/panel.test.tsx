@@ -56,6 +56,55 @@ describe("panel lifecycle and screens", () => {
       panel.shadowRoot?.querySelectorAll(".nav-inner button:disabled"),
     ).toHaveLength(3);
   });
+  it("renders saved card order and calls homeassistant.toggle from an entity row", async () => {
+    const hass = fixture();
+    hass.states["switch.example"] = {
+      entity_id: "switch.example",
+      state: "off",
+      attributes: { friendly_name: "Example switch" },
+      last_changed: "",
+      last_updated: "",
+      context: { id: "test", parent_id: null, user_id: null },
+    };
+    hass.callWS = vi.fn().mockResolvedValue({
+      home_cards: [
+        {
+          id: "e",
+          type: "entities",
+          title: "Devices",
+          entity_ids: ["switch.example", "sensor.missing", "light.missing"],
+        },
+        { id: "s", type: "summary" },
+      ],
+      rooms: [],
+    });
+    const panel = await mount(hass);
+    const content = panel.shadowRoot!.querySelector(".page-content")!;
+    expect(content.firstElementChild?.getAttribute("aria-label")).toBe(
+      "Devices",
+    );
+    expect(content.textContent).toContain("sensor.missing");
+    expect(content.textContent).toContain("Unavailable");
+    expect(
+      panel
+        .shadowRoot!.querySelector('[aria-label="light.missing"]')
+        ?.hasAttribute("disabled"),
+    ).toBe(true);
+    expect(
+      panel.shadowRoot?.querySelector(".rooms-section[aria-labelledby]"),
+    ).toBeNull();
+    await act(async () => {
+      (
+        panel.shadowRoot!.querySelector('[role="switch"]') as HTMLButtonElement
+      ).click();
+    });
+    expect(hass.callService).toHaveBeenCalledExactlyOnceWith(
+      "homeassistant",
+      "toggle",
+      {},
+      { entity_id: "switch.example" },
+    );
+  });
   it("uses new hass snapshots and preserves the root and tab across reconnects", async () => {
     const hass = fixture();
     const panel = await mount(hass);
@@ -133,7 +182,7 @@ describe("panel lifecycle and screens", () => {
         );
       return Promise.resolve(
         message.type === "clacamieu/dashboard/config"
-          ? { room_area_ids: [] }
+          ? { home_cards: null, rooms: null }
           : { value: { theme: "dark" } },
       );
     });

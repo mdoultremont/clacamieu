@@ -15,23 +15,46 @@ registered once per Home Assistant run and reused when the entry reloads. The
 module URL carries the bundle modification time, which changes the URL after
 every installed update. Unloading the entry removes the panel.
 
-`dashboard/runtime.py` stores the settings in the `clacamieu.dashboard` storage
-file. Today the settings hold one ordered list of area IDs shown as rooms. An
-empty list shows every area. `dashboard/websocket.py` exposes
-`clacamieu/dashboard/config` to every user and
-`clacamieu/dashboard/config/update` to administrators. The update rejects
-unknown area IDs.
+`dashboard/runtime.py` stores version 2 settings in `clacamieu.dashboard`.
+`home_cards` selects ordered Accueil cards and `rooms` selects ordered visible
+areas with optional temperature, humidity, and CO₂ entity overrides. A null list
+uses automatic configuration; an empty list hides every card or room. The Store
+subclass uses Home Assistant's `_async_migrate_func` hook to migrate version 1
+`room_area_ids` without changing the room order. An empty version 1 list becomes
+null, preserving automatic selection. The migration is covered by store-backed
+WebSocket tests.
+
+`dashboard/websocket.py` exposes `clacamieu/dashboard/config` to every user and
+`clacamieu/dashboard/config/update` to administrators. Updates replace both lists.
+Voluptuous validates card types, required fields, entity ID syntax, alarm and
+vacuum domains, unique card IDs and area IDs, and existing areas. Entities may be
+missing or unavailable. Limits are 100 cards, 500 rooms, and 500 entities per
+entities card. The settings model keeps validated mappings to avoid a separate
+serialization model for each card.
 
 The frontend never reads Home Assistant through anything other than the `hass`
 property that Home Assistant sets on the panel element. `HassLike` in
 `frontend/src/types.ts` names the subset the panel uses. In production the
 real `hass` object satisfies it. In development, `dev-hass.ts` builds the same
-shape from a WebSocket connection and blocks service calls and write commands.
+shape from a WebSocket connection. It seeds in-memory dashboard settings from
+one real read and handles both dashboard commands locally. Service calls and
+all other commands outside the read-only allowlist remain blocked.
 The element keeps the latest `hass` in a small store that React reads with
 `useSyncExternalStore`. `buildHomeView` derives the Accueil screen from
 `HassLike` and the settings as a pure function, so nothing instance-specific
-lives in the bundle. Rooms use the area temperature and humidity entities, then
-fall back to the first matching sensor in the area. Smart plugs are power
+lives in the bundle. `parseDashboardConfig` drops unknown or malformed entries at
+the WebSocket boundary. `resolveDashboardConfig` fills null lists. Automatic
+cards are summary, presence when people exist, the first alarm, the first vacuum,
+rooms, and power when smart plug power sensors exist. Saved lists control order
+and visibility. `HomeView.cards` holds a discriminated union for ordered rendering.
+The summary contains the date, greeting, indoor average, and weather. Entities
+cards show ordered entity names and states, with `homeassistant.toggle` controls
+for lights, switches, fans, and input booleans. Missing or unavailable entities
+keep their rows, with disabled toggles.
+
+Room sensor overrides take priority over area temperature and humidity settings,
+then the first matching sensor in the area. Null overrides preserve automatic
+resolution. CO₂ uses the `carbon_dioxide` device class. Smart plugs are power
 sensors on devices that also expose a switch.
 
 The element attaches its own shadow root, because Home Assistant renders panels
