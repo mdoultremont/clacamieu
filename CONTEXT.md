@@ -19,3 +19,6 @@ Avoid: Lights Enhancer
 **Device Management**
 User-maintained metadata for physical devices, including inventory codes and notes.
 Avoid: Device Enhancer
+
+**Maison**
+The optional Clacamieu sidebar panel in Home Assistant, with a home overview and links to existing dashboards.

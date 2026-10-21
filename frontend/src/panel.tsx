@@ -14,17 +14,38 @@ export interface PanelSnapshot {
 export type PanelStore = ReturnType<typeof createStore<PanelSnapshot>>;
 
 export class ClacamieuPanel extends HTMLElement {
-  readonly store: PanelStore = createStore<PanelSnapshot>({ hass: null, narrow: false, route: null, panel: { url_path: "clacamieu" } });
+  readonly store: PanelStore = createStore<PanelSnapshot>({
+    hass: null,
+    narrow: false,
+    route: null,
+    panel: { url_path: "clacamieu" },
+  });
   private root?: Root;
 
-  get hass() { return this.store.get().hass; }
-  set hass(hass: HassLike | null) { this.store.set({ ...this.store.get(), hass }); }
-  get narrow() { return this.store.get().narrow; }
-  set narrow(narrow: boolean) { this.store.set({ ...this.store.get(), narrow }); }
-  get route() { return this.store.get().route; }
-  set route(route: unknown) { this.store.set({ ...this.store.get(), route }); }
-  get panel() { return this.store.get().panel; }
-  set panel(panel: PanelInfo) { this.store.set({ ...this.store.get(), panel }); }
+  get hass() {
+    return this.store.get().hass;
+  }
+  set hass(hass: HassLike | null) {
+    this.store.set({ ...this.store.get(), hass });
+  }
+  get narrow() {
+    return this.store.get().narrow;
+  }
+  set narrow(narrow: boolean) {
+    this.store.set({ ...this.store.get(), narrow });
+  }
+  get route() {
+    return this.store.get().route;
+  }
+  set route(route: unknown) {
+    this.store.set({ ...this.store.get(), route });
+  }
+  get panel() {
+    return this.store.get().panel;
+  }
+  set panel(panel: PanelInfo) {
+    this.store.set({ ...this.store.get(), panel });
+  }
 
   connectedCallback() {
     if (this.root) return;
@@ -38,4 +59,5 @@ export class ClacamieuPanel extends HTMLElement {
   }
 }
 
-if (!customElements.get("clacamieu-panel")) customElements.define("clacamieu-panel", ClacamieuPanel);
+if (!customElements.get("clacamieu-panel"))
+  customElements.define("clacamieu-panel", ClacamieuPanel);

@@ -40,7 +40,12 @@ export interface HassLike {
   panels: Record<string, PanelEntry>;
   user: { id: string; name: string; is_admin: boolean };
   language: string;
-  callService(domain: string, service: string, data?: Record<string, unknown>, target?: { entity_id: string | string[] }): Promise<unknown>;
+  callService(
+    domain: string,
+    service: string,
+    data?: Record<string, unknown>,
+    target?: { entity_id: string | string[] },
+  ): Promise<unknown>;
   callWS<T>(message: { type: string } & Record<string, unknown>): Promise<T>;
 }
 
@@ -76,7 +81,17 @@ export interface HomeView {
     lightsOn: boolean;
   }[];
   lightsOn: number;
-  alarm: { title: string; subtitle: string; tone: "green" | "amber" | "red"; action: ServiceAction | null } | null;
-  vacuum: { name: string; state: string; battery: string | null; action: ServiceAction | null } | null;
+  alarm: {
+    title: string;
+    subtitle: string;
+    tone: "green" | "amber" | "red";
+    action: ServiceAction | null;
+  } | null;
+  vacuum: {
+    name: string;
+    state: string;
+    battery: string | null;
+    action: ServiceAction | null;
+  } | null;
   plugPower: { total: string; topConsumer: string } | null;
 }

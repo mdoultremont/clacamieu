@@ -1,9 +1,12 @@
 export function installStyles(shadow: ShadowRoot, css: string): void {
   const globals: string[] = [];
-  const scoped = css.replace(/@(?:property\s+[^\s{]+|font-face)\s*\{[^{}]*\}/g, (rule) => {
-    globals.push(rule);
-    return "";
-  });
+  const scoped = css.replace(
+    /@(?:property\s+[^\s{]+|font-face)\s*\{[^{}]*\}/g,
+    (rule) => {
+      globals.push(rule);
+      return "";
+    },
+  );
   // Font faces and property registrations are ignored inside shadow roots by WebKit and Chromium.
   if (!document.getElementById("clacamieu-global")) {
     const style = document.createElement("style");
