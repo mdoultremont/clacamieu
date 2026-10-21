@@ -1,7 +1,16 @@
-import { Bot, Settings2, DoorOpen, Plug, Shield, Users } from "lucide-react";
+import {
+  ChevronRight,
+  Bot,
+  Settings2,
+  DoorOpen,
+  Plug,
+  Shield,
+  Users,
+} from "lucide-react";
 import { Fragment, useId } from "react";
 import { messages } from "../i18n";
 import type { HomeView, HomeCardView, ServiceAction } from "../types";
+import { RouteLink } from "./route-link";
 import { ItemSection } from "./item-section";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -229,25 +238,25 @@ function HomeCard({
                 room.co2 !== null ? `${room.co2} ppm` : null,
               ]
                 .filter(Boolean)
-                .join(" · ") ||
-              (room.temperature === null ? t.noClimate : "");
+                .join(" · ") || (room.temperature === null ? t.noClimate : "");
             return (
               <Fragment key={room.id}>
                 {index > 0 && <ItemSeparator />}
-                <Item role="listitem" size="sm">
-                  <ItemContent>
-                    <ItemTitle>{room.name}</ItemTitle>
-                    {description && (
-                      <ItemDescription className="tabular-nums">
-                        {description}
-                      </ItemDescription>
-                    )}
-                  </ItemContent>
-                  {room.temperature !== null && (
+                <Item size="sm" asChild>
+                  <RouteLink route={{ screen: "room", areaId: room.id }}>
+                    <ItemContent>
+                      <ItemTitle>{room.name}</ItemTitle>
+                      {description && (
+                        <ItemDescription className="tabular-nums">
+                          {description}
+                        </ItemDescription>
+                      )}
+                    </ItemContent>
                     <ItemActions className="text-base font-medium tabular-nums">
-                      {room.temperature}°
+                      {room.temperature !== null && `${room.temperature}°`}
+                      <ChevronRight className="size-4 text-muted-foreground" />
                     </ItemActions>
-                  )}
+                  </RouteLink>
                 </Item>
               </Fragment>
             );

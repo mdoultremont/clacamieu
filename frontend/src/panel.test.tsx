@@ -27,7 +27,14 @@ function fixture(): HassLike {
   };
 }
 const panels: ClacamieuPanel[] = [];
+const routeListeners: (() => void)[] = [];
 afterEach(async () => {
+  routeListeners
+    .splice(0)
+    .forEach((listener) =>
+      window.removeEventListener("location-changed", listener),
+    );
+  history.replaceState(null, "", "/clacamieu");
   await act(async () => {
     panels.splice(0).forEach((panel) => panel.remove());
   });
@@ -36,6 +43,15 @@ afterEach(async () => {
 async function mount(hass: HassLike) {
   const panel = document.createElement("clacamieu-panel") as ClacamieuPanel;
   panel.hass = hass;
+  const updateRoute = () => {
+    panel.route = {
+      prefix: "/clacamieu",
+      path: location.pathname.replace(/^\/clacamieu/, ""),
+    };
+  };
+  history.replaceState(null, "", "/clacamieu");
+  window.addEventListener("location-changed", updateRoute);
+  routeListeners.push(updateRoute);
   panel.narrow = true;
   panel.route = { path: "" };
   panel.panel = { url_path: "clacamieu", title: "Maison", config: {} };
@@ -56,7 +72,7 @@ describe("panel lifecycle and screens", () => {
     expect(panel.shadowRoot?.textContent).toContain("No sensors");
     expect(
       panel.shadowRoot?.querySelectorAll(".nav-inner button:disabled"),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
   });
   it("renders saved card order and calls homeassistant.toggle from an entity row", async () => {
     const hass = fixture();
@@ -205,6 +221,159 @@ describe("panel lifecycle and screens", () => {
     );
     expect(toggle.getAttribute("aria-checked")).toBe("false");
   });
+  it("reads HA routes, falls back from deleted areas, and prevents non-admin configuration", async () => {
+    const hass = fixture();
+    const panel = await mount(hass);
+    await act(async () => {
+      panel.route = { prefix: "/clacamieu", path: "/pieces/room_a" };
+    });
+    expect(panel.shadowRoot?.querySelector("h1")?.textContent).toBe("Room A");
+    expect(panel.shadowRoot?.querySelectorAll("section")).toHaveLength(0);
+    await act(async () => {
+      panel.route = { prefix: "/clacamieu", path: "/pieces/deleted" };
+    });
+    expect(panel.shadowRoot?.querySelector("h1")?.textContent).toBe("Rooms");
+    await act(async () => {
+      panel.hass = { ...hass, user: { ...hass.user, is_admin: false } };
+      panel.route = { prefix: "/clacamieu", path: "/configuration" };
+    });
+    expect(panel.shadowRoot?.querySelector("h1")?.textContent).toBe("Home");
+  });
+  it("calls room services, keeps scenes unpressed, and preserves light state after a blocked action", async () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const hass = fixture();
+    for (const [id, state, attributes] of [
+      [
+        "light.example",
+        "on",
+        {
+          friendly_name: "Example lamp",
+          brightness: 128,
+          supported_color_modes: ["brightness"],
+        },
+      ],
+      ["scene.example", "unknown", { friendly_name: "Example scene" }],
+      ["cover.example", "closed", { friendly_name: "Example blind" }],
+      ["switch.plug", "off", { friendly_name: "Example plug" }],
+      ["sensor.co2", "1400", { device_class: "carbon_dioxide" }],
+    ] as const) {
+      hass.states[id] = {
+        entity_id: id,
+        state,
+        attributes,
+        last_changed: "",
+        last_updated: "",
+        context: { id: "test", parent_id: null, user_id: null },
+      };
+      hass.entities[id] = { entity_id: id, area_id: "room_a" };
+    }
+    const panel = await mount(hass);
+    await act(async () => {
+      panel.route = { prefix: "/clacamieu", path: "/pieces/room_a" };
+    });
+    const shadow = panel.shadowRoot!;
+    const scene = shadow.querySelector(
+      '[data-slot="toggle-group-item"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      scene.click();
+    });
+    expect(hass.callService).toHaveBeenLastCalledWith(
+      "scene",
+      "turn_on",
+      {},
+      { entity_id: "scene.example" },
+    );
+    expect(scene.getAttribute("aria-pressed")).toBe("false");
+    await act(async () => {
+      (
+        shadow.querySelector(
+          '[aria-label="Open Example blind"]',
+        ) as HTMLButtonElement
+      ).click();
+    });
+    expect(hass.callService).toHaveBeenLastCalledWith(
+      "cover",
+      "open_cover",
+      {},
+      { entity_id: "cover.example" },
+    );
+    await act(async () => {
+      (
+        shadow.querySelector('[aria-label="Example plug"]') as HTMLButtonElement
+      ).click();
+    });
+    expect(hass.callService).toHaveBeenLastCalledWith(
+      "homeassistant",
+      "toggle",
+      {},
+      { entity_id: "switch.plug" },
+    );
+    const slider = shadow.querySelector('[role="slider"]') as HTMLElement;
+    expect(slider.getAttribute("aria-label")).toBe("Example lamp brightness");
+    await act(async () => {
+      slider.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+      );
+    });
+    expect(hass.callService).toHaveBeenLastCalledWith(
+      "light",
+      "turn_on",
+      { brightness_pct: 51 },
+      { entity_id: "light.example" },
+    );
+    expect(shadow.querySelector('[data-slot="badge"]')?.textContent).toBe(
+      "Poor air",
+    );
+    let reject!: (error: Error) => void;
+    hass.callService = vi.fn(
+      () =>
+        new Promise((_, fail) => {
+          reject = fail;
+        }),
+    );
+    await act(async () => {
+      (
+        shadow.querySelector('[aria-label="Example lamp"]') as HTMLButtonElement
+      ).click();
+    });
+    expect(hass.callService).toHaveBeenLastCalledWith(
+      "light",
+      "toggle",
+      {},
+      { entity_id: "light.example" },
+    );
+    expect(
+      shadow
+        .querySelector('[aria-label="Example lamp"]')
+        ?.hasAttribute("disabled"),
+    ).toBe(true);
+    await act(async () => {
+      reject(
+        Object.assign(new Error("blocked"), {
+          name: "DevelopmentWriteBlocked",
+        }),
+      );
+    });
+    expect(shadow.querySelector('[role="alert"]')?.textContent).toBe(
+      "This action is blocked in development.",
+    );
+    expect(
+      shadow
+        .querySelector('[aria-label="Example lamp"]')
+        ?.getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(
+      shadow.querySelector('[role="slider"]')?.getAttribute("aria-valuenow"),
+    ).toBe("50");
+  });
   it("follows Home Assistant dark mode and otherwise tracks the system scheme", async () => {
     let matches = true;
     const listeners = new Set<() => void>();
@@ -244,6 +413,15 @@ describe("panel lifecycle and screens", () => {
     expect(panel.dataset.theme).toBe("dark");
     await act(async () => {
       panel.hass = hass;
+      const updateRoute = () => {
+        panel.route = {
+          prefix: "/clacamieu",
+          path: location.pathname.replace(/^\/clacamieu/, ""),
+        };
+      };
+      history.replaceState(null, "", "/clacamieu");
+      window.addEventListener("location-changed", updateRoute);
+      routeListeners.push(updateRoute);
     });
     expect(panel.dataset.theme).toBe("light");
     matches = true;

@@ -4,12 +4,13 @@ import { App } from "./app";
 import { PortalContainerContext } from "./portal-container";
 import { installStyles } from "./shadow-styles";
 import { createStore } from "./store";
+import type { PanelRoute } from "./navigation";
 import type { HassLike, PanelInfo } from "./types";
 
 export interface PanelSnapshot {
   hass: HassLike | null;
   narrow: boolean;
-  route: unknown;
+  route: PanelRoute | null;
   panel: PanelInfo;
 }
 export type PanelStore = ReturnType<typeof createStore<PanelSnapshot>>;
@@ -47,7 +48,7 @@ export class ClacamieuPanel extends HTMLElement {
   get route() {
     return this.store.get().route;
   }
-  set route(route: unknown) {
+  set route(route: PanelRoute | null) {
     this.store.set({ ...this.store.get(), route });
   }
   get panel() {

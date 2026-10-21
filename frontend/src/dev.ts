@@ -11,6 +11,15 @@ const resize = () => {
   element.narrow = media.matches;
 };
 media.addEventListener("change", resize);
+const updateRoute = () => {
+  element.route = {
+    prefix: "/clacamieu",
+    path: location.pathname.replace(/^\/clacamieu(?=\/|$)/, ""),
+  };
+};
+updateRoute();
+window.addEventListener("popstate", updateRoute);
+window.addEventListener("location-changed", updateRoute);
 document.body.append(element);
 
 try {
@@ -27,6 +36,8 @@ try {
   import.meta.hot?.dispose(() => {
     close();
     media.removeEventListener("change", resize);
+    window.removeEventListener("popstate", updateRoute);
+    window.removeEventListener("location-changed", updateRoute);
     element.remove();
   });
 } catch {

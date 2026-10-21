@@ -76,13 +76,21 @@ export interface PanelInfo {
   config?: Record<string, unknown>;
 }
 
-export interface ServiceAction {
-  domain: "alarm_control_panel" | "vacuum" | "homeassistant";
-  service:
-    "alarm_arm_away" | "alarm_disarm" | "start" | "return_to_base" | "toggle";
+export type ServiceAction = {
   entityId: string;
   label: string;
-}
+} & (
+  | {
+      domain: "alarm_control_panel";
+      service: "alarm_arm_away" | "alarm_disarm";
+    }
+  | { domain: "vacuum"; service: "start" | "return_to_base" }
+  | { domain: "homeassistant"; service: "toggle" }
+  | { domain: "light"; service: "toggle" }
+  | { domain: "light"; service: "turn_on"; data: { brightness_pct: number } }
+  | { domain: "scene"; service: "turn_on" }
+  | { domain: "cover"; service: "open_cover" | "close_cover" }
+);
 
 export interface HomeData {
   date: string;

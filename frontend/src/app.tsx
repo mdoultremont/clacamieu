@@ -2,6 +2,10 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Ellipsis, House, LayoutGrid, Shield, Zap } from "lucide-react";
 import { Configuration } from "./components/configuration";
 import { Home } from "./components/home";
+import { Room } from "./components/room";
+import { Rooms } from "./components/rooms";
+import { buildRoomView, buildRoomsView } from "./room-view";
+import { navigate, parseRoute, routePath } from "./navigation";
 import { More } from "./components/more";
 import { parseDashboardConfig } from "./dashboard-config";
 import { buildHomeView } from "./home-view";
@@ -16,17 +20,19 @@ export function App({
   store: PanelStore;
   host: ClacamieuPanel;
 }) {
-  const { hass, panel, narrow } = useSyncExternalStore(
-    store.subscribe,
-    store.get,
+  const {
+    hass,
+    panel,
+    narrow,
+    route: panelRoute,
+  } = useSyncExternalStore(store.subscribe, store.get);
+  const requestedRoute = parseRoute(
+    `${panelRoute?.prefix ?? "/clacamieu"}${panelRoute?.path ?? ""}`,
   );
-  const [tab, setTab] = useState<"home" | "more">(() =>
-    import.meta.env.DEV &&
-    new URLSearchParams(location.search).get("tab") === "plus"
-      ? "more"
-      : "home",
-  );
-  const [editing, setEditing] = useState(false);
+  const route =
+    requestedRoute.screen === "configuration" && !hass?.user.is_admin
+      ? { screen: "home" as const }
+      : requestedRoute;
   const [configLoaded, setConfigLoaded] = useState(false);
   const [config, setConfig] = useState<DashboardConfig>({
     home_cards: null,
@@ -36,6 +42,10 @@ export function App({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = messages(hass?.language ?? navigator.language);
+  useEffect(() => {
+    setError(null);
+    host.shadowRoot?.querySelector(".page-scroll")?.scrollTo?.(0, 0);
+  }, [panelRoute?.path, host]);
   useEffect(() => {
     if (!hass) return;
     let current = true;
@@ -67,7 +77,7 @@ export function App({
       await hass.callService(
         action.domain,
         action.service,
-        {},
+        "data" in action ? action.data : {},
         { entity_id: action.entityId },
       );
     } catch (reason) {
@@ -80,12 +90,14 @@ export function App({
       setBusy(false);
     }
   }
-  if (!hass)
+  if (!hass || (route.screen === "configuration" && !configLoaded))
     return (
       <div className="loading" role="status">
         {t.loading}
       </div>
     );
+  const room =
+    route.screen === "room" ? buildRoomView(hass, config, route.areaId) : null;
   const tabs = [
     { key: "home", label: t.home, icon: House },
     { key: "rooms", label: t.rooms, icon: LayoutGrid },
@@ -98,13 +110,12 @@ export function App({
       className={`panel-shell ${narrow ? "narrow" : "wide"}`}
       lang={hass.language}
     >
-      {editing && hass.user.is_admin ? (
+      {route.screen === "configuration" && hass.user.is_admin ? (
         <Configuration
           hass={hass}
           config={config}
           onCancel={() => {
-            setEditing(false);
-            setTab("home");
+            navigate(routePath({ screen: "home" }), { replace: true });
           }}
           onSave={async (draft) => {
             const saved = await hass.callWS<unknown>({
@@ -112,8 +123,7 @@ export function App({
               ...draft,
             });
             setConfig(parseDashboardConfig(saved));
-            setEditing(false);
-            setTab("home");
+            navigate(routePath({ screen: "home" }), { replace: true });
             setError(null);
           }}
         />
@@ -121,7 +131,7 @@ export function App({
         <>
           <main className="page-scroll">
             <div className="page-content">
-              {tab === "home" ? (
+              {route.screen === "home" ? (
                 <Home
                   view={buildHomeView(hass, config, now)}
                   language={hass.language}
@@ -129,16 +139,33 @@ export function App({
                   busy={busy}
                   onConfigure={
                     hass.user.is_admin && configLoaded
-                      ? () => setEditing(true)
+                      ? () => navigate(routePath({ screen: "configuration" }))
                       : undefined
                   }
+                />
+              ) : route.screen === "rooms" ||
+                (route.screen === "room" && !room) ? (
+                <Rooms
+                  rooms={buildRoomsView(hass, config)}
+                  language={hass.language}
+                />
+              ) : route.screen === "room" ? (
+                <Room
+                  key={route.areaId}
+                  view={room!}
+                  language={hass.language}
+                  onAction={runAction}
+                  busy={busy}
+                  error={error}
                 />
               ) : (
                 <More
                   hass={hass}
                   panel={panel}
                   onConfigure={
-                    configLoaded ? () => setEditing(true) : undefined
+                    configLoaded
+                      ? () => navigate(routePath({ screen: "configuration" }))
+                      : undefined
                   }
                   toggleMenu={() =>
                     host.dispatchEvent(
@@ -150,7 +177,7 @@ export function App({
                   }
                 />
               )}
-              {tab === "home" && error && (
+              {route.screen === "home" && error && (
                 <p className="error" role="alert">
                   {error}
                 </p>
@@ -162,11 +189,15 @@ export function App({
               {tabs.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
-                  disabled={key !== "home" && key !== "more"}
-                  aria-current={tab === key ? "page" : undefined}
+                  disabled={key !== "home" && key !== "more" && key !== "rooms"}
+                  aria-current={
+                    (route.screen === "room" ? "rooms" : route.screen) === key
+                      ? "page"
+                      : undefined
+                  }
                   onClick={() => {
-                    if (key === "home" || key === "more") {
-                      setTab(key);
+                    if (key === "home" || key === "more" || key === "rooms") {
+                      navigate(routePath({ screen: key }));
                       setError(null);
                     }
                   }}

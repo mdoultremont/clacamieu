@@ -54,6 +54,12 @@ Opening materializes automatic lists and appends missing areas as hidden. Reset
 sets both lists to null. Done sends one complete replacement, while Cancel
 discards the draft. Drawers, Select menus, confirmation
 dialogs, and drag announcements mount in the panel's shadow-root portal container.
+The panel reads Home Assistant's `route` property through a typed route model.
+Navigation updates browser history and dispatches `location-changed`. Leaving
+Configuration replaces its history entry. The development adapter mirrors browser
+location changes into the same property. `buildRoomView` derives room climate,
+ordered lights, scenes, devices, and sensors without side effects. Room controls
+use the shared service action handler, including brightness data on slider commit.
 The view contains the date. The summary contains the indoor average, its room
 count, and weather. Entities
 cards show ordered entity names and states, with `homeassistant.toggle` controls

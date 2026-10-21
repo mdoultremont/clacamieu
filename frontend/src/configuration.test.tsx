@@ -9,7 +9,14 @@ vi.mock("./index.css?inline", () => ({ default: ":host { color: black }" }));
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 const panels: ClacamieuPanel[] = [];
+const routeListeners: (() => void)[] = [];
 afterEach(async () => {
+  routeListeners
+    .splice(0)
+    .forEach((listener) =>
+      window.removeEventListener("location-changed", listener),
+    );
+  history.replaceState(null, "", "/clacamieu");
   await act(async () => {
     panels.splice(0).forEach((panel) => panel.remove());
   });
@@ -50,6 +57,15 @@ async function mount(admin = true, readFails = false) {
   };
   const panel = document.createElement("clacamieu-panel") as ClacamieuPanel;
   panel.hass = hass;
+  const updateRoute = () => {
+    panel.route = {
+      prefix: "/clacamieu",
+      path: location.pathname.replace(/^\/clacamieu/, ""),
+    };
+  };
+  history.replaceState(null, "", "/clacamieu");
+  window.addEventListener("location-changed", updateRoute);
+  routeListeners.push(updateRoute);
   panels.push(panel);
   await act(async () => {
     document.body.append(panel);
@@ -91,7 +107,9 @@ describe("configuration flow", () => {
   });
   it("discards draft changes, then saves the complete configuration exactly once", async () => {
     const { shadow, click, hass } = await mount();
+    const replace = vi.spyOn(history, "replaceState");
     await click("Edit");
+    expect(location.pathname).toBe("/clacamieu/configuration");
     expect(shadow.querySelector("nav")).toBeNull();
     await act(async () => {
       (
@@ -99,6 +117,7 @@ describe("configuration flow", () => {
       ).click();
     });
     await click("Cancel");
+    expect(replace).toHaveBeenLastCalledWith(null, "", "/clacamieu");
     expect(shadow.textContent).toContain("Indoors");
     expect(
       vi
@@ -113,6 +132,9 @@ describe("configuration flow", () => {
       ).click();
     });
     await click("Done");
+    expect(replace).toHaveBeenCalledTimes(2);
+    expect(replace).toHaveBeenLastCalledWith(null, "", "/clacamieu");
+    replace.mockRestore();
     expect(
       vi
         .mocked(hass.callWS)
