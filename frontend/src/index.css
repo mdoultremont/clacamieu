@@ -183,8 +183,14 @@ a {
   flex-shrink: 0;
   justify-content: center;
 }
+[data-slot="button"],
 [data-slot="switch"] {
   position: relative;
+}
+[data-slot="button"]::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
 }
 [data-slot="switch"]::after {
   content: "";

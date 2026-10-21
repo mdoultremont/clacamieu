@@ -17,6 +17,10 @@ export function numeric(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
+function capitalize(text: string, language: string) {
+  return text.charAt(0).toLocaleUpperCase(language) + text.slice(1);
+}
+
 export function buildHomeView(
   hass: HassLike,
   config: DashboardConfig,
@@ -230,11 +234,14 @@ export function buildHomeView(
       : { name: entityId, state: t.unavailable, battery: null, action: null };
   };
   const data = {
-    date: new Intl.DateTimeFormat(language, {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    }).format(now),
+    date: capitalize(
+      new Intl.DateTimeFormat(language, {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }).format(now),
+      language,
+    ),
     indoorTemperature: temperatures.length
       ? number(
           temperatures.reduce((total, value) => total + value, 0) /

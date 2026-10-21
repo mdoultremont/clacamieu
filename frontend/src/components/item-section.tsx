@@ -19,7 +19,7 @@ export function ItemSection({
         </h2>
         {description && <p className="text-right">{description}</p>}
       </div>
-      <ItemGroup className="overflow-hidden rounded-2xl border bg-card text-card-foreground [&_[data-slot=item]]:min-h-14 [&_[data-slot=item]]:flex-nowrap [&_[data-slot=item]]:gap-3 [&_[data-slot=item]]:rounded-none [&_[data-slot=item]]:px-4 [&_[data-slot=item]]:py-3 [&_[data-slot=item-content]]:min-w-0 [&_[data-slot=item-title]]:break-words [&_[data-slot=item-description]]:line-clamp-none [&_[data-slot=item-description]]:text-pretty">
+      <ItemGroup className="overflow-hidden rounded-xl border bg-card text-card-foreground [&_[data-slot=item]]:min-h-14 [&_[data-slot=item]]:flex-nowrap [&_[data-slot=item]]:gap-3 [&_[data-slot=item]]:rounded-none [&_[data-slot=item]]:px-4 [&_[data-slot=item]]:py-3 [&_[data-slot=item-content]]:min-w-0 [&_[data-slot=item-title]]:break-words [&_[data-slot=item-description]]:line-clamp-none [&_[data-slot=item-description]]:text-pretty">
         {children}
       </ItemGroup>
     </section>

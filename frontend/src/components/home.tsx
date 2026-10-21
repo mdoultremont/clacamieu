@@ -48,8 +48,8 @@ function HomeCard({
   switch (view.type) {
     case "summary":
       return (
-        <section className="grid grid-cols-2 gap-3" aria-label={t.home}>
-          <div className="flex min-w-0 flex-col gap-2 rounded-2xl border bg-card p-4 text-card-foreground">
+        <section className="grid grid-cols-2 gap-3">
+          <div className="flex min-w-0 flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground">
             <p className="text-muted-foreground">{t.inside}</p>
             <p className="text-2xl font-semibold tabular-nums">
               {view.indoorTemperature !== null
@@ -62,7 +62,7 @@ function HomeCard({
                 : t.noClimate}
             </p>
           </div>
-          <div className="flex min-w-0 flex-col gap-2 rounded-2xl border bg-card p-4 text-card-foreground">
+          <div className="flex min-w-0 flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground">
             <p className="text-muted-foreground">{t.outside}</p>
             <p className="text-2xl font-semibold tabular-nums">
               {view.weather?.temperature != null
@@ -88,9 +88,11 @@ function HomeCard({
                 {people.map((person) => person.name).join(", ") || t.nobodyHome}
               </ItemTitle>
             </ItemContent>
-            <ItemActions className="text-base font-medium tabular-nums">
-              {people.length}
-            </ItemActions>
+            {people.length > 0 && (
+              <ItemActions className="text-base font-medium tabular-nums">
+                {people.length}
+              </ItemActions>
+            )}
           </Item>
         </ItemSection>
       );
@@ -109,7 +111,6 @@ function HomeCard({
               <ItemActions>
                 <Button
                   variant="outline"
-                  className="min-h-11 min-w-11"
                   disabled={busy}
                   onClick={() =>
                     view.alarm.action && onAction(view.alarm.action)
@@ -167,7 +168,6 @@ function HomeCard({
               <ItemActions>
                 <Button
                   variant="outline"
-                  className="min-h-11 min-w-11"
                   disabled={busy}
                   onClick={() =>
                     view.vacuum.action && onAction(view.vacuum.action)
@@ -206,30 +206,36 @@ function HomeCard({
     case "rooms":
       return (
         <ItemSection title={t.rooms} description={t.lightsOn(view.lightsOn)}>
-          {view.rooms.map((room, index) => (
-            <Fragment key={room.id}>
-              {index > 0 && <ItemSeparator />}
-              <Item role="listitem" size="sm">
-                <ItemContent>
-                  <ItemTitle>{room.name}</ItemTitle>
-                  <ItemDescription className="tabular-nums">
-                    {[
-                      room.humidity !== null ? `${room.humidity} %` : null,
-                      room.co2 !== null ? `${room.co2} ppm` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") ||
-                      (room.temperature === null ? t.noClimate : null)}
-                  </ItemDescription>
-                </ItemContent>
-                {room.temperature !== null && (
-                  <ItemActions className="text-base font-medium tabular-nums">
-                    {room.temperature}°
-                  </ItemActions>
-                )}
-              </Item>
-            </Fragment>
-          ))}
+          {view.rooms.map((room, index) => {
+            const description =
+              [
+                room.humidity !== null ? `${room.humidity} %` : null,
+                room.co2 !== null ? `${room.co2} ppm` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") ||
+              (room.temperature === null ? t.noClimate : "");
+            return (
+              <Fragment key={room.id}>
+                {index > 0 && <ItemSeparator />}
+                <Item role="listitem" size="sm">
+                  <ItemContent>
+                    <ItemTitle>{room.name}</ItemTitle>
+                    {description && (
+                      <ItemDescription className="tabular-nums">
+                        {description}
+                      </ItemDescription>
+                    )}
+                  </ItemContent>
+                  {room.temperature !== null && (
+                    <ItemActions className="text-base font-medium tabular-nums">
+                      {room.temperature}°
+                    </ItemActions>
+                  )}
+                </Item>
+              </Fragment>
+            );
+          })}
           {!view.rooms.length && (
             <Item role="listitem" size="sm">
               <ItemDescription>{t.noRooms}</ItemDescription>

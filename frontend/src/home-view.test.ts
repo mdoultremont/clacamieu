@@ -177,7 +177,7 @@ describe("home view", () => {
     const hass = fixture();
     add(hass, entity("weather.example", "cloudy", { temperature: 11 }));
     expect(view(hass)).toMatchObject({
-      date: "mercredi 21 octobre",
+      date: "Mercredi 21 octobre",
       indoorSensorCount: 0,
       weather: { temperature: "11,0", condition: "Nuageux" },
     });
