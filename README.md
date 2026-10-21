@@ -22,6 +22,24 @@ brightness, colors, supported modes, and commands. Scenes remain editable
 through Home Assistant. The selected effect is kept only in memory and is not
 restored after an integration reload or Home Assistant restart.
 
+## Maison dashboard
+
+Maison is a household dashboard in the Home Assistant sidebar, built for the
+companion app on phones. It is a custom panel, not a Lovelace dashboard, and
+needs no YAML. Add it once from **Settings > Devices & services > Clacamieu**
+with the **Maison dashboard** type. Every user sees it.
+
+The Accueil screen shows a greeting, the indoor and outdoor temperature, who is
+home, the alarm, the robot vacuum, the rooms with their temperature, humidity,
+CO₂ and lights, and the power drawn by smart plugs. Rooms are Home Assistant
+areas. Each area's temperature and humidity sensors from its area settings are
+used first. An administrator can limit and order the rooms with the
+`clacamieu/dashboard/config/update` WebSocket command. Without a list, every
+area appears.
+
+To open the companion app directly on Maison, turn on **Open the app on Maison**
+in the Plus tab. The setting applies to the current user.
+
 ## Configuration types
 
 Each config entry handles one source type and one optional unit price:
@@ -129,6 +147,16 @@ uv sync
 uv run ruff check .
 uv run ruff format --check .
 uv run pytest
+```
+
+The Maison panel requires Node.js 22 and pnpm. Its built module is committed in
+`custom_components/clacamieu/frontend/dist/`.
+
+```bash
+pnpm --dir frontend install
+pnpm --dir frontend typecheck
+pnpm --dir frontend test
+pnpm --dir frontend build
 ```
 
 The architecture is documented in

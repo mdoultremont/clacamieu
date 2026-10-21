@@ -9,9 +9,9 @@ Read [`CONTEXT.md`](CONTEXT.md) when naming a feature, configuration family, dev
 ## Integration structure
 
 - Keep one Home Assistant integration with the domain `clacamieu` under `custom_components/clacamieu`.
-- Treat Energy, Lights, and Device Management as independent internal modules with a shared installation and release.
+- Treat Energy, Lights, Dashboard, and Device Management as independent internal modules with a shared installation and release.
 - Keep Home Assistant platform adapters at the integration root and place family-specific implementation behind small interfaces.
-- Read [`docs/architecture.md`](docs/architecture.md) before changing Recorder calculations, statistics imports, Light Group+, or config-entry ownership.
+- Read [`docs/architecture.md`](docs/architecture.md) before changing Recorder calculations, statistics imports, Light Group+, the Maison panel, or config-entry ownership.
 - Use public Home Assistant interfaces. Document and test any intentional dependency on an internal Home Assistant class.
 
 ## Language
@@ -30,7 +30,23 @@ uv run ruff format --check .
 uv run pytest
 ```
 
-The change is complete when all three commands pass and every modified user-facing string has an English source and a French translation.
+After changing frontend code, run these commands from the repository root:
+
+```bash
+pnpm --dir frontend typecheck
+pnpm --dir frontend test
+pnpm --dir frontend build
+node frontend/scripts/check-bundle.mjs
+```
+
+The change is complete when all commands pass and every modified user-facing string has an English source and a French translation.
+
+## Frontend
+
+- `frontend/` holds the Maison panel: Vite, React, TypeScript, Tailwind CSS, and shadcn components. Use pnpm with `--dir frontend`, never npm or npx.
+- `pnpm --dir frontend build` writes the panel module to `custom_components/clacamieu/frontend/dist/`. Commit the rebuilt `dist/` with every frontend change. HACS installs from the repository tree, and CI fails when the committed bundle differs from a fresh build.
+- `pnpm --dir frontend dev` serves the panel on `localhost:5174` with live data from the Home Assistant instance named by `HA_URL` and `HA_TOKEN` in the file at `CLACAMIEU_HA_ENV` (default `../homeassistant/.env` next to this repository). The development connection rejects service calls and every WebSocket command outside a read-only allowlist. Never print or commit these values. `check-bundle.mjs` fails when either value appears in `dist/`.
+- The panel renders in its own shadow root. Keep user-facing strings in `frontend/src/i18n.ts` with English and French values, and keep Home Assistant data derivation in pure functions such as `buildHomeView`.
 
 ## Distribution
 

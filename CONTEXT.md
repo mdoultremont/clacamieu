@@ -21,4 +21,5 @@ User-maintained metadata for physical devices, including inventory codes and not
 Avoid: Device Enhancer
 
 **Maison**
-The optional Clacamieu sidebar panel in Home Assistant, with a home overview and links to existing dashboards.
+The household dashboard that Clacamieu adds to the Home Assistant sidebar as a custom panel. Its name stays Maison in every language.
+Avoid: Home, Lovelace dashboard

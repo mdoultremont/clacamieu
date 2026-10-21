@@ -1,0 +1,3 @@
+# Serve Maison as a custom panel
+
+The household dashboard is a custom sidebar panel that the integration registers and serves, built with React, Tailwind CSS, and shadcn components. Custom Lit cards inside a Lovelace dashboard were the alternative. They would keep Lovelace's layout, theme, and card editor, which limit the mobile design the dashboard needs. A one-day spike showed that the panel renders with live data in Home Assistant 2026.10 in WebKit and Chromium browsers. The Tailwind styles stay inside the panel's shadow root, and the panel can become a user's default page without a Lovelace redirect. The cost is that the panel owns its own settings, navigation, and accessibility instead of inheriting them from Lovelace.

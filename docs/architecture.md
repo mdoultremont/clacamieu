@@ -1,8 +1,53 @@
 # Clacamieu architecture
 
-Clacamieu has two independent config-entry families. Meter entries own
+Clacamieu has three independent config-entry families. Meter entries own
 Recorder-backed sensor calculations. Light Group+ entries own one native light
-entity and do not create or edit scenes.
+entity and do not create or edit scenes. The single dashboard entry owns the
+Maison sidebar panel and its settings.
+
+## Maison panel architecture
+
+The dashboard entry is single-instance. Its setup registers a `panel_custom`
+panel at `/clacamieu` with the `clacamieu-panel` element, visible to every user.
+`dashboard/panel.py` serves `frontend/dist/` at `/clacamieu_static` with cache
+headers. Home Assistant cannot unregister a static path, so the path is
+registered once per Home Assistant run and reused when the entry reloads. The
+module URL carries the bundle modification time, which changes the URL after
+every installed update. Unloading the entry removes the panel.
+
+`dashboard/runtime.py` stores the settings in the `clacamieu.dashboard` storage
+file. Today the settings hold one ordered list of area IDs shown as rooms. An
+empty list shows every area. `dashboard/websocket.py` exposes
+`clacamieu/dashboard/config` to every user and
+`clacamieu/dashboard/config/update` to administrators. The update rejects
+unknown area IDs.
+
+The frontend never reads Home Assistant through anything other than the `hass`
+property that Home Assistant sets on the panel element. `HassLike` in
+`frontend/src/types.ts` names the subset the panel uses. In production the
+real `hass` object satisfies it. In development, `dev-hass.ts` builds the same
+shape from a WebSocket connection and blocks service calls and write commands.
+The element keeps the latest `hass` in a small store that React reads with
+`useSyncExternalStore`. `buildHomeView` derives the Accueil screen from
+`HassLike` and the settings as a pure function, so nothing instance-specific
+lives in the bundle. Rooms use the area temperature and humidity entities, then
+fall back to the first matching sensor in the area. Smart plugs are power
+sensors on devices that also expose a switch.
+
+The element attaches its own shadow root, because Home Assistant renders panels
+inside its own shadow trees. Document styles cannot reach the panel, and a
+style element outside a shadow root of its own would leak into the Home
+Assistant interface. The compiled Tailwind CSS is placed in that shadow root.
+Chromium and WebKit ignore `@property` and `@font-face` rules inside a shadow
+root, so `shadow-styles.ts` moves those rules to one style element in the
+document head. Tailwind relies on `@property` for its shadow, ring, and
+transform defaults. Home Assistant wraps the element in an inline element
+without a height, so the panel sizes itself to `100dvh`.
+
+The companion apps open the user's default panel. Home Assistant stores it as
+`default_panel` in the `core` frontend user data and accepts any panel, although
+its profile picker lists only dashboards. The Plus screen writes that field for
+the current user.
 
 ## Light Group+ architecture
 
@@ -72,7 +117,8 @@ an incomplete interval as complete.
 
 The root `config_flow.py` adapter routes setup and options flows to a feature
 family. `energy/configuration.py` owns meter schemas and validation, while
-`lights/configuration.py` owns Light Group+ schemas and validation.
+`lights/configuration.py` owns Light Group+ schemas and validation. The
+dashboard family has no options flow.
 
 `energy/discovery.py` is the Home Assistant state and entity-registry seam. It
 validates configured entities and resolves them into immutable `MeterSource` and
