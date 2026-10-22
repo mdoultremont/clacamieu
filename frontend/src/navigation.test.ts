@@ -15,7 +15,7 @@ describe("Maison routes", () => {
     ["/clacamieu/securite", { screen: "security" }],
     ["/clacamieu/energie", { screen: "energy" }],
     ["/clacamieu/plus", { screen: "more" }],
-    ["/clacamieu/plus/aspitout", { screen: "vacuum" }],
+    ["/clacamieu/plus/aspirateur", { screen: "vacuum" }],
     ["/clacamieu/plus/systeme", { screen: "system" }],
     ["/clacamieu/plus/confort", { screen: "comfort" }],
     ["/clacamieu/plus/jardin", { screen: "garden" }],

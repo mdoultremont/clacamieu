@@ -67,7 +67,9 @@ export function Vacuum({
             {t.more}
           </RouteLink>
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">{t.vacuumPage}</h1>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {view?.name ?? t.vacuumPage}
+        </h1>
         {view && (
           <p className="text-muted-foreground">
             {[view.state, view.battery, view.currentRoom]

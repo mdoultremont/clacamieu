@@ -64,21 +64,21 @@ async function mount(path: string, admin = false, vacuum = true) {
   });
   return { panel, hass, shadow: panel.shadowRoot! };
 }
-it("offers both Maison routes and hides AspiTout when no vacuum exists", async () => {
+it("offers both Maison routes and hides the vacuum page when no vacuum exists", async () => {
   const { shadow } = await mount("/plus");
   expect(
-    shadow.querySelector('a[href="/clacamieu/plus/aspitout"]')?.textContent,
+    shadow.querySelector('a[href="/clacamieu/plus/aspirateur"]')?.textContent,
   ).toContain("Status, rooms and maintenance");
   expect(
     shadow.querySelector('a[href="/clacamieu/plus/systeme"]'),
   ).not.toBeNull();
   const absent = await mount("/plus", false, false);
   expect(
-    absent.shadow.querySelector('a[href="/clacamieu/plus/aspitout"]'),
+    absent.shadow.querySelector('a[href="/clacamieu/plus/aspirateur"]'),
   ).toBeNull();
 });
 it("sends room cleaning through the shared action path and shows its inline error", async () => {
-  const { shadow, hass } = await mount("/plus/aspitout");
+  const { shadow, hass } = await mount("/plus/aspirateur");
   expect(
     shadow.querySelector('.bottom-nav [aria-current="page"]')?.textContent,
   ).toBe("More");
@@ -148,7 +148,7 @@ it("refreshes the visible map every ten seconds and cleans up on leaving", async
       disconnect = disconnect;
     },
   );
-  const { panel, hass, shadow } = await mount("/plus/aspitout");
+  const { panel, hass, shadow } = await mount("/plus/aspirateur");
   const camera = {
     ...hass.states["vacuum.example"],
     entity_id: "camera.map",

@@ -94,6 +94,7 @@ export function More({
   const dashboards = Object.values(hass.panels).filter(
     (entry) => entry.component_name === "lovelace",
   );
+  const vacuum = buildVacuumView(hass, config);
   const maisonPages = [
     ...(comfort.rooms.some(
       (room) =>
@@ -111,11 +112,11 @@ export function More({
           },
         ]
       : []),
-    ...(buildVacuumView(hass, config)
+    ...(vacuum
       ? [
           {
             screen: "vacuum" as const,
-            title: t.vacuumPage,
+            title: vacuum.name,
             summary: t.vacuumSummary,
             icon: Bot,
           },
