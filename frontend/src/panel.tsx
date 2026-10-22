@@ -63,14 +63,19 @@ export class ClacamieuPanel extends HTMLElement {
     this.media?.addEventListener("change", this.updateTheme);
     this.updateTheme();
     if (this.root) return;
-    const shadow = this.attachShadow({ mode: "open" });
-    installStyles(shadow, css);
-    const container = document.createElement("div");
-    container.id = "root";
-    shadow.append(container);
-    const portalContainer = document.createElement("div");
-    portalContainer.id = "portal-container";
-    shadow.append(portalContainer);
+    const shadow = this.shadowRoot ?? this.attachShadow({ mode: "open" });
+    let container = shadow.querySelector<HTMLElement>("#root");
+    let portalContainer =
+      shadow.querySelector<HTMLElement>("#portal-container");
+    if (!container || !portalContainer) {
+      installStyles(shadow, css);
+      container = document.createElement("div");
+      container.id = "root";
+      shadow.append(container);
+      portalContainer = document.createElement("div");
+      portalContainer.id = "portal-container";
+      shadow.append(portalContainer);
+    }
     this.updateTheme();
     this.root = createRoot(container);
     this.root.render(
@@ -81,6 +86,8 @@ export class ClacamieuPanel extends HTMLElement {
   }
   disconnectedCallback() {
     this.media?.removeEventListener("change", this.updateTheme);
+    this.root?.unmount();
+    this.root = undefined;
   }
 }
 

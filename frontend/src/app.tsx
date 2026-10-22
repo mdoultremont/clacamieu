@@ -11,6 +11,10 @@ import { Vacuum } from "./components/vacuum";
 import { System } from "./components/system";
 import { buildRoomView, buildRoomsView } from "./room-view";
 import { navigate, parseRoute, routePath } from "./navigation";
+import { Comfort } from "./components/comfort";
+import { Garden } from "./components/garden";
+import { buildComfortView } from "./comfort-view";
+import { buildGardenView } from "./garden-view";
 import { More } from "./components/more";
 import { parseDashboardConfig } from "./dashboard-config";
 import { buildHomeView } from "./home-view";
@@ -211,11 +215,26 @@ export function App({
                 />
               ) : route.screen === "system" ? (
                 <System hass={hass} now={now} onMoreInfo={openMoreInfo} />
+              ) : route.screen === "comfort" ? (
+                <Comfort
+                  view={buildComfortView(hass, config)}
+                  language={hass.language}
+                />
+              ) : route.screen === "garden" ? (
+                <Garden
+                  hass={hass}
+                  view={buildGardenView(hass)}
+                  onAction={runAction}
+                  busy={busy}
+                  error={error}
+                />
               ) : (
                 <More
                   hass={hass}
                   config={config}
                   panel={panel}
+                  comfort={buildComfortView(hass, config)}
+                  garden={buildGardenView(hass)}
                   onConfigure={
                     configLoaded
                       ? openConfiguration
@@ -246,7 +265,10 @@ export function App({
                   aria-current={
                     (route.screen === "room"
                       ? "rooms"
-                      : route.screen === "vacuum" || route.screen === "system"
+                      : route.screen === "vacuum" ||
+                          route.screen === "system" ||
+                          route.screen === "comfort" ||
+                          route.screen === "garden"
                         ? "more"
                         : route.screen) === key
                       ? "page"

@@ -24,3 +24,11 @@ Avoid: Device Enhancer
 The household dashboard that Clacamieu adds to the Home Assistant sidebar as a custom panel. Its name stays Maison in every language.
 Its Accueil screen contains ordered cards and rooms. Each room represents a Home Assistant area and can override its climate sensors.
 Avoid: Home, Lovelace dashboard
+
+**Comfort**
+The Maison page that compares climate and air quality across its visible rooms.
+Its French name is Confort.
+
+**Garden**
+The Maison page for weather forecasts, outdoor climate sensors, and watering valves.
+Its French name is Jardin.

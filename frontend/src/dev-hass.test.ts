@@ -4,6 +4,7 @@ import {
   decodeEntities,
   DevelopmentWriteBlocked,
   readOnlyCalls,
+  readOnlyConnection,
 } from "./dev-hass";
 
 describe("development transport", () => {
@@ -40,6 +41,7 @@ describe("development transport", () => {
   });
   it.each([
     "config/area_registry/list",
+    "config/floor_registry/list",
     "config/device_registry/list",
     "config/entity_registry/list_for_display",
     "get_panels",
@@ -121,4 +123,24 @@ it("keeps dashboard reads and updates in memory without forwarding them", async 
   ).rejects.toBeInstanceOf(DevelopmentWriteBlocked);
   expect(send).toHaveBeenCalledTimes(1);
   warn.mockRestore();
+});
+
+it("allows daily weather subscriptions and blocks every other subscription in development", async () => {
+  const unsubscribe = vi.fn().mockResolvedValue(undefined);
+  const subscribeMessage = vi.fn().mockResolvedValue(unsubscribe);
+  const connection = readOnlyConnection({ subscribeMessage });
+  const callback = vi.fn();
+  const message = {
+    type: "weather/subscribe_forecast",
+    entity_id: "weather.example",
+    forecast_type: "daily",
+  };
+  expect(await connection.subscribeMessage(callback, message)).toBe(
+    unsubscribe,
+  );
+  expect(subscribeMessage).toHaveBeenCalledExactlyOnceWith(callback, message);
+  await expect(
+    connection.subscribeMessage(callback, { type: "call_service" }),
+  ).rejects.toBeInstanceOf(DevelopmentWriteBlocked);
+  expect(subscribeMessage).toHaveBeenCalledTimes(1);
 });

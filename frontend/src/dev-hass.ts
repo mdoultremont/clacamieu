@@ -22,6 +22,7 @@ export class DevelopmentWriteBlocked extends Error {
 
 const readTypes = new Set([
   "config/area_registry/list",
+  "config/floor_registry/list",
   "config/device_registry/list",
   "config/entity_registry/list_for_display",
   "get_panels",
@@ -52,6 +53,23 @@ export function readOnlyCalls(
       readTypes.has(message.type)
         ? send<T>(message)
         : block(`Blocked WebSocket call in development: ${message.type}`),
+  };
+}
+
+const readSubscriptionTypes = new Set(["weather/subscribe_forecast"]);
+
+export function readOnlyConnection(
+  connection: NonNullable<HassLike["connection"]>,
+): NonNullable<HassLike["connection"]> {
+  return {
+    subscribeMessage: (callback, message) =>
+      readSubscriptionTypes.has(message.type)
+        ? connection.subscribeMessage(callback, message)
+        : Promise.reject(
+            new DevelopmentWriteBlocked(
+              `Blocked WebSocket subscription in development: ${message.type}`,
+            ),
+          ),
   };
 }
 
@@ -121,24 +139,32 @@ export async function createDevHass(
       connection.sendMessagePromise<T>(message),
   );
   try {
-    const [areas, devices, entities, panels, user, config] = await Promise.all([
-      calls.callWS<AreaEntry[]>({ type: "config/area_registry/list" }),
-      calls.callWS<DeviceEntry[]>({ type: "config/device_registry/list" }),
-      calls.callWS<CompactEntities>({
-        type: "config/entity_registry/list_for_display",
-      }),
-      calls.callWS<Record<string, PanelEntry>>({ type: "get_panels" }),
-      calls.callWS<HassLike["user"]>({ type: "auth/current_user" }),
-      calls.callWS<{ language: string; time_zone: string }>({
-        type: "get_config",
-      }),
-    ]);
+    const [areas, devices, entities, panels, user, config, floors] =
+      await Promise.all([
+        calls.callWS<AreaEntry[]>({ type: "config/area_registry/list" }),
+        calls.callWS<DeviceEntry[]>({ type: "config/device_registry/list" }),
+        calls.callWS<CompactEntities>({
+          type: "config/entity_registry/list_for_display",
+        }),
+        calls.callWS<Record<string, PanelEntry>>({ type: "get_panels" }),
+        calls.callWS<HassLike["user"]>({ type: "auth/current_user" }),
+        calls.callWS<{ language: string; time_zone: string }>({
+          type: "get_config",
+        }),
+        calls.callWS<NonNullable<HassLike["floors"]>[string][]>({
+          type: "config/floor_registry/list",
+        }),
+      ]);
     const dashboard = await calls
       .callWS<unknown>({ type: "clacamieu/dashboard/config" })
       .catch(() => null);
     let snapshot: HassLike = {
       ...developmentDashboardCalls(calls, parseDashboardConfig(dashboard)),
       hassUrl: (path) => new URL(path, url).href,
+      connection: readOnlyConnection(connection),
+      floors: Object.fromEntries(
+        floors.map((floor) => [floor.floor_id, floor]),
+      ),
       states: {},
       areas: Object.fromEntries(areas.map((area) => [area.area_id, area])),
       devices: Object.fromEntries(devices.map((device) => [device.id, device])),

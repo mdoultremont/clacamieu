@@ -1,4 +1,4 @@
-import type { HassEntity } from "home-assistant-js-websocket";
+import type { Connection, HassEntity } from "home-assistant-js-websocket";
 export type { HassEntity } from "home-assistant-js-websocket";
 
 export interface EntityDisplayEntry {
@@ -21,6 +21,7 @@ export interface AreaEntry {
   area_id: string;
   name: string;
   icon: string | null;
+  floor_id?: string | null;
   temperature_entity_id?: string | null;
   humidity_entity_id?: string | null;
 }
@@ -37,6 +38,8 @@ export interface HassLike {
   entities: Record<string, EntityDisplayEntry>;
   devices: Record<string, DeviceEntry>;
   areas: Record<string, AreaEntry>;
+  floors?: Record<string, { floor_id: string; name: string }>;
+  connection?: Pick<Connection, "subscribeMessage">;
   panels: Record<string, PanelEntry>;
   user: { id: string; name: string; is_admin: boolean };
   language: string;
@@ -100,6 +103,7 @@ export type ServiceAction = {
   | { domain: "light"; service: "turn_on"; data: { brightness_pct: number } }
   | { domain: "scene"; service: "turn_on" }
   | { domain: "cover"; service: "open_cover" | "close_cover" }
+  | { domain: "valve"; service: "open_valve" | "close_valve" }
 );
 
 export interface HomeData {

@@ -8,7 +8,9 @@ export type Route =
         | "more"
         | "configuration"
         | "vacuum"
-        | "system";
+        | "system"
+        | "comfort"
+        | "garden";
     }
   | { screen: "room"; areaId: string };
 
@@ -37,6 +39,8 @@ export function parseRoute(path: string): Route {
   if (parts.length === 4 && parts[2] === "plus") {
     if (parts[3] === "aspitout") return { screen: "vacuum" };
     if (parts[3] === "systeme") return { screen: "system" };
+    if (parts[3] === "confort") return { screen: "comfort" };
+    if (parts[3] === "jardin") return { screen: "garden" };
   }
   return { screen: "home" };
 }
@@ -61,6 +65,10 @@ export function routePath(route: Route): string {
       return "/clacamieu/plus/aspitout";
     case "system":
       return "/clacamieu/plus/systeme";
+    case "comfort":
+      return "/clacamieu/plus/confort";
+    case "garden":
+      return "/clacamieu/plus/jardin";
   }
 }
 

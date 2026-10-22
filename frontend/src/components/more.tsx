@@ -7,6 +7,8 @@ import {
   Settings,
   Bot,
   Activity,
+  Sprout,
+  Thermometer,
 } from "lucide-react";
 import { messages } from "../i18n";
 import { navigate } from "../navigation";
@@ -28,6 +30,8 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "./ui/item";
+import type { ComfortView } from "../comfort-view";
+import type { GardenView } from "../garden-view";
 import { Skeleton } from "./ui/skeleton";
 import { Switch } from "./ui/switch";
 
@@ -42,9 +46,13 @@ export function More({
   panel,
   toggleMenu,
   onConfigure,
+  comfort,
+  garden,
 }: {
   hass: HassLike;
   config: DashboardConfig;
+  comfort: ComfortView;
+  garden: GardenView;
   panel: PanelInfo;
   toggleMenu: () => void;
   onConfigure?: () => void;
@@ -87,6 +95,22 @@ export function More({
     (entry) => entry.component_name === "lovelace",
   );
   const maisonPages = [
+    ...(comfort.rooms.some(
+      (room) =>
+        room.temperature !== null ||
+        room.humidity !== null ||
+        room.co2 !== null ||
+        room.dewPoint !== null,
+    )
+      ? [
+          {
+            screen: "comfort" as const,
+            title: t.comfort,
+            summary: t.comfortSummary,
+            icon: Thermometer,
+          },
+        ]
+      : []),
     ...(buildVacuumView(hass, config)
       ? [
           {
@@ -94,6 +118,16 @@ export function More({
             title: t.vacuumPage,
             summary: t.vacuumSummary,
             icon: Bot,
+          },
+        ]
+      : []),
+    ...(garden.weather || garden.areas.length || garden.valves.length
+      ? [
+          {
+            screen: "garden" as const,
+            title: t.garden,
+            summary: t.gardenSummary,
+            icon: Sprout,
           },
         ]
       : []),
