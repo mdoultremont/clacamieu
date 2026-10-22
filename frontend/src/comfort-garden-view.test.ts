@@ -246,6 +246,33 @@ describe("garden", () => {
       actions: [{ service: "open_valve" }],
     });
   });
+  it("lists irrigation outlets that close themselves after the device duration", () => {
+    const hass = climateFixture();
+    const onDevice = (id: string, state: string, attributes = {}) => {
+      addSensor(hass, id, state, "outdoor", attributes);
+      hass.entities[id].device_id = "valve_device";
+    };
+    onDevice("number.garden_irrigation_duration", "10", {
+      unit_of_measurement: "min",
+    });
+    onDevice("switch.garden_1", "off", { friendly_name: "Garden 1" });
+    onDevice("switch.garden_child_lock", "off");
+    hass.entities["switch.garden_child_lock"].entity_category = "config";
+    addSensor(hass, "switch.lamp", "off");
+    const valves = buildGardenView(hass).valves;
+    expect(valves).toEqual([
+      {
+        id: "switch.garden_1",
+        name: "Garden 1",
+        state: "Fermée · Fermeture après 10 min · Terrasse",
+        available: true,
+        actions: [
+          expect.objectContaining({ domain: "switch", service: "turn_on" }),
+          expect.objectContaining({ domain: "switch", service: "turn_off" }),
+        ],
+      },
+    ]);
+  });
   it("parses five forecast days, units and missing temperatures without accepting invalid dates", () => {
     expect(buildForecastView(null, "en", "°C")).toEqual([]);
     const forecast = Array.from({ length: 7 }, (_, index) => ({

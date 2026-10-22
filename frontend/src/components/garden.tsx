@@ -229,7 +229,8 @@ export function Garden({
                       disabled={busy || !valve.available}
                       onClick={() => onAction(action)}
                     >
-                      {action.service === "open_valve"
+                      {action.service === "open_valve" ||
+                      action.service === "turn_on"
                         ? t.valveOpen
                         : t.valveClose}
                     </Button>

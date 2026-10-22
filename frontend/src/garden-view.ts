@@ -2,7 +2,12 @@ import { numeric } from "./home-view";
 import { formatClimate } from "./comfort-view";
 import { locale, messages, translatedState } from "./i18n";
 import { entityArea, resolveRoomSensors } from "./room-sensors";
-import type { AreaEntry, HassLike, ServiceAction } from "./types";
+import type {
+  AreaEntry,
+  HassEntity,
+  HassLike,
+  ServiceAction,
+} from "./types";
 
 export interface GardenView {
   weather: {
@@ -91,7 +96,8 @@ export function buildGardenView(hass: HassLike): GardenView {
           ? [{ id: area.area_id, name: area.name, climate }]
           : [];
       }),
-    valves: states
+    valves: [
+      ...states
       .filter(
         (entity) =>
           entity.entity_id.startsWith("valve.") &&
@@ -140,7 +146,75 @@ export function buildGardenView(hass: HassLike): GardenView {
           ],
         };
       }),
+      ...irrigationOutlets(hass, states, t),
+    ],
   };
+}
+
+// Irrigation controllers such as Zigbee water valves expose each outlet as a switch,
+// and close it themselves after the duration set on the device.
+function irrigationOutlets(
+  hass: HassLike,
+  states: HassEntity[],
+  t: ReturnType<typeof messages>,
+): GardenView["valves"] {
+  const durations = new Map<string, HassEntity>();
+  for (const entity of states) {
+    const device = hass.entities[entity.entity_id]?.device_id;
+    if (device && /^number\..*irrigation_duration$/.test(entity.entity_id))
+      durations.set(device, entity);
+  }
+  return states.flatMap((entity) => {
+    const entry = hass.entities[entity.entity_id];
+    const duration = entry?.device_id ? durations.get(entry.device_id) : undefined;
+    if (
+      !duration ||
+      !entity.entity_id.startsWith("switch.") ||
+      entry?.hidden ||
+      entry?.entity_category
+    )
+      return [];
+    const name =
+      entity.attributes.friendly_name ?? entry?.name ?? entity.entity_id;
+    const minutes = numeric(duration.state);
+    const area = hass.areas[entityArea(hass, entity.entity_id) ?? ""]?.name;
+    return [
+      {
+        id: entity.entity_id,
+        name,
+        state: [
+          entity.state === "on"
+            ? t.valveStates.open
+            : entity.state === "off"
+              ? t.valveStates.closed
+              : t.unavailable,
+          minutes === null
+            ? null
+            : t.irrigationAutoStop(
+                `${minutes} ${duration.attributes.unit_of_measurement ?? "min"}`,
+              ),
+          area,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        available: ["on", "off"].includes(entity.state),
+        actions: [
+          {
+            domain: "switch" as const,
+            service: "turn_on" as const,
+            entityId: entity.entity_id,
+            label: t.openCover(name),
+          },
+          {
+            domain: "switch" as const,
+            service: "turn_off" as const,
+            entityId: entity.entity_id,
+            label: t.closeCover(name),
+          },
+        ],
+      },
+    ];
+  });
 }
 
 export interface ForecastDay {

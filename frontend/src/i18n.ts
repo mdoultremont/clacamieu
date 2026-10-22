@@ -79,6 +79,7 @@ export const en = {
   irrigation: "Watering",
   valveOpen: "Open",
   valveClose: "Close",
+  irrigationAutoStop: (duration: string) => `Closes after ${duration}`,
   valveStates: {
     open: "Open",
     closed: "Closed",
@@ -376,6 +377,7 @@ export const fr: Messages = {
   irrigation: "Arrosage",
   valveOpen: "Ouvrir",
   valveClose: "Fermer",
+  irrigationAutoStop: (duration) => `Fermeture après ${duration}`,
   valveStates: {
     open: "Ouverte",
     closed: "Fermée",

@@ -104,6 +104,7 @@ export type ServiceAction = {
   | { domain: "scene"; service: "turn_on" }
   | { domain: "cover"; service: "open_cover" | "close_cover" }
   | { domain: "valve"; service: "open_valve" | "close_valve" }
+  | { domain: "switch"; service: "turn_on" | "turn_off" }
 );
 
 export interface HomeData {
