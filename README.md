@@ -29,13 +29,31 @@ companion app on phones. It is a custom panel, not a Lovelace dashboard, and
 needs no YAML. Add it once from **Settings > Devices & services > Clacamieu**
 with the **Maison dashboard** type. Every user sees it.
 
-The Accueil screen shows a greeting, the indoor and outdoor temperature, who is
-home, the alarm, the robot vacuum, the rooms with their temperature, humidity,
-CO₂ and lights, and the power drawn by smart plugs. Rooms are Home Assistant
-areas. Each area's temperature and humidity sensors from its area settings are
-used first. An administrator can limit and order the rooms with the
-`clacamieu/dashboard/config/update` WebSocket command. Without a list, every
-area appears.
+Maison has five tabs:
+
+- **Accueil** shows the date, the indoor and outdoor temperature, and one list
+  per card: who is home, the alarm, the robot vacuum, the rooms with their
+  climate, the power drawn by smart plugs, and any entity list you add.
+- **Pièces** lists the rooms. Each room page shows its climate and controls its
+  lights, brightness, scenes, switches, covers, and media players.
+- **Sécurité** arms and disarms the alarm, with a confirmation and a code when
+  Home Assistant asks for one. It also shows camera stills, doors and windows,
+  leak sensors, and smoke or gas detectors.
+- **Énergie** reads Home Assistant's own Energy settings and statistics. It shows
+  the current plug power and the consumption, cost, and change for the day,
+  week, month, or year, per device.
+- **Plus** opens pages for comfort, the robot vacuum, the garden, and the
+  system, links to Home Assistant, and holds the setting that opens the
+  companion app on Maison.
+
+Rooms are Home Assistant areas. Each area's temperature and humidity sensors
+from its area settings are used first.
+
+Administrators choose and order the Accueil cards and the rooms from the panel.
+Tap **Modifier** on Accueil, or **Configurer Maison** in Plus. Each card and room
+can be shown or hidden, moved, and edited. A room can use specific temperature,
+humidity, and CO₂ sensors. **Terminé** saves the settings for the whole
+household. Without saved settings, Maison picks the cards and shows every area.
 
 To open the companion app directly on Maison, turn on **Open the app on Maison**
 in the Plus tab. The setting applies to the current user.

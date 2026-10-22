@@ -56,7 +56,8 @@ discards the draft. Drawers, Select menus, confirmation
 dialogs, and drag announcements mount in the panel's shadow-root portal container.
 The panel reads Home Assistant's `route` property through a typed route model.
 Navigation updates browser history and dispatches `location-changed`. Leaving
-Configuration replaces its history entry. The development adapter mirrors browser
+Configuration goes back in history when the panel opened it, so the next Back
+leaves the panel, and replaces the entry when a direct link opened it. The development adapter mirrors browser
 location changes into the same property. `buildRoomView` derives room climate,
 ordered lights, scenes, devices, and sensors without side effects. Room controls
 use the shared service action handler, including brightness data on slider commit.
@@ -67,16 +68,54 @@ for lights, switches, fans, and input booleans. Missing or unavailable entities
 keep their rows, with disabled toggles.
 
 Room sensor overrides take priority over area temperature and humidity settings,
-then the first matching sensor in the area. Null overrides preserve automatic
+then the first matching sensor in the area. Derived values that integrations such
+as `thermal_comfort` publish with the temperature device class (dew point,
+humidex, heat index) never count as a room's temperature. Null overrides preserve automatic
 resolution. CO₂ uses the `carbon_dioxide` device class. Smart plugs are power
 sensors on devices that also expose a switch.
+
+Each screen has a pure view builder next to `home-view.ts`, and each has tests
+built from realistic Home Assistant data:
+
+- `room-view.ts` lists a room's lights with groups before their members, its
+  scenes, devices, and binary sensors.
+- `security-view.ts` picks the configured or first alarm, reads its modes from
+  `supported_features`, and asks for a code when `code_format` is set and the
+  action is a disarm or `code_arm_required` is true, as Home Assistant's own
+  controls do. Cameras show one still per device and skip vacuum maps.
+- `energy-view.ts` reads `energy/get_prefs` and `recorder/statistics_during_period`.
+  - Totals use the grid import when it has a reading in the period or the one
+    before. Otherwise they add up the top-level measured devices, because an
+    imported grid statistic can stay empty or at zero.
+  - `included_in_stat` devices are counted once, and price entities in €/MWh or
+    €/Wh are converted to €/kWh.
+  - Periods follow Home Assistant's time zone. A repeated wall-clock time takes
+    its first instant and a skipped one keeps the earlier offset, like
+    Temporal's "compatible" disambiguation.
+  - `use-energy.ts` refreshes every five minutes without blanking the screen.
+- `comfort-view.ts` and `garden-view.ts` split indoor and outdoor areas with
+  `isOutdoorArea`, which matches only exact area or floor names such as "Jardin"
+  or "Terrasse". Watering lists `valve.*` entities and irrigation controllers
+  that expose outlets as switches next to an `irrigation_duration` setting.
+- `vacuum-view.ts` reads the vacuum's live map camera, consumables, statistics,
+  and Dreame segment cleaning when `get_services` offers it.
+- `system-view.ts` reports a device as offline only when none of its entities
+  responds, because online devices often keep feature-gated entities
+  unavailable.
+
+The development harness allows these read-only commands in addition to the
+registries, panels, user, and configuration: `clacamieu/dashboard/config`,
+`frontend/get_user_data`, `energy/get_prefs`,
+`recorder/statistics_during_period`, `recorder/get_statistics_metadata`,
+`get_services`, `repairs/list_issues`, and the `weather/subscribe_forecast`
+subscription.
 
 The element attaches its own shadow root, because Home Assistant renders panels
 inside its own shadow trees. Document styles cannot reach the panel, and a
 style element outside a shadow root of its own would leak into the Home
 Assistant interface. The compiled Tailwind CSS is placed in that shadow root.
 `PortalContainerContext` provides a themed container in the same shadow root
-for future Drawer, Select, Popover, and Tooltip portals. Theme tokens follow
+for Drawer, Select, AlertDialog, and Command portals. Theme tokens follow
 `hass.themes.darkMode`, falling back to the system color scheme.
 Chromium and WebKit ignore `@property` and `@font-face` rules inside a shadow
 root, so `shadow-styles.ts` moves those rules to one style element in the
