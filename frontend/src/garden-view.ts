@@ -144,10 +144,13 @@ function irrigationOutlets(
   t: ReturnType<typeof messages>,
 ): GardenView["valves"] {
   const durations = new Map<string, HassEntity>();
+  const modes = new Map<string, string>();
   for (const entity of states) {
     const device = hass.entities[entity.entity_id]?.device_id;
     if (device && /^number\..*irrigation_duration$/.test(entity.entity_id))
       durations.set(device, entity);
+    if (device && /^select\..*irrigation_mode$/.test(entity.entity_id))
+      modes.set(device, entity.state);
   }
   return states.flatMap((entity) => {
     const entry = hass.entities[entity.entity_id];
@@ -161,7 +164,9 @@ function irrigationOutlets(
       return [];
     const name =
       entity.attributes.friendly_name ?? entry?.name ?? entity.entity_id;
-    const minutes = numeric(duration.state);
+    const mode = modes.get(entry!.device_id!);
+    const minutes =
+      mode === undefined || mode === "duration" ? numeric(duration.state) : null;
     const area = hass.areas[entityArea(hass, entity.entity_id) ?? ""]?.name;
     return [
       {

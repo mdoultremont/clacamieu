@@ -215,6 +215,25 @@ describe("Plus climate pages", () => {
       panel.shadowRoot!.querySelectorAll("#portal-container"),
     ).toHaveLength(1);
   });
+  it("says the forecast is loading, then gives up when none arrives", async () => {
+    vi.useFakeTimers();
+    try {
+      const hass = fixture();
+      hass.connection = {
+        subscribeMessage: vi
+          .fn()
+          .mockResolvedValue(vi.fn().mockResolvedValue(undefined)),
+      };
+      const panel = await mount(hass, "/plus/jardin");
+      expect(panel.shadowRoot!.textContent).toContain("Loading the forecast");
+      await act(async () => {
+        vi.advanceTimersByTime(10_000);
+      });
+      expect(panel.shadowRoot!.textContent).toContain("Forecast unavailable");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("shows a forecast error and does not subscribe without daily support", async () => {
     const hass = fixture();
     const subscribeMessage = vi

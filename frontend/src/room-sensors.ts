@@ -21,6 +21,11 @@ export function entityArea(
   );
 }
 
+// thermal_comfort and similar integrations publish derived values with the
+// temperature device class; they are not the room's temperature.
+const derivedTemperature =
+  /_(dew_?point|frost_?point|frost_?risk|heat_?index|humidex|apparent_temperature|feels_like|simmer|thom|thi)(_|$)/;
+
 export function resolveRoomSensors(hass: HassLike, room: RoomConfig) {
   const area = hass.areas[room.area_id];
   return climateSensors.map(({ key, deviceClass, label }) => {
@@ -32,6 +37,10 @@ export function resolveRoomSensors(hass: HassLike, room: RoomConfig) {
           (entity) =>
             entity.entity_id.startsWith("sensor.") &&
             entity.attributes.device_class === deviceClass &&
+            !(
+              deviceClass === "temperature" &&
+              derivedTemperature.test(entity.entity_id)
+            ) &&
             entityArea(hass, entity.entity_id) === room.area_id &&
             !hass.entities[entity.entity_id]?.hidden &&
             !hass.entities[entity.entity_id]?.entity_category,
@@ -40,16 +49,36 @@ export function resolveRoomSensors(hass: HassLike, room: RoomConfig) {
   });
 }
 
+const outdoorNames = new Set([
+  "jardin",
+  "terrasse",
+  "exterieur",
+  "balcon",
+  "cour",
+  "garden",
+  "terrace",
+  "outdoor",
+  "outside",
+  "balcony",
+  "yard",
+  "patio",
+]);
+
+// Only an exact area or floor name counts, so "Jardin d'hiver" or a "Rez-de-jardin" floor stay indoors.
 export function isOutdoorArea(
   area: AreaEntry,
   floors: HassLike["floors"],
 ): boolean {
-  const name =
-    `${area.name} ${area.floor_id ? (floors?.[area.floor_id]?.name ?? "") : ""}`
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-  return /\b(jardin|terrasse|exterieur|garden|terrace|outdoor|outside)\b/.test(
-    name,
+  const floor = area.floor_id ? floors?.[area.floor_id]?.name : undefined;
+  return [area.name, floor].some(
+    (name) =>
+      name !== undefined &&
+      outdoorNames.has(
+        name
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+          .toLowerCase(),
+      ),
   );
 }

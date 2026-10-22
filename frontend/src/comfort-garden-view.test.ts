@@ -41,6 +41,19 @@ function addSensor(
 }
 
 describe("comfort climate", () => {
+  it("never takes a derived dew point for the room temperature", () => {
+    const hass = climateFixture();
+    addSensor(hass, "sensor.a_climate_dew_point", "11", "room_a", {
+      device_class: "temperature",
+    });
+    addSensor(hass, "sensor.a_climate_temperature", "20", "room_a", {
+      device_class: "temperature",
+    });
+    expect(buildComfortView(hass, automatic).rooms[0]).toMatchObject({
+      temperature: 20,
+      dewPoint: 11,
+    });
+  });
   it("uses visible room configuration, overrides, devices and area sensor preferences for the averages", () => {
     const hass = climateFixture();
     addSensor(hass, "sensor.temp", "20", "room_a", {
@@ -207,6 +220,20 @@ describe("garden", () => {
     ]);
     expect(isOutdoorArea(hass.areas.room_a, hass.floors)).toBe(false);
   });
+  it.each([
+    ["Jardin d'hiver", undefined],
+    ["Salon", "Rez-de-jardin"],
+  ])("keeps %s on floor %s indoors", (name, floor) => {
+    const floors: HassLike["floors"] = floor
+      ? { f: { floor_id: "f", name: floor } }
+      : {};
+    expect(
+      isOutdoorArea(
+        { area_id: "a", name, icon: null, floor_id: floor ? "f" : null },
+        floors,
+      ),
+    ).toBe(false);
+  });
   it("uses the first visible weather entity with its unit and forecast support", () => {
     const hass = climateFixture();
     addSensor(hass, "weather.hidden", "rainy");
@@ -257,6 +284,17 @@ describe("garden", () => {
       available: false,
       actions: [{ service: "open_valve" }],
     });
+  });
+  it("drops the closing time when the irrigation controller works by volume", () => {
+    const hass = climateFixture();
+    const onDevice = (id: string, state: string, attributes = {}) => {
+      addSensor(hass, id, state, "outdoor", attributes);
+      hass.entities[id].device_id = "valve_device";
+    };
+    onDevice("number.garden_irrigation_duration", "10");
+    onDevice("select.garden_irrigation_mode", "capacity");
+    onDevice("switch.garden_1", "off", { friendly_name: "Garden 1" });
+    expect(buildGardenView(hass).valves[0].state).toBe("Fermée · Terrasse");
   });
   it("lists irrigation outlets that close themselves after the device duration", () => {
     const hass = climateFixture();

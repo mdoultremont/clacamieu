@@ -72,6 +72,7 @@ export function Garden({
   const t = messages(hass.language);
   const [forecast, setForecast] = useState<unknown>(null);
   const [forecastError, setForecastError] = useState(false);
+  const [forecastLate, setForecastLate] = useState(false);
   const weatherId = view.weather?.id;
   const daily = view.weather?.daily;
   useEffect(() => {
@@ -84,9 +85,14 @@ export function Garden({
     }
     let active = true;
     let unsubscribe: (() => Promise<void>) | undefined;
+    setForecastLate(false);
+    const late = window.setTimeout(() => {
+      if (active) setForecastLate(true);
+    }, 10_000);
     hass.connection
       .subscribeMessage<unknown>(
         (event) => {
+          window.clearTimeout(late);
           if (active) setForecast(event);
         },
         {
@@ -104,6 +110,7 @@ export function Garden({
       });
     return () => {
       active = false;
+      window.clearTimeout(late);
       void unsubscribe?.().catch(() => {});
     };
   }, [hass.connection, weatherId, daily]);
@@ -169,9 +176,9 @@ export function Garden({
             <Item role="listitem">
               <ItemContent>
                 <ItemDescription role="status">
-                  {forecastError || forecast !== null
+                  {forecastError || forecastLate || forecast !== null
                     ? t.forecastError
-                    : t.loading}
+                    : t.forecastLoading}
                 </ItemDescription>
               </ItemContent>
             </Item>
