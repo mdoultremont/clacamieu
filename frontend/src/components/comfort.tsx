@@ -94,6 +94,13 @@ export function Comfort({
                   filter !== "humidity" ? humidity : null,
                   filter !== "co2" ? co2 : null,
                 ];
+          const description =
+            [...details, room.perception].filter(Boolean).join(" · ") ||
+            (room.temperature === null &&
+            room.humidity === null &&
+            room.co2 === null
+              ? t.unavailable
+              : "");
           return (
             <Fragment key={room.id}>
               {index > 0 && <ItemSeparator />}
@@ -105,11 +112,11 @@ export function Comfort({
                     </ItemMedia>
                     <ItemContent>
                       <ItemTitle>{room.name}</ItemTitle>
-                      <ItemDescription className="tabular-nums">
-                        {[...details, room.perception]
-                          .filter(Boolean)
-                          .join(" · ") || t.noClimate}
-                      </ItemDescription>
+                      {description && (
+                        <ItemDescription className="tabular-nums">
+                          {description}
+                        </ItemDescription>
+                      )}
                       {room.problems.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {room.problems.map((problem) => (
@@ -125,7 +132,7 @@ export function Comfort({
                       )}
                     </ItemContent>
                     <ItemActions className="shrink-0 text-right tabular-nums">
-                      <span>{value ?? "·"}</span>
+                      {value && <span>{value}</span>}
                       <ChevronRight className="size-4 text-muted-foreground" />
                     </ItemActions>
                   </RouteLink>
