@@ -111,6 +111,150 @@ function history(): EnergyHistory {
   };
 }
 describe("energy view", () => {
+  it.each(["day", "week", "month", "year"] as const)(
+    "ignores uncompiled current %s buckets",
+    (period) => {
+      const instant = new Date("2026-01-01T23:30:00Z");
+      const window = energyRange(period, instant, zone);
+      const current = window.boundaries
+        .slice(0, -1)
+        .map((start, index) => ({
+          start,
+          end: window.boundaries[index + 1],
+          change: 1,
+        }))
+        .filter((point) => point.end <= instant.getTime());
+      const config = { device_consumption: [{ stat_consumption: "meter" }] };
+      const view = buildEnergyView(
+        config,
+        { current: { meter: current }, previous: {}, metadata: [] },
+        hass(),
+        period,
+        instant,
+      );
+      expect(view.partial).toBe(false);
+      expect(view.buckets.find((bucket) => bucket.current)?.kwh).toBeNull();
+      if (current.length)
+        expect(
+          buildEnergyView(
+            config,
+            {
+              current: { meter: current.slice(1) },
+              previous: {},
+              metadata: [],
+            },
+            hass(),
+            period,
+            instant,
+          ).partial,
+        ).toBe(true);
+    },
+  );
+  it.each([
+    ["EUR/kWh", ".3"],
+    ["EUR/MWh", "300"],
+    ["EUR/Wh", ".0003"],
+    [undefined, ".3"],
+  ])("converts entity price %s to per kWh", (unit, state) => {
+    const source = hass();
+    source.states["sensor.price"] = entity("sensor.price", state!, {
+      unit_of_measurement: unit,
+    });
+    const config: EnergyPrefs = {
+      ...prefs,
+      energy_sources: [
+        {
+          type: "grid",
+          stat_energy_from: "sensor.grid",
+          entity_energy_price: "sensor.price",
+        },
+      ],
+    };
+    expect(
+      buildEnergyView(config, history(), source, "day", now).cost,
+    ).toBeCloseTo(1.8);
+  });
+  it("excludes included devices from totals, chart, and shares while keeping their rows", () => {
+    const config = {
+      device_consumption: [
+        { stat_consumption: "parent", name: "Parent" },
+        { stat_consumption: "child", included_in_stat: "parent" },
+        { stat_consumption: "other", included_in_stat: "unmeasured" },
+      ],
+    };
+    const view = buildEnergyView(
+      config,
+      {
+        current: {
+          parent: [point(0, 4)],
+          child: [point(0, 3)],
+          other: [point(0, 1)],
+        },
+        previous: {},
+        metadata: [],
+      },
+      hass(),
+      "day",
+      now,
+    );
+    expect(view.kwh).toBe(5);
+    expect(view.buckets[0].kwh).toBe(5);
+    expect(view.devices.find((device) => device.id === "parent")?.share).toBe(
+      80,
+    );
+    expect(view.devices.find((device) => device.id === "child")).toMatchObject({
+      kwh: 3,
+      share: null,
+      includedIn: "Parent",
+    });
+  });
+  it("shows device total cost when prices agree and hides all costs when they differ", () => {
+    const data = history();
+    data.current["sensor.grid"] = [];
+    data.previous["sensor.grid"] = [];
+    const view = buildEnergyView(prefs, data, hass(), "day", now);
+    expect(view.cost).toBeCloseTo(1.05);
+    expect(view.devices[0].cost).toBeCloseTo(0.9);
+    const config: EnergyPrefs = {
+      ...prefs,
+      energy_sources: [
+        {
+          type: "grid",
+          flow_from: [
+            { stat_energy_from: "sensor.grid", number_energy_price: 0.3 },
+            { stat_energy_from: "other_grid", number_energy_price: 0.4 },
+          ],
+        },
+      ],
+    };
+    const unknown = buildEnergyView(config, data, hass(), "day", now);
+    expect(unknown.cost).toBeNull();
+    expect(unknown.devices.every((device) => device.cost === null)).toBe(true);
+  });
+  it("uses the largest power reading instead of adding phases and total", () => {
+    const source = hass();
+    source.states["sensor.phase"] = entity("sensor.phase", "50", {
+      device_class: "power",
+      unit_of_measurement: "W",
+    });
+    source.entities["sensor.phase"] = {
+      entity_id: "sensor.phase",
+      device_id: "device_a",
+    };
+    expect(
+      buildEnergyView(prefs, history(), source, "day", now).devices[0].watts,
+    ).toBe(120);
+  });
+  it("compares the same elapsed day rather than the entire previous day", () => {
+    const data = history();
+    data.previous["sensor.grid"].push({
+      start: range.previousStart + 20 * 3_600_000,
+      end: range.previousStart + 21 * 3_600_000,
+      change: 100,
+    });
+    expect(buildEnergyView(prefs, data, hass(), "day", now).change).toBe(50);
+  });
+
   it("uses grid changes, preserves missing buckets, and sorts measured devices", () => {
     const view = buildEnergyView(prefs, history(), hass(), "day", now);
     expect(view.kwh).toBe(6);
@@ -132,6 +276,7 @@ describe("energy view", () => {
       {
         id: "sensor.appliance_energy",
         name: "Appliance",
+        includedIn: null,
         kwh: 3,
         share: 50,
         watts: 120,
@@ -140,6 +285,7 @@ describe("energy view", () => {
       {
         id: "external:meter",
         name: "Imported meter",
+        includedIn: null,
         kwh: 0.5,
         share: (0.5 / 6) * 100,
         watts: null,
@@ -148,6 +294,7 @@ describe("energy view", () => {
       {
         id: "sensor.offline",
         name: "sensor.offline",
+        includedIn: null,
         kwh: null,
         share: null,
         watts: null,
@@ -263,7 +410,7 @@ describe("energy view", () => {
     const view = buildEnergyView(prefs, data, hass(), "day", now);
     expect(view.source).toBe("devices");
     expect(view.kwh).toBe(3.5);
-    expect(view.cost).toBeNull();
+    expect(view.cost).toBeCloseTo(1.05);
     expect(view.buckets[0].kwh).toBe(1.5);
   });
   it("renders an empty preferences object without requiring the Clacamieu Energy family", () => {
@@ -292,7 +439,7 @@ describe("energy calendar ranges", () => {
       expect(new Date(result.start).toISOString()).toBe(start);
       expect(new Date(result.end).toISOString()).toBe(end);
       expect(result.boundaries).toHaveLength(count + 1);
-      expect(result.previousEnd).toBe(result.start);
+      if (period === "week") expect(result.previousEnd).toBe(result.start);
     },
   );
   it("keeps the last day of a month within that month", () => {
@@ -317,4 +464,59 @@ describe("energy calendar ranges", () => {
       ).toISOString(),
     ).toBe("2026-10-20T22:00:00.000Z");
   });
+});
+
+describe("elapsed comparison windows", () => {
+  it.each([
+    ["2026-10-26T01:30:00Z", "2026-10-25T00:30:00.000Z"],
+    ["2026-03-30T00:30:00Z", "2026-03-29T01:30:00.000Z"],
+  ])("resolves repeated and skipped previous clock times for %s", (instant, end) => {
+    expect(new Date(energyRange("day", new Date(instant), zone).previousEnd).toISOString()).toBe(end);
+  });
+
+  it.each([
+    [
+      "day",
+      "2026-10-21T12:30:00Z",
+      "2026-10-19T22:00:00.000Z",
+      "2026-10-20T12:30:00.000Z",
+    ],
+    [
+      "month",
+      "2026-10-21T12:30:00Z",
+      "2026-08-31T22:00:00.000Z",
+      "2026-09-21T12:30:00.000Z",
+    ],
+    [
+      "month",
+      "2026-03-31T12:30:00Z",
+      "2026-01-31T23:00:00.000Z",
+      "2026-02-28T13:30:00.000Z",
+    ],
+    [
+      "year",
+      "2024-02-29T12:30:00Z",
+      "2022-12-31T23:00:00.000Z",
+      "2023-02-28T12:30:00.000Z",
+    ],
+    [
+      "day",
+      "2026-10-25T12:30:00Z",
+      "2026-10-23T22:00:00.000Z",
+      "2026-10-24T11:30:00.000Z",
+    ],
+    [
+      "day",
+      "2026-03-29T12:30:00Z",
+      "2026-03-27T23:00:00.000Z",
+      "2026-03-28T13:30:00.000Z",
+    ],
+  ] as const)(
+    "compares %s at %s using the local clock",
+    (period, instant, start, end) => {
+      const window = energyRange(period, new Date(instant), zone);
+      expect(new Date(window.previousStart).toISOString()).toBe(start);
+      expect(new Date(window.previousEnd).toISOString()).toBe(end);
+    },
+  );
 });

@@ -13,7 +13,11 @@ export interface EnergyPrefs {
     type: string;
     flow_from?: EnergyFlow[];
   } & Partial<EnergyFlow>)[];
-  device_consumption?: { stat_consumption: string; name?: string }[];
+  device_consumption?: {
+    stat_consumption: string;
+    name?: string;
+    included_in_stat?: string;
+  }[];
 }
 export interface StatisticPoint {
   start: number;
@@ -51,6 +55,7 @@ export interface EnergyView {
   devices: {
     id: string;
     name: string;
+    includedIn: string | null;
     kwh: number | null;
     share: number | null;
     watts: number | null;
@@ -58,21 +63,37 @@ export interface EnergyView {
   }[];
 }
 
-function calendarDate(date: Date, timeZone: string) {
+function calendarDate(date: Date, timeZone: string, withTime = false) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
     month: "numeric",
     day: "numeric",
+    ...(withTime
+      ? {
+          hour: "numeric",
+          minute: "numeric",
+          second: "numeric",
+          hourCycle: "h23" as const,
+        }
+      : {}),
   }).formatToParts(date);
   const part = (type: string) =>
     Number(parts.find((part) => part.type === type)!.value);
-  return new Date(Date.UTC(part("year"), part("month") - 1, part("day")));
+  return new Date(
+    Date.UTC(
+      part("year"),
+      part("month") - 1,
+      part("day"),
+      withTime ? part("hour") : 0,
+      withTime ? part("minute") : 0,
+      withTime ? part("second") : 0,
+    ),
+  );
 }
 
-function midnight(date: Date, timeZone: string): number {
+function zonedTimestamp(date: Date, timeZone: string): number {
   const target = date.getTime();
-  let result = target;
   const formatter = new Intl.DateTimeFormat("en-GB", {
     timeZone,
     year: "numeric",
@@ -83,11 +104,11 @@ function midnight(date: Date, timeZone: string): number {
     second: "numeric",
     hourCycle: "h23",
   });
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const parts = formatter.formatToParts(result);
+  const wallClock = (instant: number) => {
+    const parts = formatter.formatToParts(instant);
     const part = (type: string) =>
       Number(parts.find((part) => part.type === type)!.value);
-    const local = Date.UTC(
+    return Date.UTC(
       part("year"),
       part("month") - 1,
       part("day"),
@@ -95,11 +116,15 @@ function midnight(date: Date, timeZone: string): number {
       part("minute"),
       part("second"),
     );
-    const correction = target - local;
-    result += correction;
-    if (!correction) break;
-  }
-  return result;
+  };
+  const offsetBefore = wallClock(target - 86_400_000) - (target - 86_400_000);
+  const offsetAfter = wallClock(target + 86_400_000) - (target + 86_400_000);
+  // Like Temporal's "compatible": a repeated wall time takes its first instant,
+  // and a skipped one keeps the offset in force before the change.
+  const matches = [target - offsetBefore, target - offsetAfter].filter(
+    (instant) => wallClock(instant) === target,
+  );
+  return matches.length ? Math.min(...matches) : target - offsetBefore;
 }
 
 export function energyTimeZone(hass: HassLike): string {
@@ -123,16 +148,63 @@ export function energyRange(period: EnergyPeriod, now: Date, timeZone: string) {
     end.setUTCFullYear(start.getUTCFullYear() + 1, 0, 1);
   }
   const previous = new Date(start);
-  if (period === "year") previous.setUTCFullYear(previous.getUTCFullYear() - 1);
-  else
-    previous.setUTCDate(
-      previous.getUTCDate() -
-        Math.round((end.getTime() - start.getTime()) / 86_400_000),
-    );
+  const previousClock = calendarDate(now, timeZone, true);
+  if (period === "week") previous.setUTCDate(previous.getUTCDate() - 7);
+  else if (period === "day") {
+    previous.setUTCDate(previous.getUTCDate() - 1);
+    previousClock.setUTCDate(previousClock.getUTCDate() - 1);
+  } else {
+    const day = previousClock.getUTCDate();
+    previousClock.setUTCDate(1);
+    if (period === "month") {
+      previous.setUTCMonth(previous.getUTCMonth() - 1);
+      previousClock.setUTCMonth(previousClock.getUTCMonth() - 1);
+    } else {
+      previous.setUTCFullYear(previous.getUTCFullYear() - 1);
+      previousClock.setUTCFullYear(previousClock.getUTCFullYear() - 1);
+    }
+    const lastDay = new Date(
+      Date.UTC(
+        previousClock.getUTCFullYear(),
+        previousClock.getUTCMonth() + 1,
+        0,
+      ),
+    ).getUTCDate();
+    previousClock.setUTCDate(Math.min(day, lastDay));
+  }
+  const previousStart = zonedTimestamp(previous, timeZone);
+  const previousEnd =
+    period === "week"
+      ? zonedTimestamp(start, timeZone)
+      : zonedTimestamp(previousClock, timeZone);
+  const previousDay = new Date(previousClock);
+  previousDay.setUTCHours(0, 0, 0, 0);
+  const previousDayStart = zonedTimestamp(previousDay, timeZone);
+  const previousRanges =
+    period === "month" || period === "year"
+      ? [
+          {
+            start: previousStart,
+            end: previousDayStart,
+            period: "day" as const,
+          },
+          {
+            start: previousDayStart,
+            end: previousEnd,
+            period: "hour" as const,
+          },
+        ].filter((range) => range.start < range.end)
+      : [
+          {
+            start: previousStart,
+            end: previousEnd,
+            period: period === "day" ? ("hour" as const) : ("day" as const),
+          },
+        ];
   const bucketPeriod =
     period === "day" ? "hour" : period === "year" ? "month" : "day";
-  const boundaries = [midnight(start, timeZone)];
-  const endTime = midnight(end, timeZone);
+  const boundaries = [zonedTimestamp(start, timeZone)];
+  const endTime = zonedTimestamp(end, timeZone);
   if (bucketPeriod === "hour") {
     while (boundaries.at(-1)! < endTime)
       boundaries.push(boundaries.at(-1)! + 3_600_000);
@@ -142,14 +214,15 @@ export function energyRange(period: EnergyPeriod, now: Date, timeZone: string) {
       if (bucketPeriod === "month")
         cursor.setUTCMonth(cursor.getUTCMonth() + 1);
       else cursor.setUTCDate(cursor.getUTCDate() + 1);
-      boundaries.push(midnight(cursor, timeZone));
+      boundaries.push(zonedTimestamp(cursor, timeZone));
     }
   }
   return {
     start: boundaries[0],
     end: endTime,
-    previousStart: midnight(previous, timeZone),
-    previousEnd: boundaries[0],
+    previousStart,
+    previousEnd,
+    previousRanges,
     bucketPeriod,
     boundaries,
   };
@@ -196,10 +269,16 @@ function consumption(
   id: string,
   start: number,
   end: number,
+  completedOnly = false,
 ): number | null {
   return sum(
     (statistics[id] ?? [])
-      .filter((point) => point.start >= start && point.start < end)
+      .filter(
+        (point) =>
+          point.start >= start &&
+          point.start < end &&
+          (!completedOnly || point.end <= end),
+      )
       .map((point) => numeric(point.change)),
   );
 }
@@ -209,6 +288,17 @@ function watts(hass: HassLike, id: string): number | null {
   const value = numeric(entity?.state);
   if (value === null) return null;
   return value * (entity.attributes.unit_of_measurement === "kW" ? 1000 : 1);
+}
+
+export function energyPricePerKwh(
+  value: number | null,
+  unit?: string,
+): number | null {
+  if (value === null) return null;
+  const energyUnit = unit?.split("/")[1];
+  return (
+    value * (energyUnit === "MWh" ? 0.001 : energyUnit === "Wh" ? 1000 : 1)
+  );
 }
 
 export function buildEnergyView(
@@ -223,11 +313,21 @@ export function buildEnergyView(
   const { flows, deviceIds, gridIds } = energySources(prefs);
   // An imported grid statistic can be configured yet empty or stuck at zero.
   const gridHasReadings = gridIds.some((id) =>
-    [...(statistics.current[id] ?? []), ...(statistics.previous[id] ?? [])].some(
-      (point) => (numeric(point.change) ?? 0) !== 0,
-    ),
+    [
+      ...(statistics.current[id] ?? []),
+      ...(statistics.previous[id] ?? []),
+    ].some((point) => (numeric(point.change) ?? 0) !== 0),
   );
-  const totalIds = gridHasReadings ? gridIds : deviceIds;
+  const parents = new Map(
+    prefs.device_consumption?.map((device) => [
+      device.stat_consumption,
+      device.included_in_stat,
+    ]),
+  );
+  const topLevelIds = deviceIds.filter(
+    (id) => !deviceIds.includes(parents.get(id) ?? ""),
+  );
+  const totalIds = gridHasReadings ? gridIds : topLevelIds;
   const totals = totalIds.map((id) =>
     consumption(statistics.current, id, range.start, range.end),
   );
@@ -239,14 +339,21 @@ export function buildEnergyView(
         id,
         range.previousStart,
         range.previousEnd,
+        true,
       ),
     ),
   );
-  const prices = flows.map((flow) =>
-    flow.entity_energy_price
-      ? numeric(hass.states[flow.entity_energy_price]?.state)
-      : numeric(flow.number_energy_price),
-  );
+  const prices = flows.map((flow) => {
+    const entity = flow.entity_energy_price
+      ? hass.states[flow.entity_energy_price]
+      : undefined;
+    return flow.entity_energy_price
+      ? energyPricePerKwh(
+          numeric(entity?.state),
+          entity?.attributes.unit_of_measurement,
+        )
+      : numeric(flow.number_energy_price);
+  });
   const devicePrice =
     prices.length &&
     prices.every((price) => price !== null && price === prices[0])
@@ -267,7 +374,15 @@ export function buildEnergyView(
             return value === null ? null : value * prices[i]!;
           }),
         )
-      : null;
+      : !gridHasReadings && kwh !== null && devicePrice !== null
+        ? kwh * devicePrice
+        : null;
+  const deviceName = (id: string) =>
+    prefs.device_consumption?.find((device) => device.stat_consumption === id)
+      ?.name ??
+    hass.states[id]?.attributes.friendly_name ??
+    statistics.metadata.find((entry) => entry.statistic_id === id)?.name ??
+    id;
   const language = locale(hass.language);
   const label = new Intl.DateTimeFormat(language, {
     timeZone,
@@ -315,7 +430,7 @@ export function buildEnergyView(
         : null,
     partial: buckets.some(
       (bucket) =>
-        bucket.start < now.getTime() &&
+        bucket.end <= now.getTime() &&
         totalIds.some(
           (id) =>
             consumption(statistics.current, id, bucket.start, bucket.end) ===
@@ -345,20 +460,23 @@ export function buildEnergyView(
           : [];
         return {
           id,
-          name:
-            hass.states[id]?.attributes.friendly_name ??
-            statistics.metadata.find((entry) => entry.statistic_id === id)
-              ?.name ??
-            prefs.device_consumption?.find(
-              (device) => device.stat_consumption === id,
-            )?.name ??
-            id,
+          name: deviceName(id),
+          includedIn: deviceIds.includes(parents.get(id) ?? "")
+            ? deviceName(parents.get(id)!)
+            : null,
           kwh: value,
           share:
-            value !== null && kwh !== null && kwh > 0
+            topLevelIds.includes(id) &&
+            value !== null &&
+            kwh !== null &&
+            kwh > 0
               ? (value / kwh) * 100
               : null,
-          watts: sum(power),
+          watts: power.some((value) => value !== null)
+            ? Math.max(
+                ...power.filter((value): value is number => value !== null),
+              )
+            : null,
           cost:
             value !== null && devicePrice !== null ? value * devicePrice : null,
         };

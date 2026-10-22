@@ -119,7 +119,9 @@ export const en = {
   energyPeriod: "Consumption period",
   energyNow: "Now",
   energyComparison: "Change",
-  energyPrevious: "Against the previous period of the same length",
+  energyPrevious: "Against the same elapsed time in the previous period",
+  energyPreviousWeek: "Against the previous 7 days",
+  energyIncludedIn: (parent: string) => `Included in ${parent}`,
   energyConsumption: "Consumption",
   energyChartSummary: (total: string) =>
     `Consumption by period. Total ${total}. Select a bar for its value.`,
@@ -349,7 +351,9 @@ export const fr: Messages = {
   energyPeriod: "Période de consommation",
   energyNow: "Maintenant",
   energyComparison: "Évolution",
-  energyPrevious: "Par rapport à la période précédente de même durée",
+  energyPrevious: "Par rapport à la même durée de la période précédente",
+  energyPreviousWeek: "Par rapport aux 7 jours précédents",
+  energyIncludedIn: (parent) => `Inclus dans ${parent}`,
   energyConsumption: "Consommation",
   energyChartSummary: (total) =>
     `Consommation par période. Total ${total}. Sélectionnez une barre pour sa valeur.`,

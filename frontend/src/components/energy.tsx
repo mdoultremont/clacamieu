@@ -119,8 +119,7 @@ function EnergyContent({
   const cards = [
     {
       label: t.energyNow,
-      value:
-        view.watts === null ? "—" : `${number(view.watts, 0)} W`,
+      value: view.watts === null ? "—" : `${number(view.watts, 0)} W`,
       detail: t.plugPower,
     },
     {
@@ -128,7 +127,11 @@ function EnergyContent({
       value: view.kwh === null ? "—" : energy(view.kwh),
       detail: view.cost === null ? null : money(view.cost),
     },
-    { label: t.energyComparison, value: change, detail: t.energyPrevious },
+    {
+      label: t.energyComparison,
+      value: change,
+      detail: period === "week" ? t.energyPreviousWeek : t.energyPrevious,
+    },
   ];
   return (
     <>
@@ -175,6 +178,11 @@ function EnergyContent({
                 </ItemMedia>
                 <ItemContent>
                   <ItemTitle>{device.name}</ItemTitle>
+                  {device.includedIn && (
+                    <ItemDescription>
+                      {t.energyIncludedIn(device.includedIn)}
+                    </ItemDescription>
+                  )}
                   <ItemDescription className="tabular-nums">
                     {energy(device.kwh)}
                     {device.share !== null && ` · ${number(device.share, 1)} %`}
@@ -327,10 +335,16 @@ export function ConsumptionChart({
                 y={
                   12 +
                   plotHeight -
-                  Math.max(height, bucket.kwh === null ? 0 : 1)
+                  Math.max(
+                    height,
+                    bucket.kwh === null && !bucket.current ? 0 : 1,
+                  )
                 }
                 width={step * 0.7}
-                height={Math.max(height, bucket.kwh === null ? 0 : 1)}
+                height={Math.max(
+                  height,
+                  bucket.kwh === null && !bucket.current ? 0 : 1,
+                )}
                 rx="1.5"
                 fill="currentColor"
                 opacity={bucket.current || selected === index ? 1 : 0.45}

@@ -29,9 +29,11 @@ export function useEnergy(hass: HassLike, period: EnergyPeriod) {
   latestHass.current = hass;
   const timeZone = energyTimeZone(hass);
   useEffect(() => {
+    setState({ status: "loading" });
+  }, [period, timeZone]);
+  useEffect(() => {
     let active = true;
     async function load() {
-      setState({ status: "loading" });
       const source = latestHass.current;
       const prefs = await source
         .callWS<EnergyPrefs>({ type: "energy/get_prefs" })
@@ -45,20 +47,47 @@ export function useEnergy(hass: HassLike, period: EnergyPeriod) {
       const range = energyRange(period, now, timeZone);
       const ids = energySources(prefs).statisticIds;
       const metadataIds = ids.filter((id) => !source.states[id]);
-      const request = (start: number, end: number) =>
+      const request = (
+        start: number,
+        end: number,
+        bucketPeriod = range.bucketPeriod,
+      ) =>
         source.callWS<EnergyStatistics>({
           type: "recorder/statistics_during_period",
           statistic_ids: ids,
           start_time: new Date(start).toISOString(),
           end_time: new Date(end).toISOString(),
-          period: range.bucketPeriod,
+          period: bucketPeriod,
           types: ["change"],
           units: { energy: "kWh" },
         });
       try {
         const [current, previous, metadata] = await Promise.all([
           request(range.start, range.end),
-          request(range.previousStart, range.previousEnd),
+          Promise.all(
+            range.previousRanges.map(async (segment) => {
+              const data = await request(
+                segment.start,
+                segment.end,
+                segment.period,
+              );
+              return Object.fromEntries(
+                Object.entries(data).map(([id, points]) => [
+                  id,
+                  points.filter(
+                    (point) =>
+                      point.start >= segment.start && point.end <= segment.end,
+                  ),
+                ]),
+              );
+            }),
+          ).then((segments) => {
+            const combined: EnergyStatistics = {};
+            for (const segment of segments)
+              for (const [id, points] of Object.entries(segment))
+                (combined[id] ??= []).push(...points);
+            return combined;
+          }),
           metadataIds.length
             ? source.callWS<EnergyMetadata[]>({
                 type: "recorder/get_statistics_metadata",

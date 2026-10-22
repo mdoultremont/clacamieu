@@ -73,6 +73,126 @@ const requests = () =>
     .filter((message) => message.type === "recorder/statistics_during_period");
 
 describe("energy screen and loading", () => {
+  it("keeps ready content and tapped selection during and after refresh", async () => {
+    await mount();
+    const bar = container.querySelector<SVGGElement>('svg [role="button"]')!;
+    await act(async () =>
+      bar.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+    );
+    const original = vi.mocked(hass.callWS).getMockImplementation()!;
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(hass.callWS).mockImplementationOnce(async (message) => {
+      await pending;
+      return original(message);
+    });
+    await act(async () => vi.advanceTimersByTime(300_000));
+    expect(container.textContent).toContain("2 kWh");
+    expect(container.querySelector('svg [aria-pressed="true"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("Loading energy statistics");
+    await act(async () => release());
+    expect(container.querySelector('svg [aria-pressed="true"]')).not.toBeNull();
+  });
+  it("shows loading on first load and on a period change", async () => {
+    const original = vi.mocked(hass.callWS).getMockImplementation()!;
+    let release!: () => void;
+    const pause = () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    let pending = pause();
+    vi.mocked(hass.callWS).mockImplementation(async (message) => {
+      if (message.type === "energy/get_prefs") await pending;
+      return original(message);
+    });
+    await mount();
+    expect(container.textContent).toContain("Loading energy statistics");
+    await act(async () => release());
+    expect(container.textContent).toContain("2 kWh");
+    pending = pause();
+    const month = [
+      ...container.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.textContent === "Month")!;
+    await act(async () => month.click());
+    expect(container.textContent).toContain("Loading energy statistics");
+    expect(container.querySelector("svg")).toBeNull();
+    await act(async () => release());
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
+  it("combines previous complete days with an hourly tail without counting Recorder's rounded extra day", async () => {
+    const original = vi.mocked(hass.callWS).getMockImplementation()!;
+    hass.callWS = vi.fn().mockImplementation(async (message) => {
+      if (message.type !== "recorder/statistics_during_period")
+        return original(message);
+      const start = Date.parse(message.start_time);
+      const end = Date.parse(message.end_time);
+      const isPrevious = end <= Date.parse("2026-09-21T12:00:00Z");
+      const point = (start: number, end: number, change: number) => ({
+        start,
+        end,
+        change,
+      });
+      if (!isPrevious)
+        return { "external:grid": [point(start, start + 86400000, 4)] };
+      return {
+        "external:grid":
+          message.period === "day"
+            ? [
+                point(start, start + 86400000, 1),
+                point(end, end + 86400000, 100),
+              ]
+            : [
+                point(start, start + 3600000, 1),
+                point(end, end + 3600000, 100),
+              ],
+      };
+    });
+    await mount();
+    const month = [
+      ...container.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.textContent === "Month")!;
+    await act(async () => month.click());
+    expect(container.textContent).toContain("+100 %");
+    const previous = requests().slice(3);
+    expect(previous.map((request) => request.period)).toEqual(["day", "hour"]);
+    expect(previous[0].end_time).toBe(previous[1].start_time);
+    expect(previous[1].end_time).toBe("2026-09-21T12:00:00.000Z");
+  });
+  it("labels nested devices without a second share", async () => {
+    const original = vi.mocked(hass.callWS).getMockImplementation()!;
+    hass.callWS = vi.fn().mockImplementation(async (message) => {
+      if (message.type === "energy/get_prefs")
+        return {
+          device_consumption: [
+            { stat_consumption: "external:grid", name: "Parent" },
+            {
+              stat_consumption: "child",
+              name: "Child",
+              included_in_stat: "external:grid",
+            },
+          ],
+        };
+      return original(message);
+    });
+    await mount();
+    expect(container.textContent).toContain("Included in Parent");
+    hass.language = "fr";
+    await mount();
+    expect(container.textContent).toContain("Inclus dans Parent");
+  });
+  it("draws an empty current bucket in the foreground", async () => {
+    await mount();
+    const current = container.querySelector(
+      'svg g[role="button"].text-foreground',
+    )!;
+    expect(current).not.toBeNull();
+    expect(
+      Number(current.querySelectorAll("rect")[1].getAttribute("height")),
+    ).toBeGreaterThan(0);
+  });
+
   it("loads both ranges in kWh, metadata, and refreshes after five minutes for a non-admin", async () => {
     await mount();
     expect(requests()).toHaveLength(2);
@@ -85,7 +205,7 @@ describe("energy screen and loading", () => {
       types: ["change"],
       units: { energy: "kWh" },
     });
-    expect(requests()[1].end_time).toBe(requests()[0].start_time);
+    expect(requests()[1].end_time).toBe("2026-10-20T12:00:00.000Z");
     expect(container.textContent).toContain("2 kWh");
     expect(container.textContent).toContain("€0.80");
     expect(container.textContent).toContain("+0 %");
@@ -103,7 +223,7 @@ describe("energy screen and loading", () => {
       ...container.querySelectorAll<HTMLButtonElement>("button"),
     ].find((button) => button.textContent === label)!;
     await act(async () => button.click());
-    expect(requests()).toHaveLength(4);
+    expect(requests()).toHaveLength(label === "Week" ? 4 : 5);
     expect(requests()[2].period).toBe(period);
     expect(container.querySelectorAll('svg [role="button"]')).toHaveLength(
       count,
