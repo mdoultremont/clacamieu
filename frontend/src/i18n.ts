@@ -50,6 +50,7 @@ export const en = {
   vacuumServicesError:
     "Unable to load room controls. Reopen this page to retry.",
   unavailableEntities: "Unavailable",
+  entityCount: (count: number) => `${count} entit${count === 1 ? "y" : "ies"}`,
   lowBatteries: "Low batteries",
   pendingUpdates: "Updates",
   repairs: "Repairs",
@@ -311,6 +312,7 @@ export const fr: Messages = {
   vacuumServicesError:
     "Impossible de charger les commandes par pièce. Rouvrez cette page pour réessayer.",
   unavailableEntities: "Indisponibles",
+  entityCount: (count) => `${count} entité${count === 1 ? "" : "s"}`,
   lowBatteries: "Piles faibles",
   pendingUpdates: "Mises à jour",
   repairs: "Réparations",

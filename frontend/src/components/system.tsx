@@ -87,7 +87,10 @@ export function System({
       empty: t.noUnavailable,
       rows: view.unavailable.map((entity) => ({
         ...entity,
-        detail: entity.since,
+        detail:
+          entity.entities > 1
+            ? `${t.entityCount(entity.entities)} · ${entity.since}`
+            : entity.since,
       })),
     },
     {

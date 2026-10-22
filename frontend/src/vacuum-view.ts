@@ -116,12 +116,21 @@ export function buildVacuumView(
         ? attributes.current_room
         : (rooms.find(({ id }) => id === attributes.current_segment)?.name ??
           null);
+  const vacuumName =
+    attributes.friendly_name ??
+    hass.entities[vacuum.entity_id]?.name ??
+    t.vacuumLabel;
+  // The page title already names the vacuum, so its sensors drop that prefix.
+  const partName = (entity: HassEntity) => {
+    const name: string = entity.attributes.friendly_name ?? entity.entity_id;
+    const rest = name.startsWith(`${vacuumName} `)
+      ? name.slice(vacuumName.length + 1)
+      : name;
+    return rest.charAt(0).toLocaleUpperCase(locale(hass.language)) + rest.slice(1);
+  };
   return {
     id: vacuum.entity_id,
-    name:
-      attributes.friendly_name ??
-      hass.entities[vacuum.entity_id]?.name ??
-      t.vacuumLabel,
+    name: vacuumName,
     state:
       hass.formatEntityState?.(vacuum) ??
       translatedState(t.vacuum, vacuum.state),
@@ -169,7 +178,7 @@ export function buildVacuumView(
       return [
         {
           id: entity.entity_id,
-          name: entity.attributes.friendly_name ?? entity.entity_id,
+          name: partName(entity),
           value: `${number.format(percent)} %`,
           low: percent < 10,
         },
@@ -186,7 +195,7 @@ export function buildVacuumView(
         ? [
             {
               id: entity.entity_id,
-              name: entity.attributes.friendly_name ?? entity.entity_id,
+              name: partName(entity),
               value: formatted,
             },
           ]

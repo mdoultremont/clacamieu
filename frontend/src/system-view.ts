@@ -9,7 +9,7 @@ export interface SystemEntity {
   area: string | null;
 }
 export interface SystemView {
-  unavailable: (SystemEntity & { since: string })[];
+  unavailable: (SystemEntity & { since: string; entities: number })[];
   batteries: (SystemEntity & { level: number; value: string })[];
   updates: (SystemEntity & { installed: string; latest: string })[];
 }
@@ -20,6 +20,8 @@ export function buildSystemView(hass: HassLike, now: Date): SystemView {
   const number = new Intl.NumberFormat(language, { maximumFractionDigits: 0 });
   const relative = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
   const view: SystemView = { unavailable: [], batteries: [], updates: [] };
+  // One offline device makes all its entities unavailable, so group them by device.
+  const offline = new Map<string, { entity: SystemEntity; changed: number[]; count: number }>();
   for (const entity of Object.values(hass.states)) {
     const entry = hass.entities[entity.entity_id];
     if (entry?.hidden) continue;
@@ -33,18 +35,23 @@ export function buildSystemView(hass: HassLike, now: Date): SystemView {
       entity.state === "unavailable" &&
       entry?.entity_category !== "diagnostic"
     ) {
-      const elapsed = now.getTime() - Date.parse(entity.last_changed);
-      const minutes = Math.max(0, Math.floor(elapsed / 60_000));
-      const since = !Number.isFinite(elapsed)
-        ? t.unknownTime
-        : minutes < 1
-          ? t.justNow
-          : minutes < 60
-            ? relative.format(-minutes, "minute")
-            : minutes < 1440
-              ? relative.format(-Math.floor(minutes / 60), "hour")
-              : relative.format(-Math.floor(minutes / 1440), "day");
-      view.unavailable.push({ ...base, since });
+      const deviceId = entry?.device_id;
+      const device = deviceId ? hass.devices[deviceId] : undefined;
+      const key = device ? `device:${device.id}` : entity.entity_id;
+      const group = offline.get(key) ?? {
+        entity: {
+          ...base,
+          name: device?.name_by_user ?? device?.name ?? base.name,
+          area: device?.area_id
+            ? (hass.areas[device.area_id]?.name ?? base.area)
+            : base.area,
+        },
+        changed: [],
+        count: 0,
+      };
+      group.count += 1;
+      group.changed.push(Date.parse(entity.last_changed));
+      offline.set(key, group);
     }
     const level = numeric(entity.state);
     if (
@@ -69,6 +76,24 @@ export function buildSystemView(hass: HassLike, now: Date): SystemView {
       });
     }
   }
+  for (const { entity, changed, count } of offline.values()) {
+    const latest = Math.max(...changed.filter(Number.isFinite));
+    const elapsed = now.getTime() - latest;
+    const minutes = Math.max(0, Math.floor(elapsed / 60_000));
+    const since = !Number.isFinite(elapsed)
+      ? t.unknownTime
+      : minutes < 1
+        ? t.justNow
+        : minutes < 60
+          ? relative.format(-minutes, "minute")
+          : minutes < 1440
+            ? relative.format(-Math.floor(minutes / 60), "hour")
+            : relative.format(-Math.floor(minutes / 1440), "day");
+    view.unavailable.push({ ...entity, since, entities: count });
+  }
+  view.unavailable.sort(
+    (a, b) => b.entities - a.entities || a.name.localeCompare(b.name, language),
+  );
   view.batteries.sort((a, b) => a.level - b.level);
   return view;
 }

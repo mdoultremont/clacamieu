@@ -107,9 +107,10 @@ describe("vacuum view", () => {
       { unit_of_measurement: "%" },
       "another",
     );
+    hass.states["vacuum.robot"].attributes.friendly_name = "Robot";
     add("sensor.robot_total_cleaning_time", "12.3", {
       unit_of_measurement: "h",
-      friendly_name: "Total time",
+      friendly_name: "Robot total time",
     });
     const view = buildVacuumView(hass, config)!;
     expect(view.camera).toEqual({

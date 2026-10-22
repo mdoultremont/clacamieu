@@ -35,33 +35,39 @@ function fixture() {
 }
 const now = new Date("2026-10-21T12:00:00Z");
 describe("system view", () => {
-  it("counts unavailable visible non-diagnostic entities with area and duration", () => {
+  it("groups unavailable visible non-diagnostic entities by device, with area and duration", () => {
     const { hass, add } = fixture();
+    hass.devices.device.name = "Desk sensor";
     for (const id of [
       "sensor.offline",
       "sensor.hidden",
       "sensor.diagnostic",
       "switch.config",
+      "sensor.loose",
     ])
       add(id, "unavailable");
     hass.entities["sensor.hidden"].hidden = true;
     hass.entities["sensor.diagnostic"].entity_category = "diagnostic";
     hass.entities["switch.config"].entity_category = "config";
+    hass.entities["sensor.loose"] = { entity_id: "sensor.loose", area_id: "room" };
     expect(buildSystemView(hass, now).unavailable).toEqual([
       {
         id: "sensor.offline",
-        name: "sensor.offline",
+        name: "Desk sensor",
         area: "Study",
         since: "1 hour ago",
+        entities: 2,
       },
       {
-        id: "switch.config",
-        name: "switch.config",
+        id: "sensor.loose",
+        name: "sensor.loose",
         area: "Study",
         since: "1 hour ago",
+        entities: 1,
       },
     ]);
-    hass.states["sensor.offline"].last_changed = "";
+    for (const id of ["sensor.offline", "switch.config"])
+      hass.states[id].last_changed = "";
     expect(buildSystemView(hass, now).unavailable[0].since).toBe(
       "Unknown duration",
     );
