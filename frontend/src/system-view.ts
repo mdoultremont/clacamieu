@@ -20,8 +20,20 @@ export function buildSystemView(hass: HassLike, now: Date): SystemView {
   const number = new Intl.NumberFormat(language, { maximumFractionDigits: 0 });
   const relative = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
   const view: SystemView = { unavailable: [], batteries: [], updates: [] };
-  // One offline device makes all its entities unavailable, so group them by device.
-  const offline = new Map<string, { entity: SystemEntity; changed: number[]; count: number }>();
+  // A device is offline only when none of its entities responds. Many online devices
+  // keep feature-gated entities unavailable, which is not a problem to report.
+  const responding = new Set(
+    Object.values(hass.states).flatMap((entity) => {
+      const entry = hass.entities[entity.entity_id];
+      return entry?.device_id && !entry.hidden && entity.state !== "unavailable"
+        ? [entry.device_id]
+        : [];
+    }),
+  );
+  const offline = new Map<
+    string,
+    { entity: SystemEntity; changed: number[]; count: number }
+  >();
   for (const entity of Object.values(hass.states)) {
     const entry = hass.entities[entity.entity_id];
     if (entry?.hidden) continue;
@@ -33,7 +45,8 @@ export function buildSystemView(hass: HassLike, now: Date): SystemView {
     };
     if (
       entity.state === "unavailable" &&
-      entry?.entity_category !== "diagnostic"
+      entry?.entity_category !== "diagnostic" &&
+      !(entry?.device_id && responding.has(entry.device_id))
     ) {
       const deviceId = entry?.device_id;
       const device = deviceId ? hass.devices[deviceId] : undefined;

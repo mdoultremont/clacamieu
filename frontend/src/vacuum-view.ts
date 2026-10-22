@@ -100,8 +100,10 @@ export function buildVacuumView(
           : [];
       })
     : [];
-  const camera = siblings.find((entity) =>
-    entity.entity_id.startsWith("camera."),
+  const camera = siblings.find(
+    (entity) =>
+      entity.entity_id.startsWith("camera.") &&
+      !hass.entities[entity.entity_id]?.entity_category,
   );
   const battery = numeric(
     attributes.battery ??

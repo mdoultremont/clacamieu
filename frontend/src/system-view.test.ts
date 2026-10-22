@@ -72,6 +72,12 @@ describe("system view", () => {
       "Unknown duration",
     );
   });
+  it("leaves out an online device whose feature-gated entities are unavailable", () => {
+    const { hass, add } = fixture();
+    add("sensor.mapping_time", "unavailable");
+    add("sensor.battery_level", "80");
+    expect(buildSystemView(hass, now).unavailable).toEqual([]);
+  });
   it("includes battery diagnostic sensors, sorts ascending and excludes 40 percent and invalid levels", () => {
     const { hass, add } = fixture();
     for (const [id, value] of Object.entries({

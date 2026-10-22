@@ -90,7 +90,7 @@ export function Vacuum({
         <p className="text-muted-foreground">{t.noVacuum}</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2" aria-label={view.name}>
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label={view.name}>
             {view.actions.map((action) => {
               const Icon = icons[action.service];
               return (

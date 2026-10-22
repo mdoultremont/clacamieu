@@ -94,6 +94,8 @@ describe("vacuum view", () => {
   it("uses only the vacuum device for map, consumables and statistics", () => {
     const { hass, add } = fixture();
     add("camera.other", "idle", { entity_picture: "/api/other" }, "another");
+    add("camera.robot_saved_map", "idle", { entity_picture: "/api/saved" });
+    hass.entities["camera.robot_saved_map"].entity_category = "config";
     add("camera.robot_map", "idle", { entity_picture: "/api/map" });
     add("sensor.robot_filter_left", "9", {
       unit_of_measurement: "%",
