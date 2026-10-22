@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildComfortView, sortComfortRooms } from "./comfort-view";
-import {
-  buildForecastView,
-  buildGardenView,
-  isOutdoorArea,
-} from "./garden-view";
+import { buildForecastView, buildGardenView } from "./garden-view";
+import { isOutdoorArea } from "./room-sensors";
 import type { DashboardConfig, HassLike } from "./types";
 
 const automatic: DashboardConfig = { home_cards: null, rooms: null };
@@ -131,20 +128,28 @@ describe("comfort climate", () => {
       ["sensor.b_dew_point", "room_b", "12", "temperature"],
     ])
       addSensor(hass, id, value, area, { device_class: deviceClass });
+    hass.areas.room_c = { area_id: "room_c", name: "Room C", icon: null };
+    addSensor(hass, "sensor.c_humidity", "50", "room_c", {
+      device_class: "humidity",
+    });
+    addSensor(hass, "sensor.garden_humidity", "95", "outdoor", {
+      device_class: "humidity",
+    });
     const rooms = buildComfortView(hass, automatic).rooms;
+    expect(rooms.map((room) => room.id)).not.toContain("outdoor");
     expect(rooms[0].problems).toEqual(["Humidité élevée"]);
     expect(rooms[1].problems).toEqual(["CO₂ élevé"]);
     expect(sortComfortRooms(rooms, "co2").map((r) => r.id)).toEqual([
       "room_b",
       "room_a",
-      "outdoor",
+      "room_c",
     ]);
     expect(sortComfortRooms(rooms, "humidity")[0].id).toBe("room_a");
     expect(sortComfortRooms(rooms, "dewPoint")[0].id).toBe("room_a");
     expect(sortComfortRooms(rooms, "all")[0].id).toBe("room_b");
     expect(rooms[0].id).toBe("room_a");
   });
-  it("uses translated perception, ignores hidden sensors and keeps an unavailable room", () => {
+  it("uses translated perception, ignores hidden sensors, keeps an unavailable sensor and drops rooms without sensors", () => {
     const hass = climateFixture();
     addSensor(hass, "sensor.a_thermal_perception", "comfortable");
     addSensor(hass, "sensor.a_humidity", "80", "room_a", {
@@ -161,7 +166,14 @@ describe("comfort climate", () => {
     expect(buildComfortView(hass, automatic).rooms[0].perception).toBe(
       "Très humide",
     );
+    expect(
+      buildComfortView(hass, automatic).rooms.map((room) => room.id),
+    ).toEqual(["room_a"]);
+    addSensor(hass, "sensor.b_humidity", "unavailable", "room_b", {
+      device_class: "humidity",
+    });
     expect(buildComfortView(hass, automatic).rooms[1]).toMatchObject({
+      id: "room_b",
       temperature: null,
       humidity: null,
       co2: null,

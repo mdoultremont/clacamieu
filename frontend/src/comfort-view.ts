@@ -1,6 +1,6 @@
 import { numeric, resolveDashboardConfig } from "./home-view";
 import { locale, messages } from "./i18n";
-import { entityArea, resolveRoomSensors } from "./room-sensors";
+import { entityArea, isOutdoorArea, resolveRoomSensors } from "./room-sensors";
 import type { DashboardConfig, HassLike } from "./types";
 
 export type ComfortFilter = "all" | "co2" | "humidity" | "dewPoint";
@@ -41,11 +41,12 @@ export function buildComfortView(
   const rooms = resolveDashboardConfig(hass, config).rooms.flatMap(
     (room): ComfortRoom[] => {
       const area = hass.areas[room.area_id];
-      if (!area) return [];
+      if (!area || isOutdoorArea(area, hass.floors)) return [];
       const resolved = resolveRoomSensors(hass, room);
       const [temperature, humidity, co2] = resolved.map(({ entity }) =>
         numeric(entity?.state),
       );
+      if (resolved.every(({ entity }) => !entity)) return [];
       const sensors = states.filter(
         (entity) =>
           entity.entity_id.startsWith("sensor.") &&

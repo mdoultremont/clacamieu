@@ -1,9 +1,8 @@
 import { numeric } from "./home-view";
 import { formatClimate } from "./comfort-view";
 import { locale, messages, translatedState } from "./i18n";
-import { entityArea, resolveRoomSensors } from "./room-sensors";
+import { entityArea, isOutdoorArea, resolveRoomSensors } from "./room-sensors";
 import type {
-  AreaEntry,
   HassEntity,
   HassLike,
   ServiceAction,
@@ -27,20 +26,6 @@ export interface GardenView {
     available: boolean;
     actions: ServiceAction[];
   }[];
-}
-
-export function isOutdoorArea(
-  area: AreaEntry,
-  floors: HassLike["floors"],
-): boolean {
-  const name =
-    `${area.name} ${area.floor_id ? (floors?.[area.floor_id]?.name ?? "") : ""}`
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-  return /\b(jardin|terrasse|exterieur|garden|terrace|outdoor|outside)\b/.test(
-    name,
-  );
 }
 
 export function buildGardenView(hass: HassLike): GardenView {

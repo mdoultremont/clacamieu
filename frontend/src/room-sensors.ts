@@ -1,4 +1,4 @@
-import type { HassLike, RoomConfig } from "./types";
+import type { AreaEntry, HassLike, RoomConfig } from "./types";
 
 export const climateSensors = [
   {
@@ -38,4 +38,18 @@ export function resolveRoomSensors(hass: HassLike, room: RoomConfig) {
         );
     return { key, deviceClass, label, entity };
   });
+}
+
+export function isOutdoorArea(
+  area: AreaEntry,
+  floors: HassLike["floors"],
+): boolean {
+  const name =
+    `${area.name} ${area.floor_id ? (floors?.[area.floor_id]?.name ?? "") : ""}`
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  return /\b(jardin|terrasse|exterieur|garden|terrace|outdoor|outside)\b/.test(
+    name,
+  );
 }
