@@ -50,6 +50,8 @@ describe("development transport", () => {
     "energy/get_prefs",
     "recorder/statistics_during_period",
     "recorder/get_statistics_metadata",
+    "get_services",
+    "repairs/list_issues",
   ])("forwards the allowlisted read %s", async (type) => {
     const send = vi.fn().mockResolvedValue({ value: true });
     await expect(readOnlyCalls(send).callWS({ type })).resolves.toEqual({

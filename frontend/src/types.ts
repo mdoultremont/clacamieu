@@ -86,7 +86,15 @@ export type ServiceAction = {
       domain: "alarm_control_panel";
       service: "alarm_arm_away" | "alarm_disarm";
     }
-  | { domain: "vacuum"; service: "start" | "return_to_base" }
+  | {
+      domain: "vacuum";
+      service: "start" | "pause" | "return_to_base" | "locate";
+    }
+  | {
+      domain: "dreame_vacuum";
+      service: "vacuum_clean_segment";
+      data: { segments: number[] };
+    }
   | { domain: "homeassistant"; service: "toggle" }
   | { domain: "light"; service: "toggle" }
   | { domain: "light"; service: "turn_on"; data: { brightness_pct: number } }

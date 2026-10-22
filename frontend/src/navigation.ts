@@ -6,7 +6,9 @@ export type Route =
         | "security"
         | "energy"
         | "more"
-        | "configuration";
+        | "configuration"
+        | "vacuum"
+        | "system";
     }
   | { screen: "room"; areaId: string };
 
@@ -32,6 +34,10 @@ export function parseRoute(path: string): Route {
       return { screen: "home" };
     }
   }
+  if (parts.length === 4 && parts[2] === "plus") {
+    if (parts[3] === "aspitout") return { screen: "vacuum" };
+    if (parts[3] === "systeme") return { screen: "system" };
+  }
   return { screen: "home" };
 }
 
@@ -51,6 +57,10 @@ export function routePath(route: Route): string {
       return "/clacamieu/plus";
     case "configuration":
       return "/clacamieu/configuration";
+    case "vacuum":
+      return "/clacamieu/plus/aspitout";
+    case "system":
+      return "/clacamieu/plus/systeme";
   }
 }
 

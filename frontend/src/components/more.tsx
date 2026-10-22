@@ -5,6 +5,8 @@ import {
   LayoutDashboard,
   Menu,
   Settings,
+  Bot,
+  Activity,
 } from "lucide-react";
 import { messages } from "../i18n";
 import { navigate } from "../navigation";
@@ -13,12 +15,15 @@ import {
   setDefaultPanel,
   type CorePreferences,
 } from "../preferences";
-import type { HassLike, PanelInfo } from "../types";
+import type { DashboardConfig, HassLike, PanelInfo } from "../types";
+import { buildVacuumView } from "../vacuum-view";
+import { RouteLink } from "./route-link";
 import { ItemSection } from "./item-section";
 import {
   Item,
   ItemActions,
   ItemContent,
+  ItemDescription,
   ItemMedia,
   ItemSeparator,
   ItemTitle,
@@ -33,11 +38,13 @@ type PreferenceState =
 
 export function More({
   hass,
+  config,
   panel,
   toggleMenu,
   onConfigure,
 }: {
   hass: HassLike;
+  config: DashboardConfig;
   panel: PanelInfo;
   toggleMenu: () => void;
   onConfigure?: () => void;
@@ -79,11 +86,58 @@ export function More({
   const dashboards = Object.values(hass.panels).filter(
     (entry) => entry.component_name === "lovelace",
   );
+  const maisonPages = [
+    ...(buildVacuumView(hass, config)
+      ? [
+          {
+            screen: "vacuum" as const,
+            title: t.vacuumPage,
+            summary: t.vacuumSummary,
+            icon: Bot,
+          },
+        ]
+      : []),
+    ...(Object.keys(hass.states).length
+      ? [
+          {
+            screen: "system" as const,
+            title: t.systemPage,
+            summary: t.systemSummary,
+            icon: Activity,
+          },
+        ]
+      : []),
+  ];
   return (
     <>
       <header>
         <h1 className="text-xl font-semibold tracking-tight">{t.more}</h1>
       </header>
+      {maisonPages.length > 0 && (
+        <ItemSection title={t.maison}>
+          {maisonPages.map(({ screen, title, summary, icon: Icon }, index) => (
+            <Fragment key={screen}>
+              {index > 0 && <ItemSeparator />}
+              <div role="listitem">
+                <Item size="sm" asChild>
+                  <RouteLink route={{ screen }}>
+                    <ItemMedia className="text-muted-foreground">
+                      <Icon className="size-4" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>{title}</ItemTitle>
+                      <ItemDescription>{summary}</ItemDescription>
+                    </ItemContent>
+                    <ItemActions className="text-muted-foreground">
+                      <ChevronRight className="size-4" />
+                    </ItemActions>
+                  </RouteLink>
+                </Item>
+              </div>
+            </Fragment>
+          ))}
+        </ItemSection>
+      )}
       {dashboards.length > 0 && (
         <ItemSection title={t.dashboards}>
           {dashboards.map((entry, index) => (

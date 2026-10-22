@@ -15,6 +15,8 @@ describe("Maison routes", () => {
     ["/clacamieu/securite", { screen: "security" }],
     ["/clacamieu/energie", { screen: "energy" }],
     ["/clacamieu/plus", { screen: "more" }],
+    ["/clacamieu/plus/aspitout", { screen: "vacuum" }],
+    ["/clacamieu/plus/systeme", { screen: "system" }],
     ["/clacamieu/configuration", { screen: "configuration" }],
   ])("parses %s and round trips through its canonical path", (path, route) => {
     expect(parseRoute(path)).toEqual(route);

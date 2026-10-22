@@ -7,6 +7,8 @@ import { Room } from "./components/room";
 import { Security } from "./components/security";
 import { buildSecurityView } from "./security-view";
 import { Rooms } from "./components/rooms";
+import { Vacuum } from "./components/vacuum";
+import { System } from "./components/system";
 import { buildRoomView, buildRoomsView } from "./room-view";
 import { navigate, parseRoute, routePath } from "./navigation";
 import { More } from "./components/more";
@@ -95,6 +97,15 @@ export function App({
     } finally {
       setBusy(false);
     }
+  }
+  function openMoreInfo(entityId: string) {
+    host.dispatchEvent(
+      new CustomEvent("hass-more-info", {
+        bubbles: true,
+        composed: true,
+        detail: { entityId },
+      }),
+    );
   }
   if (!hass || (route.screen === "configuration" && !configLoaded))
     return (
@@ -189,9 +200,21 @@ export function App({
                 />
               ) : route.screen === "energy" ? (
                 <Energy hass={hass} />
+              ) : route.screen === "vacuum" ? (
+                <Vacuum
+                  hass={hass}
+                  config={config}
+                  onAction={runAction}
+                  busy={busy}
+                  error={error}
+                  onMoreInfo={openMoreInfo}
+                />
+              ) : route.screen === "system" ? (
+                <System hass={hass} now={now} onMoreInfo={openMoreInfo} />
               ) : (
                 <More
                   hass={hass}
+                  config={config}
                   panel={panel}
                   onConfigure={
                     configLoaded
@@ -221,7 +244,11 @@ export function App({
                 <button
                   key={key}
                   aria-current={
-                    (route.screen === "room" ? "rooms" : route.screen) === key
+                    (route.screen === "room"
+                      ? "rooms"
+                      : route.screen === "vacuum" || route.screen === "system"
+                        ? "more"
+                        : route.screen) === key
                       ? "page"
                       : undefined
                   }

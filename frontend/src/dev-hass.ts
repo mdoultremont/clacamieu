@@ -32,6 +32,8 @@ const readTypes = new Set([
   "energy/get_prefs",
   "recorder/statistics_during_period",
   "recorder/get_statistics_metadata",
+  "get_services",
+  "repairs/list_issues",
 ]);
 
 export function readOnlyCalls(
