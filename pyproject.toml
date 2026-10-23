@@ -1,6 +1,6 @@
 [project]
 name = "clacamieu"
-version = "1.1.0"
+version = "1.2.0"
 description = "Personal toolkit for Home Assistant energy, lighting, and devices"
 license = "MIT"
 requires-python = ">=3.13.2,<3.14"
