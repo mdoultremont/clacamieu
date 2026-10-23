@@ -32,7 +32,7 @@ with the **Maison dashboard** type. Every user sees it.
 Maison has five tabs:
 
 - **Accueil** shows the date, the indoor and outdoor temperature, and one list
-  per card: who is home, the alarm, the robot vacuum, the rooms with their
+  per card: the alarm, the robot vacuum, the rooms with their
   climate, the power drawn by smart plugs, and any entity list you add.
 - **Pièces** lists the rooms. Each room page shows its climate and controls its
   lights, brightness, scenes, switches, covers, and media players.

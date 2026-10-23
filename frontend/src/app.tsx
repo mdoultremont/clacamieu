@@ -279,7 +279,7 @@ export function App({
                     setError(null);
                   }}
                 >
-                  <Icon size={20} strokeWidth={1.7} />
+                  <Icon size={24} strokeWidth={1.7} />
                   <span>{label}</span>
                 </button>
               ))}

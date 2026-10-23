@@ -46,7 +46,7 @@ The element keeps the latest `hass` in a small store that React reads with
 `HassLike` and the settings as a pure function, so nothing instance-specific
 lives in the bundle. `parseDashboardConfig` drops unknown or malformed entries at
 the WebSocket boundary. `resolveDashboardConfig` fills null lists. Automatic
-cards are summary, presence when people exist, the first alarm, the first vacuum,
+cards are summary, the first alarm, the first vacuum,
 rooms, and power when smart plug power sensors exist. Saved lists control order
 and visibility. `HomeView.cards` holds a discriminated union for ordered rendering.
 The admin-only Configuration screen edits a local draft through `config-editor.ts`.
@@ -122,6 +122,11 @@ root, so `shadow-styles.ts` moves those rules to one style element in the
 document head. Tailwind relies on `@property` for its shadow, ring, and
 transform defaults. Home Assistant wraps the element in an inline element
 without a height, so the panel sizes itself to `100dvh`.
+Home Assistant 2026.9 and later pad custom panels for the device safe areas.
+The panel registers with `handle_safe_area` when `panel_custom` accepts it and
+pads its scroll area and tab bar with `--safe-area-inset-top` and
+`--safe-area-inset-bottom` instead, so the tab bar background reaches the
+bottom edge. On older versions, the variables fall back to `env()`.
 
 The companion apps open the user's default panel. Home Assistant stores it as
 `default_panel` in the `core` frontend user data and accepts any panel, although

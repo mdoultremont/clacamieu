@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -31,6 +32,14 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         )
         hass.data[_STATIC_PATH_REGISTERED] = True
     version = await hass.async_add_executor_job(_bundle_version)
+    options = {}
+    # Home Assistant 2026.9 pads custom panels for the device safe areas unless
+    # they opt out. Maison pads its own scroll area and tab bar instead.
+    if (
+        "handle_safe_area"
+        in inspect.signature(panel_custom.async_register_panel).parameters
+    ):
+        options["handle_safe_area"] = True
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL_PATH,
@@ -39,6 +48,7 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         sidebar_icon=PANEL_ICON,
         module_url=f"{STATIC_URL_PATH}/main.js?v={version}",
         require_admin=False,
+        **options,
     )
 
 

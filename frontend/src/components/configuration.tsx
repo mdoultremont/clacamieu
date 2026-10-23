@@ -72,7 +72,6 @@ type Selection =
   | null;
 const cardTypes = [
   "summary",
-  "presence",
   "alarm",
   "vacuum",
   "rooms",
@@ -84,7 +83,6 @@ function cardTitles(language: string): Record<HomeCard["type"], string> {
   const t = messages(language);
   return {
     summary: t.summaryLabel,
-    presence: t.presenceLabel,
     alarm: t.alarmLabel,
     vacuum: t.vacuumLabel,
     rooms: t.rooms,

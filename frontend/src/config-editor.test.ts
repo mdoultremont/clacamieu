@@ -111,7 +111,6 @@ describe("configuration draft", () => {
     for (const card of [
       { id: "alarm", type: "alarm", entity_id: "alarm_control_panel.example" },
       { id: "vacuum", type: "vacuum", entity_id: "vacuum.example" },
-      { id: "presence", type: "presence" },
       { id: "rooms", type: "rooms" },
       { id: "power", type: "power" },
     ] satisfies HomeCard[])
@@ -163,7 +162,6 @@ describe("configuration draft", () => {
       },
       { id: "alarm", type: "alarm", entity_id: "alarm_control_panel.other" },
       { id: "vacuum", type: "vacuum", entity_id: "vacuum.other" },
-      { id: "presence", type: "presence" },
       { id: "rooms", type: "rooms" },
       { id: "power", type: "power" },
     ]);
