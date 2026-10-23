@@ -60,7 +60,6 @@ const view = (hass: HassLike, ids: string[] | null = null): HomeData => {
       alarm: null,
       vacuum: null,
       plugPower: null,
-      people: [],
     },
     ...result.cards,
   );
@@ -147,7 +146,6 @@ describe("home view", () => {
       alarm: null,
       vacuum: null,
       weather: null,
-      people: [],
       plugPower: null,
     });
     expect(view(hass).rooms[0]).toMatchObject({
@@ -186,18 +184,6 @@ describe("home view", () => {
       date: "Wednesday, October 21",
       weather: { temperature: "11.0", condition: "Cloudy" },
     });
-  });
-  it("sorts people and identifies the current user and presence", () => {
-    const hass = fixture();
-    add(hass, entity("person.b", "away", { friendly_name: "Blair" }));
-    add(
-      hass,
-      entity("person.a", "home", { friendly_name: "Alex", user_id: "user_a" }),
-    );
-    expect(view(hass).people).toEqual([
-      { id: "person.a", name: "Alex", home: true, currentUser: true },
-      { id: "person.b", name: "Blair", home: false, currentUser: false },
-    ]);
   });
   it("counts only available visible openings and moisture sensors", () => {
     const hass = fixture();
@@ -380,6 +366,7 @@ describe("dashboard configuration", () => {
         home_cards: [
           null,
           { id: "future", type: "future" },
+          { id: "presence", type: "presence" },
           { id: "a", type: "summary" },
           { id: "a", type: "rooms" },
           { id: "bad", type: "alarm", entity_id: "vacuum.a" },
@@ -443,7 +430,7 @@ describe("dashboard configuration", () => {
         home_cards: null,
         rooms: null,
       }).home_cards.map((card) => card.type),
-    ).toEqual(["summary", "presence", "alarm", "vacuum", "rooms"]);
+    ).toEqual(["summary", "alarm", "vacuum", "rooms"]);
     add(hass, entity("switch.plug", "on"), "", "plug");
     const resolved = resolveDashboardConfig(hass, {
       home_cards: null,
@@ -451,7 +438,6 @@ describe("dashboard configuration", () => {
     });
     expect(resolved.home_cards).toEqual([
       { id: "auto-summary", type: "summary" },
-      { id: "auto-presence", type: "presence" },
       { id: "auto-alarm", type: "alarm", entity_id: "alarm_control_panel.a" },
       { id: "auto-vacuum", type: "vacuum", entity_id: "vacuum.a" },
       { id: "auto-rooms", type: "rooms" },
@@ -662,7 +648,7 @@ describe("hidden dashboard items", () => {
     const config = {
       home_cards: [
         { id: "s", type: "summary" as const },
-        { id: "p", type: "presence" as const, hidden: true },
+        { id: "p", type: "power" as const, hidden: true },
         { id: "r", type: "rooms" as const },
       ],
       rooms: [{ area_id: "room_a" }, { area_id: "room_b", hidden: true }],

@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from homeassistant import config_entries
+from homeassistant.components import panel_custom
 from homeassistant.components.frontend import DATA_PANELS
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -103,6 +104,29 @@ async def test_setup_adds_the_panel_for_every_user(
     assert not entry.supports_options
 
 
+async def test_panel_handles_the_safe_area_when_home_assistant_allows_it(
+    recorder_mock: object,
+    enable_custom_integrations: None,
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Maison opts out of Home Assistant's safe-area padding when it can."""
+    del recorder_mock, enable_custom_integrations
+    register = panel_custom.async_register_panel
+    calls: list[bool] = []
+
+    async def register_with_safe_area(
+        *args: Any, handle_safe_area: bool = False, **kwargs: Any
+    ) -> None:
+        calls.append(handle_safe_area)
+        await register(*args, **kwargs)
+
+    monkeypatch.setattr(panel_custom, "async_register_panel", register_with_safe_area)
+    await _setup_dashboard(hass)
+
+    assert calls == [True]
+
+
 async def test_unload_removes_the_panel_and_reload_restores_it(
     recorder_mock: object, enable_custom_integrations: None, hass: HomeAssistant
 ) -> None:
@@ -141,10 +165,7 @@ async def test_settings_default_and_round_trip(
             },
             {"id": "b", "type": "alarm", "entity_id": "alarm_control_panel.missing"},
             {"id": "c", "type": "vacuum", "entity_id": "vacuum.missing"},
-            *[
-                {"id": kind, "type": kind}
-                for kind in ("summary", "presence", "rooms", "power")
-            ],
+            *[{"id": kind, "type": kind} for kind in ("summary", "rooms", "power")],
         ],
         "rooms": [
             {
@@ -235,7 +256,7 @@ async def test_settings_migrate_v1_store(
         },
         *[
             {"home_cards": [{"id": "a", "type": kind, "hidden": "false"}]}
-            for kind in ("summary", "presence", "rooms", "power")
+            for kind in ("summary", "rooms", "power")
         ],
         {
             "home_cards": [

@@ -57,7 +57,7 @@ export interface HassLike {
 }
 
 export type HomeCard = { hidden?: boolean } & (
-  | { id: string; type: "summary" | "presence" | "rooms" | "power" }
+  | { id: string; type: "summary" | "rooms" | "power" }
   | { id: string; type: "alarm" | "vacuum"; entity_id: string }
   | { id: string; type: "entities"; title: string; entity_ids: string[] }
 );
@@ -112,7 +112,6 @@ export interface HomeData {
   indoorTemperature: string | null;
   indoorSensorCount: number;
   weather: { temperature: string | null; condition: string } | null;
-  people: { id: string; name: string; home: boolean; currentUser: boolean }[];
   rooms: {
     id: string;
     name: string;
@@ -141,7 +140,6 @@ export type HomeCardView = { id: string } & (
       HomeData,
       "indoorTemperature" | "indoorSensorCount" | "weather"
     >)
-  | ({ type: "presence" } & Pick<HomeData, "people">)
   | ({ type: "rooms" } & Pick<HomeData, "rooms" | "lightsOn">)
   | { type: "alarm"; alarm: NonNullable<HomeData["alarm"]> }
   | { type: "vacuum"; vacuum: NonNullable<HomeData["vacuum"]> }

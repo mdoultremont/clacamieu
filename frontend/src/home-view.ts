@@ -77,18 +77,6 @@ export function buildHomeView(
     entity.entity_id.startsWith("weather."),
   );
   const outdoor = numeric(weather?.attributes.temperature);
-  const people = states
-    .filter((entity) => entity.entity_id.startsWith("person."))
-    .map((entity) => ({
-      id: entity.entity_id,
-      name:
-        entity.attributes.friendly_name ??
-        hass.entities[entity.entity_id]?.name ??
-        entity.entity_id,
-      home: entity.state === "home",
-      currentUser: entity.attributes.user_id === hass.user.id,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, language));
   const binarySensors = states.filter(
     (entity) =>
       entity.entity_id.startsWith("binary_sensor.") &&
@@ -244,7 +232,6 @@ export function buildHomeView(
           condition: translatedState(t.weather, weather.state),
         }
       : null,
-    people,
     rooms: rawRooms.map((room) => ({
       id: room.id,
       name: room.name,
@@ -285,8 +272,6 @@ export function buildHomeView(
           indoorTemperature: data.indoorTemperature,
           weather: data.weather,
         };
-      case "presence":
-        return { id: card.id, type: card.type, people };
       case "rooms":
         return {
           id: card.id,
@@ -382,8 +367,6 @@ export function resolveDashboardConfig(
 ): { home_cards: HomeCard[]; rooms: RoomConfig[] } {
   const automatic: HomeCard[] = [{ id: "auto-summary", type: "summary" }];
   const states = Object.values(hass.states);
-  if (states.some((entity) => entity.entity_id.startsWith("person.")))
-    automatic.push({ id: "auto-presence", type: "presence" });
   const alarm = states.find((entity) =>
     entity.entity_id.startsWith("alarm_control_panel."),
   );
