@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from homeassistant import config_entries
+from homeassistant.components import panel_custom
 from homeassistant.components.frontend import DATA_PANELS
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -101,6 +102,30 @@ async def test_setup_adds_the_panel_for_every_user(
     response = await (await hass_client()).get(module_url)
     assert response.status == 200
     assert not entry.supports_options
+
+
+async def test_setup_opts_out_of_safe_area_padding_when_core_supports_it(
+    recorder_mock: object,
+    enable_custom_integrations: None,
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The panel insets itself, so it asks newer cores not to pad it."""
+    del recorder_mock, enable_custom_integrations
+    register = panel_custom.async_register_panel
+    requested: list[bool] = []
+
+    async def register_with_safe_area(
+        *args: Any, handle_safe_area: bool = False, **kwargs: Any
+    ) -> None:
+        requested.append(handle_safe_area)
+        await register(*args, **kwargs)
+
+    monkeypatch.setattr(panel_custom, "async_register_panel", register_with_safe_area)
+    await _setup_dashboard(hass)
+
+    assert requested == [True]
+    assert _panel(hass) is not None
 
 
 async def test_unload_removes_the_panel_and_reload_restores_it(

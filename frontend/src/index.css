@@ -66,7 +66,8 @@
   --sidebar-ring: oklch(0.705 0.015 286.067);
 
   display: block;
-  /* Home Assistant wraps the panel in an inline element without a height. */
+  /* Home Assistant gives the panel container no height. The integration opts
+     out of its safe-area padding, so the panel insets itself. */
   height: 100dvh;
   min-height: 0;
   color-scheme: light;
@@ -161,13 +162,21 @@ a {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-left: var(
+    --safe-area-content-inset-left,
+    var(--safe-area-inset-left, env(safe-area-inset-left))
+  );
+  padding-right: var(
+    --safe-area-content-inset-right,
+    var(--safe-area-inset-right, env(safe-area-inset-right))
+  );
 }
 .page-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--safe-area-inset-top, env(safe-area-inset-top));
 }
 .page-content {
   max-width: 720px;
@@ -206,7 +215,7 @@ a {
   flex-shrink: 0;
   background: var(--background);
   border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
 }
 .nav-inner {
   max-width: 720px;
@@ -273,12 +282,12 @@ a {
   gap: 4px;
 }
 .config-content {
-  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+  padding-bottom: calc(32px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
 }
 .config-drawer {
   max-width: 720px;
   margin-inline: auto;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
 }
 .config-drawer-body {
   overflow-y: auto;

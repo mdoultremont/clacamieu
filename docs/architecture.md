@@ -120,8 +120,13 @@ for Drawer, Select, AlertDialog, and Command portals. Theme tokens follow
 Chromium and WebKit ignore `@property` and `@font-face` rules inside a shadow
 root, so `shadow-styles.ts` moves those rules to one style element in the
 document head. Tailwind relies on `@property` for its shadow, ring, and
-transform defaults. Home Assistant wraps the element in an inline element
-without a height, so the panel sizes itself to `100dvh`.
+transform defaults. Home Assistant gives the panel container no height, so the
+panel sizes itself to `100dvh` and applies the safe-area insets itself, reading
+Home Assistant's `--safe-area-inset-*` variables with an `env()` fallback.
+Home Assistant 2026.8 started padding custom panel containers by those insets,
+which made the panel taller than the screen. Registration passes
+`handle_safe_area=True` when core accepts it (2026.9 and later). Core 2026.8
+pads without offering the opt-out, so the insets are doubled there.
 
 The companion apps open the user's default panel. Home Assistant stores it as
 `default_panel` in the `core` frontend user data and accepts any panel, although

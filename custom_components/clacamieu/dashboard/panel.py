@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -31,6 +32,15 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         )
         hass.data[_STATIC_PATH_REGISTERED] = True
     version = await hass.async_add_executor_job(_bundle_version)
+    # Home Assistant 2026.8 pads custom panels by the safe-area insets, which
+    # overflows a panel that fills the viewport and insets itself. Core 2026.9
+    # added the opt-out; older cores neither pad nor accept it.
+    safe_area = (
+        {"handle_safe_area": True}
+        if "handle_safe_area"
+        in inspect.signature(panel_custom.async_register_panel).parameters
+        else {}
+    )
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL_PATH,
@@ -39,6 +49,7 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         sidebar_icon=PANEL_ICON,
         module_url=f"{STATIC_URL_PATH}/main.js?v={version}",
         require_admin=False,
+        **safe_area,
     )
 
 
