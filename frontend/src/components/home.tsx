@@ -5,7 +5,6 @@ import {
   DoorOpen,
   Plug,
   Shield,
-  Users,
 } from "lucide-react";
 import { Fragment, useId } from "react";
 import { messages } from "../i18n";
@@ -100,28 +99,6 @@ function HomeCard({
           </div>
         </section>
       );
-    case "presence": {
-      const people = view.people.filter((person) => person.home);
-      return (
-        <ItemSection title={t.atHome}>
-          <Item role="listitem" size="sm">
-            <ItemMedia className="text-muted-foreground">
-              <Users className="size-4" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>
-                {people.map((person) => person.name).join(", ") || t.nobodyHome}
-              </ItemTitle>
-            </ItemContent>
-            {people.length > 0 && (
-              <ItemActions className="text-base font-medium tabular-nums">
-                {people.length}
-              </ItemActions>
-            )}
-          </Item>
-        </ItemSection>
-      );
-    }
     case "alarm":
       return (
         <ItemSection title={t.alarmLabel}>

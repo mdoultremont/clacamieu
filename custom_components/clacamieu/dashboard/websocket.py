@@ -58,7 +58,7 @@ CARD_SCHEMA = vol.Any(
                 vol.Optional("hidden"): bool,
             }
         )
-        for card_type in ("summary", "presence", "rooms", "power")
+        for card_type in ("summary", "rooms", "power")
     ],
     *[
         vol.Schema(

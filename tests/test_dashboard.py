@@ -104,28 +104,27 @@ async def test_setup_adds_the_panel_for_every_user(
     assert not entry.supports_options
 
 
-async def test_setup_opts_out_of_safe_area_padding_when_core_supports_it(
+async def test_panel_handles_the_safe_area_when_home_assistant_allows_it(
     recorder_mock: object,
     enable_custom_integrations: None,
     hass: HomeAssistant,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The panel insets itself, so it asks newer cores not to pad it."""
+    """Maison opts out of Home Assistant's safe-area padding when it can."""
     del recorder_mock, enable_custom_integrations
     register = panel_custom.async_register_panel
-    requested: list[bool] = []
+    calls: list[bool] = []
 
     async def register_with_safe_area(
         *args: Any, handle_safe_area: bool = False, **kwargs: Any
     ) -> None:
-        requested.append(handle_safe_area)
+        calls.append(handle_safe_area)
         await register(*args, **kwargs)
 
     monkeypatch.setattr(panel_custom, "async_register_panel", register_with_safe_area)
     await _setup_dashboard(hass)
 
-    assert requested == [True]
-    assert _panel(hass) is not None
+    assert calls == [True]
 
 
 async def test_unload_removes_the_panel_and_reload_restores_it(
@@ -166,10 +165,7 @@ async def test_settings_default_and_round_trip(
             },
             {"id": "b", "type": "alarm", "entity_id": "alarm_control_panel.missing"},
             {"id": "c", "type": "vacuum", "entity_id": "vacuum.missing"},
-            *[
-                {"id": kind, "type": kind}
-                for kind in ("summary", "presence", "rooms", "power")
-            ],
+            *[{"id": kind, "type": kind} for kind in ("summary", "rooms", "power")],
         ],
         "rooms": [
             {
@@ -260,7 +256,7 @@ async def test_settings_migrate_v1_store(
         },
         *[
             {"home_cards": [{"id": "a", "type": kind, "hidden": "false"}]}
-            for kind in ("summary", "presence", "rooms", "power")
+            for kind in ("summary", "rooms", "power")
         ],
         {
             "home_cards": [

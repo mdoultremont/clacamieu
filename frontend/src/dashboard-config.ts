@@ -13,7 +13,6 @@ function parseCard(value: unknown): HomeCard | null {
   const { id, type } = value;
   switch (type) {
     case "summary":
-    case "presence":
     case "rooms":
     case "power":
       return { id, type, ...hidden };
