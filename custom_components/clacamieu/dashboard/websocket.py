@@ -58,8 +58,20 @@ CARD_SCHEMA = vol.Any(
                 vol.Optional("hidden"): bool,
             }
         )
-        for card_type in ("summary", "rooms", "power")
+        for card_type in ("summary", "power")
     ],
+    vol.Schema(
+        {
+            vol.Required("id"): vol.All(str, vol.Length(min=1)),
+            vol.Required("type"): "rooms",
+            vol.Optional("hidden"): bool,
+            vol.Optional("area_ids"): vol.All(
+                [vol.All(str, vol.Length(min=1))],
+                vol.Length(max=MAX_ROOMS),
+                vol.Unique(),
+            ),
+        }
+    ),
     *[
         vol.Schema(
             {

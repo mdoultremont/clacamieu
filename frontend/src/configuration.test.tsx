@@ -24,8 +24,9 @@ afterEach(async () => {
 });
 const initial: DashboardConfig = {
   home_cards: [
-    { id: "s", type: "summary" },
+    { id: "s", type: "power" },
     { id: "a", type: "alarm", entity_id: "alarm_control_panel.example" },
+    { id: "r", type: "rooms" },
   ],
   rooms: [{ area_id: "example" }],
 };
@@ -104,6 +105,47 @@ async function mount(admin = true, readFails = false) {
 }
 
 describe("configuration flow", () => {
+  it("chooses the Home room favorites from the rooms card options", async () => {
+    const { shadow, click, clickAndGoBack, hass } = await mount();
+    await click("More");
+    await click("Configure Maison");
+    await act(async () => {
+      (
+        shadow.querySelector('[aria-label="Edit Rooms"]') as HTMLButtonElement
+      ).click();
+    });
+    const toggle = shadow.querySelector(
+      '[role="dialog"] [aria-label="Show Example room"]',
+    ) as HTMLButtonElement;
+    // A room with nothing to show starts unselected, as Home hides it.
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    await act(async () => {
+      toggle.click();
+    });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    await clickAndGoBack("Done");
+    expect(
+      vi
+        .mocked(hass.callWS)
+        .mock.calls.filter(([message]) => message.type.endsWith("/update")),
+    ).toEqual([
+      [
+        {
+          type: "clacamieu/dashboard/config/update",
+          home_cards: [
+            initial.home_cards![0],
+            initial.home_cards![1],
+            { id: "r", type: "rooms", area_ids: ["example"] },
+          ],
+          rooms: initial.rooms,
+        },
+      ],
+    ]);
+    await click("Home");
+    expect(
+      shadow.querySelector('[aria-label="Open Example room"]'),
+    ).not.toBeNull();
+  });
   it("hides both configuration entry points from non-admins", async () => {
     const { shadow, click } = await mount(false);
     expect(shadow.textContent).not.toContain("Edit");
@@ -112,34 +154,33 @@ describe("configuration flow", () => {
   });
   it("offers no editing when the stored settings could not be read", async () => {
     const { shadow, click } = await mount(true, true);
-    expect(shadow.textContent).toContain("Indoors");
+    expect(shadow.querySelector("h1")?.textContent).toBe("Home");
     expect(shadow.textContent).not.toContain("Edit");
     await click("More");
     expect(shadow.textContent).not.toContain("Configure Maison");
   });
   it("discards draft changes, then saves the complete configuration exactly once", async () => {
     const { shadow, click, clickAndGoBack, hass } = await mount();
-    await click("Edit");
+    await click("More");
+    await click("Configure Maison");
     expect(location.pathname).toBe("/clacamieu/configuration");
     expect(shadow.querySelector("nav")).toBeNull();
     await act(async () => {
       (
-        shadow.querySelector('[aria-label="Show Summary"]') as HTMLButtonElement
+        shadow.querySelector('[aria-label="Show Plug power"]') as HTMLButtonElement
       ).click();
     });
     await clickAndGoBack("Cancel");
-    expect(location.pathname).toBe("/clacamieu");
-    expect(shadow.textContent).toContain("Indoors");
+    expect(location.pathname).toBe("/clacamieu/plus");
     expect(
       vi
         .mocked(hass.callWS)
         .mock.calls.filter(([message]) => message.type.endsWith("/update")),
     ).toHaveLength(0);
-    await click("More");
     await click("Configure Maison");
     await act(async () => {
       (
-        shadow.querySelector('[aria-label="Show Summary"]') as HTMLButtonElement
+        shadow.querySelector('[aria-label="Show Plug power"]') as HTMLButtonElement
       ).click();
     });
     await clickAndGoBack("Done");
@@ -153,20 +194,22 @@ describe("configuration flow", () => {
         {
           type: "clacamieu/dashboard/config/update",
           home_cards: [
-            { id: "s", type: "summary", hidden: true },
+            { id: "s", type: "power", hidden: true },
             initial.home_cards![1],
+            initial.home_cards![2],
           ],
           rooms: initial.rooms,
         },
       ],
     ]);
     await click("Home");
-    expect(shadow.textContent).not.toContain("Indoors");
+    expect(shadow.textContent).not.toContain("Plugs");
   });
   it("keeps the draft after a save error and prevents duplicate in-flight writes", async () => {
     const { shadow, click, clickAndGoBack, hass, failSave, button } =
       await mount();
-    await click("Edit");
+    await click("More");
+    await click("Configure Maison");
     await act(async () => {
       (
         shadow.querySelector('[aria-label="Show Alarm"]') as HTMLButtonElement
@@ -192,12 +235,14 @@ describe("configuration flow", () => {
     ).toBe("false");
     failSave(false);
     await clickAndGoBack("Done");
+    await click("Home");
     expect(shadow.querySelector("h1")?.textContent).toBe("Home");
     expect(shadow.textContent).not.toContain("Alarm disarmed");
   });
   it("requires reset confirmation and only saves the null lists on Done", async () => {
     const { shadow, click, clickAndGoBack, hass } = await mount();
-    await click("Edit");
+    await click("More");
+    await click("Configure Maison");
     await click("Reset to automatic");
     const alert = shadow.querySelector('[role="alertdialog"]')!;
     expect(alert.getRootNode()).toBe(shadow);
@@ -215,10 +260,18 @@ describe("configuration flow", () => {
         .mock.calls.filter(([message]) => message.type.endsWith("/update")),
     ).toHaveLength(0);
     await clickAndGoBack("Done");
-    expect(hass.callWS).toHaveBeenLastCalledWith({
-      type: "clacamieu/dashboard/config/update",
-      home_cards: null,
-      rooms: null,
-    });
+    expect(
+      vi
+        .mocked(hass.callWS)
+        .mock.calls.filter(([message]) => message.type.endsWith("/update")),
+    ).toEqual([
+      [
+        {
+          type: "clacamieu/dashboard/config/update",
+          home_cards: null,
+          rooms: null,
+        },
+      ],
+    ]);
   });
 });

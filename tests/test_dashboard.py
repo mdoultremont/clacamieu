@@ -166,6 +166,7 @@ async def test_settings_default_and_round_trip(
             {"id": "b", "type": "alarm", "entity_id": "alarm_control_panel.missing"},
             {"id": "c", "type": "vacuum", "entity_id": "vacuum.missing"},
             *[{"id": kind, "type": kind} for kind in ("summary", "rooms", "power")],
+            {"id": "favorites", "type": "rooms", "area_ids": [kitchen.id]},
         ],
         "rooms": [
             {
@@ -233,6 +234,9 @@ async def test_settings_migrate_v1_store(
         {"home_cards": [{"id": "a", "type": "alarm", "entity_id": "vacuum.other"}]},
         {"home_cards": [{"id": "a", "type": "vacuum", "entity_id": "switch.other"}]},
         {"home_cards": [{"id": "a", "type": "vacuum", "entity_id": "malformed"}]},
+        {"home_cards": [{"id": "a", "type": "rooms", "area_ids": [""]}]},
+        {"home_cards": [{"id": "a", "type": "rooms", "area_ids": ["a", "a"]}]},
+        {"home_cards": [{"id": "a", "type": "rooms", "area_ids": "a"}]},
         {
             "home_cards": [
                 {

@@ -24,7 +24,7 @@ const hass: HassLike = {
   callWS: vi.fn(),
 };
 const cards: HomeCard[] = [
-  { id: "s", type: "summary" },
+  { id: "s", type: "power" },
   {
     id: "e",
     type: "entities",
@@ -56,10 +56,7 @@ describe("configuration draft", () => {
   it("materializes automatic cards and rooms in registry order", () => {
     const state = createConfigEditor({ home_cards: null, rooms: null }, hass);
     expect(state.config).toEqual({
-      home_cards: [
-        { id: "auto-summary", type: "summary" },
-        { id: "auto-rooms", type: "rooms" },
-      ],
+      home_cards: [{ id: "auto-rooms", type: "rooms" }],
       rooms: [{ area_id: "a" }, { area_id: "b" }],
     });
   });
@@ -97,7 +94,7 @@ describe("configuration draft", () => {
       hidden: true,
     });
     expect(config.home_cards).toEqual([
-      { id: "s", type: "summary" },
+      { id: "s", type: "power" },
       {
         id: "e",
         type: "entities",

@@ -72,8 +72,21 @@ export function routePath(route: Route): string {
   }
 }
 
+/** The panel path the current history entry was opened from, if any. */
+export function previousPath(): string | null {
+  const from = (history.state as { clacamieuFrom?: unknown } | null)
+    ?.clacamieuFrom;
+  return typeof from === "string" ? from : null;
+}
+
 export function navigate(path: string, { replace = false } = {}) {
-  history[replace ? "replaceState" : "pushState"](null, "", path);
+  // A replaced entry keeps its origin so Back still returns there.
+  const clacamieuFrom = replace ? previousPath() : location.pathname;
+  history[replace ? "replaceState" : "pushState"](
+    clacamieuFrom ? { clacamieuFrom } : null,
+    "",
+    path,
+  );
   window.dispatchEvent(
     new CustomEvent("location-changed", { detail: { replace } }),
   );

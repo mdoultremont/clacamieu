@@ -104,7 +104,7 @@ describe("Plus climate pages", () => {
     ).toContain("High CO₂");
     await click(panel, "CO₂");
     expect(
-      panel.shadowRoot!.querySelector('[data-slot="item-actions"]')
+      panel.shadowRoot!.querySelector('[data-slot="comfort-headline"]')
         ?.textContent,
     ).toBe("1,500 ppm");
     expect(

@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Ellipsis, House, LayoutGrid, Shield, Zap } from "lucide-react";
 import { Configuration } from "./components/configuration";
 import { Energy } from "./components/energy";
@@ -6,10 +12,12 @@ import { Home } from "./components/home";
 import { Room } from "./components/room";
 import { Security } from "./components/security";
 import { buildSecurityView } from "./security-view";
+import { buildVacuumView, type ServiceCatalog } from "./vacuum-view";
 import { Rooms } from "./components/rooms";
 import { Vacuum } from "./components/vacuum";
 import { System } from "./components/system";
-import { buildRoomView, buildRoomsView } from "./room-view";
+import { buildRoomView } from "./room-view";
+import { buildRoomCards } from "./room-card";
 import { navigate, parseRoute, routePath } from "./navigation";
 import { Comfort } from "./components/comfort";
 import { Garden } from "./components/garden";
@@ -18,6 +26,7 @@ import { buildGardenView } from "./garden-view";
 import { More } from "./components/more";
 import { parseDashboardConfig } from "./dashboard-config";
 import { buildHomeView } from "./home-view";
+import { buildRoomLighting, lightingControllers } from "./room-lighting";
 import { messages } from "./i18n";
 import type { ClacamieuPanel, PanelStore } from "./panel";
 import type { DashboardConfig, ServiceAction } from "./types";
@@ -48,6 +57,8 @@ export function App({
     rooms: null,
   });
   const [now, setNow] = useState(() => new Date());
+  const [services, setServices] = useState<ServiceCatalog>({});
+  const controllers = useMemo(() => lightingControllers(services), [services]);
   const openedInPanel = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +82,19 @@ export function App({
         // Editing without the stored settings would overwrite them on save.
         if (current) setConfig({ home_cards: null, rooms: null });
       });
+    return () => {
+      current = false;
+    };
+  }, [hass?.callWS]);
+  useEffect(() => {
+    if (!hass) return;
+    let current = true;
+    hass
+      .callWS<ServiceCatalog>({ type: "get_services" })
+      .then((catalog) => {
+        if (current) setServices(catalog);
+      })
+      .catch(() => {});
     return () => {
       current = false;
     };
@@ -131,7 +155,7 @@ export function App({
     navigate(routePath({ screen: "configuration" }));
   }
   function leaveConfiguration() {
-    // Going back keeps one Accueil entry in history, so the next Back leaves the panel.
+    // Going back keeps one Home entry in history, so the next Back leaves the panel.
     if (openedInPanel.current) {
       openedInPanel.current = false;
       history.back();
@@ -163,40 +187,38 @@ export function App({
             <div className="page-content">
               {route.screen === "home" ? (
                 <Home
-                  view={buildHomeView(hass, config, now)}
+                  view={buildHomeView(hass, config, now, controllers)}
+                  security={buildSecurityView(hass, config, now)}
+                  vacuum={buildVacuumView(hass, config, services)}
                   language={hass.language}
                   onAction={runAction}
                   busy={busy}
-                  onConfigure={
-                    hass.user.is_admin && configLoaded
-                      ? openConfiguration
-                      : undefined
-                  }
                 />
               ) : route.screen === "security" ? (
                 <Security
                   view={buildSecurityView(hass, config, now)}
                   hass={hass}
-                  onCamera={(entityId) =>
-                    host.dispatchEvent(
-                      new CustomEvent("hass-more-info", {
-                        bubbles: true,
-                        composed: true,
-                        detail: { entityId },
-                      }),
-                    )
-                  }
+                  onMoreInfo={openMoreInfo}
                 />
               ) : route.screen === "rooms" ||
                 (route.screen === "room" && !room) ? (
                 <Rooms
-                  rooms={buildRoomsView(hass, config)}
+                  rooms={buildRoomCards(hass, config, controllers)}
                   language={hass.language}
+                  onAction={runAction}
+                  busy={busy}
                 />
               ) : route.screen === "room" ? (
                 <Room
                   key={route.areaId}
                   view={room!}
+                  hass={hass}
+                  onMoreInfo={openMoreInfo}
+                  lighting={buildRoomLighting(
+                    hass,
+                    route.areaId,
+                    controllers,
+                  )}
                   language={hass.language}
                   onAction={runAction}
                   busy={busy}

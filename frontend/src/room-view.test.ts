@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildRoomsView, buildRoomView } from "./room-view";
+import { buildRoomCards } from "./room-card";
+import { buildRoomView } from "./room-view";
 import type { DashboardConfig, HassEntity, HassLike } from "./types";
 
 const config: DashboardConfig = { home_cards: null, rooms: null };
@@ -172,14 +173,18 @@ describe("room views", () => {
   it("keeps configured room order, hides rooms and omits deleted areas", () => {
     const hass = fixture();
     expect(
-      buildRoomsView(hass, {
-        ...config,
-        rooms: [
-          { area_id: "room_b" },
-          { area_id: "gone" },
-          { area_id: "room_a", hidden: true },
-        ],
-      }).map((room) => room.id),
+      buildRoomCards(
+        hass,
+        {
+          ...config,
+          rooms: [
+            { area_id: "room_b" },
+            { area_id: "gone" },
+            { area_id: "room_a", hidden: true },
+          ],
+        },
+        new Set(),
+      ).map((room) => room.id),
     ).toEqual(["room_b"]);
     expect(buildRoomView(hass, config, "gone")).toBeNull();
     expect(buildRoomView(hass, config, "room_b")).toMatchObject({

@@ -16,10 +16,10 @@ module URL carries the bundle modification time, which changes the URL after
 every installed update. Unloading the entry removes the panel.
 
 `dashboard/runtime.py` stores version 2 settings in `clacamieu.dashboard`.
-`home_cards` selects ordered Accueil cards and `rooms` selects ordered
+`home_cards` selects ordered Home cards and `rooms` selects ordered
 areas with optional temperature, humidity, and CO₂ entity overrides. Cards and
 rooms can retain their position and options with `hidden: true`. Absent or false
-means visible. Hidden rooms do not contribute to the indoor average. A null list
+means visible. A null list
 uses automatic configuration; an empty list hides every card or room. The Store
 subclass uses Home Assistant's `_async_migrate_func` hook to migrate version 1
 `room_area_ids` without changing the room order. An empty version 1 list becomes
@@ -39,30 +39,39 @@ property that Home Assistant sets on the panel element. `HassLike` in
 `frontend/src/types.ts` names the subset the panel uses. In production the
 real `hass` object satisfies it. In development, `dev-hass.ts` builds the same
 shape from a WebSocket connection. It seeds in-memory dashboard settings from
-one real read and handles both dashboard commands locally. Service calls and
-all other commands outside the read-only allowlist remain blocked.
+one real read and handles both dashboard commands locally. Commands outside
+the read-only allowlist remain blocked. Service calls are blocked too, unless
+`CLACAMIEU_DEV_SERVICES=1` starts the server, so a developer can drive the
+real instance while testing controls.
 The element keeps the latest `hass` in a small store that React reads with
-`useSyncExternalStore`. `buildHomeView` derives the Accueil screen from
+`useSyncExternalStore`. `buildHomeView` derives the Home screen from
 `HassLike` and the settings as a pure function, so nothing instance-specific
 lives in the bundle. `parseDashboardConfig` drops unknown or malformed entries at
 the WebSocket boundary. `resolveDashboardConfig` fills null lists. Automatic
-cards are summary, the first alarm, the first vacuum,
+cards are the first alarm, the first vacuum,
 rooms, and power when smart plug power sensors exist. Saved lists control order
-and visibility. `HomeView.cards` holds a discriminated union for ordered rendering.
+and visibility. A rooms card with `area_ids` shows those Home favorites in that
+order; without it, Home shows every visible room that has lights or climate
+readings. Admins choose the favorites in the rooms card options of the
+Configuration screen. `HomeView.cards` holds a discriminated union for ordered rendering.
 The admin-only Configuration screen edits a local draft through `config-editor.ts`.
 Opening materializes automatic lists and appends missing areas as hidden. Reset
 sets both lists to null. Done sends one complete replacement, while Cancel
 discards the draft. Drawers, Select menus, confirmation
 dialogs, and drag announcements mount in the panel's shadow-root portal container.
 The panel reads Home Assistant's `route` property through a typed route model.
-Navigation updates browser history and dispatches `location-changed`. Leaving
+Navigation updates browser history and dispatches `location-changed`. Each
+pushed entry records the panel path it came from, so a page's back link returns
+there with `history.back()`, such as Home for a room opened from Home, and
+otherwise links to the page's parent. Leaving
 Configuration goes back in history when the panel opened it, so the next Back
 leaves the panel, and replaces the entry when a direct link opened it. The development adapter mirrors browser
 location changes into the same property. `buildRoomView` derives room climate,
 ordered lights, scenes, devices, and sensors without side effects. Room controls
 use the shared service action handler, including brightness data on slider commit.
-The view contains the date. The summary contains the indoor average, its room
-count, and weather. Entities
+The view contains the date and the outdoor weather, shown in the Home header
+with an icon for the condition. The frontend drops saved `summary` cards, which
+earlier versions used for the indoor average. Entities
 cards show ordered entity names and states, with `homeassistant.toggle` controls
 for lights, switches, fans, and input booleans. Missing or unavailable entities
 keep their rows, with disabled toggles.
@@ -107,8 +116,18 @@ The development harness allows these read-only commands in addition to the
 registries, panels, user, and configuration: `clacamieu/dashboard/config`,
 `frontend/get_user_data`, `energy/get_prefs`,
 `recorder/statistics_during_period`, `recorder/get_statistics_metadata`,
-`get_services`, `repairs/list_issues`, and the `weather/subscribe_forecast`
+`get_services`, `repairs/list_issues`, `logbook/get_events`,
+`history/history_during_period`, and the `weather/subscribe_forecast`
 subscription.
+
+- `activity-view.ts` turns the last 24 hours of logbook entries for openings,
+  leak and safety detectors, motion and occupancy sensors, and alarm panels
+  into the Security page's Activity list, newest first and grouped by day.
+  `use-activity.ts` reads them again whenever one of those entities changes.
+- `climate-trend.ts` compares a room's climate readings with their value an
+  hour earlier, from `history/history_during_period`, and calls changes below a
+  per-sensor threshold steady. `use-climate-history.ts` refreshes every five
+  minutes.
 
 The element attaches its own shadow root, because Home Assistant renders panels
 inside its own shadow trees. Document styles cannot reach the panel, and a

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildHomeView, numeric, resolveDashboardConfig } from "./home-view";
+import {
+  buildHomeView,
+  numeric,
+  resolveDashboardConfig,
+} from "./home-view";
 import { parseDashboardConfig } from "./dashboard-config";
 import { en, fr } from "./i18n";
 import type { HassEntity, HassLike, HomeData } from "./types";
@@ -57,6 +61,7 @@ const view = (hass: HassLike, ids: string[] | null = null): HomeData => {
   return Object.assign(
     {
       date: result.date,
+      weather: result.weather,
       alarm: null,
       vacuum: null,
       plugPower: null,
@@ -74,11 +79,9 @@ describe("home view", () => {
       entity("sensor.b", "18.4", { device_class: "temperature" }),
       "room_b",
     );
-    expect(view(hass).indoorTemperature).toBe("19,2");
     expect(
       view(hass, ["room_b", "unknown", "room_a"]).rooms.map((room) => room.id),
     ).toEqual(["room_b", "room_a"]);
-    expect(view(hass, ["room_b"]).indoorTemperature).toBe("18,4");
     expect(view(hass, ["unknown"]).rooms).toEqual([]);
   });
   it("prefers explicit climate entities and uses device ownership unless an entity overrides it", () => {
@@ -109,7 +112,7 @@ describe("home view", () => {
     expect(view(hass).rooms[0]).toMatchObject({
       temperature: "21,1",
       humidity: "53",
-      co2: "900",
+      co2: { value: "900", ppm: 900, level: "fair" },
     });
     expect(view(hass).rooms[1].temperature).toBe("18,0");
   });
@@ -129,11 +132,9 @@ describe("home view", () => {
     hass.entities["light.hidden"].hidden = true;
     add(hass, entity("light.other", "on"), "room_b");
     expect(view(hass, ["room_a"])).toMatchObject({
-      indoorTemperature: "19,0",
-      indoorSensorCount: 1,
       lightsOn: 1,
     });
-    expect(view(hass).rooms[0].lightsOn).toBe(true);
+    expect(view(hass).rooms[0].lighting?.on).toBe(true);
   });
   it("keeps missing readings null and hides entity-dependent blocks", () => {
     const hass = fixture();
@@ -142,7 +143,6 @@ describe("home view", () => {
       entity("sensor.invalid", "unavailable", { device_class: "temperature" }),
     );
     expect(view(hass)).toMatchObject({
-      indoorTemperature: null,
       alarm: null,
       vacuum: null,
       weather: null,
@@ -176,7 +176,6 @@ describe("home view", () => {
     add(hass, entity("weather.example", "cloudy", { temperature: 11 }));
     expect(view(hass)).toMatchObject({
       date: "Mercredi 21 octobre",
-      indoorSensorCount: 0,
       weather: { temperature: "11,0", condition: "Nuageux" },
     });
     hass.language = "en";
@@ -308,7 +307,12 @@ describe("home view", () => {
     add(hass, entity("sensor.unrelated", "900", { device_class: "power" }));
     expect(view(hass).plugPower).toEqual({
       total: "92",
-      topConsumer: "Appliance A 80 W",
+      running: 2,
+      consumers: [
+        { name: "Appliance A", watts: "80", share: 80 / 92.4 },
+        { name: "Appliance B", watts: "12", share: 12.4 / 92.4 },
+      ],
+      others: null,
     });
   });
   it("keeps a plug card with unavailable readings instead of claiming zero watts", () => {
@@ -322,7 +326,9 @@ describe("home view", () => {
     );
     expect(view(hass).plugPower).toEqual({
       total: "Indisponible",
-      topConsumer: "",
+      running: 0,
+      consumers: [],
+      others: null,
     });
   });
   it("uses the injected Home Assistant state formatter for entities", () => {
@@ -367,7 +373,7 @@ describe("dashboard configuration", () => {
           null,
           { id: "future", type: "future" },
           { id: "presence", type: "presence" },
-          { id: "a", type: "summary" },
+          { id: "a", type: "power" },
           { id: "a", type: "rooms" },
           { id: "bad", type: "alarm", entity_id: "vacuum.a" },
           {
@@ -392,7 +398,7 @@ describe("dashboard configuration", () => {
       }),
     ).toEqual({
       home_cards: [
-        { id: "a", type: "summary" },
+        { id: "a", type: "power" },
         {
           id: "e",
           type: "entities",
@@ -430,14 +436,13 @@ describe("dashboard configuration", () => {
         home_cards: null,
         rooms: null,
       }).home_cards.map((card) => card.type),
-    ).toEqual(["summary", "alarm", "vacuum", "rooms"]);
+    ).toEqual(["alarm", "vacuum", "rooms"]);
     add(hass, entity("switch.plug", "on"), "", "plug");
     const resolved = resolveDashboardConfig(hass, {
       home_cards: null,
       rooms: null,
     });
     expect(resolved.home_cards).toEqual([
-      { id: "auto-summary", type: "summary" },
       { id: "auto-alarm", type: "alarm", entity_id: "alarm_control_panel.a" },
       { id: "auto-vacuum", type: "vacuum", entity_id: "vacuum.a" },
       { id: "auto-rooms", type: "rooms" },
@@ -506,7 +511,13 @@ describe("dashboard configuration", () => {
       now,
     );
     expect(result.cards[0]).toMatchObject({
-      rooms: [{ temperature: "22,0", humidity: "45", co2: "700" }],
+      rooms: [
+        {
+          temperature: "22,0",
+          humidity: "45",
+          co2: { value: "700", ppm: 700, level: "good" },
+        },
+      ],
     });
   });
   it("keeps missing configured entities visible and exposes toggles only for supported domains", () => {
@@ -597,7 +608,7 @@ describe("hidden dashboard items", () => {
             entity_ids: ["sensor.example"],
             hidden: false,
           },
-          { id: "bad", type: "summary", hidden: "false" },
+          { id: "bad", type: "power", hidden: "false" },
         ],
         rooms: [
           {
@@ -647,7 +658,7 @@ describe("hidden dashboard items", () => {
     );
     const config = {
       home_cards: [
-        { id: "s", type: "summary" as const },
+        { id: "s", type: "power" as const },
         { id: "p", type: "power" as const, hidden: true },
         { id: "r", type: "rooms" as const },
       ],
@@ -660,8 +671,35 @@ describe("hidden dashboard items", () => {
       { area_id: "room_a" },
     ]);
     expect(buildHomeView(hass, config, now).cards).toMatchObject([
-      { type: "summary", indoorSensorCount: 1, indoorTemperature: "20,0" },
+      { type: "power" },
       { type: "rooms", rooms: [{ id: "room_a" }] },
     ]);
+  });
+  it("shows Home favorites in their order", () => {
+    const hass = fixture();
+    expect(
+      parseDashboardConfig({
+        home_cards: [
+          { id: "r", type: "rooms", area_ids: ["room_b", "room_b", "gone"] },
+          { id: "bad", type: "rooms", area_ids: [""] },
+        ],
+        rooms: null,
+      }).home_cards,
+    ).toEqual([{ id: "r", type: "rooms", area_ids: ["room_b", "gone"] }]);
+    const [card] = buildHomeView(
+      hass,
+      {
+        home_cards: [
+          { id: "r", type: "rooms", area_ids: ["room_b", "gone", "room_a"] },
+        ],
+        rooms: null,
+      },
+      now,
+    ).cards;
+    expect(card).toMatchObject({
+      type: "rooms",
+      areaIds: ["room_b", "gone", "room_a"],
+      rooms: [{ id: "room_b" }, { id: "room_a" }],
+    });
   });
 });

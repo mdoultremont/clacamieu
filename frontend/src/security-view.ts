@@ -23,9 +23,12 @@ export type AlarmMode = (typeof alarmModes)[number] & {
 export interface SecuritySensor {
   id: string;
   name: string;
-  description: string;
+  area: string | null;
+  /** When the state last changed, relative to now. */
+  changed: string | null;
   state: string;
   active: boolean;
+  available: boolean;
 }
 export interface SecuritySensorGroup {
   summary: string;
@@ -104,6 +107,7 @@ export function buildSecurityView(
         .sort(
           (a, b) =>
             Number(b.state === "on") - Number(a.state === "on") ||
+            Number(b.state === "off") - Number(a.state === "off") ||
             name(a).localeCompare(name(b), language),
         )
         .map((entity) => {
@@ -112,15 +116,12 @@ export function buildSecurityView(
           return {
             id: entity.entity_id,
             name: name(entity),
-            description: [
-              area ? hass.areas[area]?.name : null,
-              Number.isFinite(changed)
-                ? relativeTime(changed, now, language)
-                : null,
-            ]
-              .filter(Boolean)
-              .join(" · "),
+            area: (area && hass.areas[area]?.name) || null,
+            changed: Number.isFinite(changed)
+              ? relativeTime(changed, now, language)
+              : null,
             active: entity.state === "on",
+            available: ["on", "off"].includes(entity.state),
             state: !["on", "off"].includes(entity.state)
               ? t.unavailable
               : (hass.formatEntityState?.(entity) ??
@@ -223,7 +224,8 @@ export function buildSecurityView(
 }
 
 function relativeTime(changed: number, now: Date, language: string): string {
-  const seconds = (changed - now.getTime()) / 1000;
+  // A device clock slightly ahead of ours must not read as a future change.
+  const seconds = Math.min(0, (changed - now.getTime()) / 1000);
   const [unit, divisor]: [Intl.RelativeTimeFormatUnit, number] =
     Math.abs(seconds) >= 86400
       ? ["day", 86400]

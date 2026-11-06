@@ -1,4 +1,5 @@
 import {
+  callService,
   createConnection,
   createLongLivedTokenAuth,
   subscribeEntities,
@@ -33,6 +34,8 @@ const readTypes = new Set([
   "energy/get_prefs",
   "recorder/statistics_during_period",
   "recorder/get_statistics_metadata",
+  "logbook/get_events",
+  "history/history_during_period",
   "get_services",
   "repairs/list_issues",
 ]);
@@ -128,16 +131,24 @@ export function decodeEntities(
 export async function createDevHass(
   url: string,
   token: string,
+  services: boolean,
   onChange: (hass: HassLike) => void,
 ): Promise<() => void> {
   const connection = await createConnection({
     auth: createLongLivedTokenAuth(url, token),
     setupRetry: 0,
   });
-  const calls = readOnlyCalls(
+  const readOnly = readOnlyCalls(
     <T>(message: { type: string } & Record<string, unknown>) =>
       connection.sendMessagePromise<T>(message),
   );
+  const calls: Pick<HassLike, "callWS" | "callService"> = services
+    ? {
+        ...readOnly,
+        callService: (domain, service, data, target) =>
+          callService(connection, domain, service, data, target),
+      }
+    : readOnly;
   try {
     const [areas, devices, entities, panels, user, config, floors] =
       await Promise.all([

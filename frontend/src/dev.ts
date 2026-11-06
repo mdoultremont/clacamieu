@@ -2,6 +2,7 @@ import { createDevHass } from "./dev-hass";
 import { messages } from "./i18n";
 import "./panel";
 import type { ClacamieuPanel } from "./panel";
+import { installThemeLab } from "./theme-lab";
 
 const element = document.createElement("clacamieu-panel") as ClacamieuPanel;
 const media = window.matchMedia("(max-width: 870px)");
@@ -21,6 +22,7 @@ updateRoute();
 window.addEventListener("popstate", updateRoute);
 window.addEventListener("location-changed", updateRoute);
 document.body.append(element);
+const themeLab = installThemeLab(element);
 
 try {
   if (!__CLACAMIEU_DEV__)
@@ -28,9 +30,10 @@ try {
   const close = await createDevHass(
     __CLACAMIEU_DEV__.url,
     __CLACAMIEU_DEV__.token,
+    __CLACAMIEU_DEV__.services,
     (hass) => {
       document.documentElement.lang = hass.language;
-      element.hass = hass;
+      element.hass = themeLab(hass);
     },
   );
   import.meta.hot?.dispose(() => {

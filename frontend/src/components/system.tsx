@@ -1,6 +1,5 @@
 import {
   BatteryLow,
-  ChevronLeft,
   ChevronRight,
   Download,
   WifiOff,
@@ -12,8 +11,7 @@ import { navigate } from "../navigation";
 import { buildSystemView, type SystemEntity } from "../system-view";
 import type { HassLike } from "../types";
 import { ItemSection } from "./item-section";
-import { RouteLink } from "./route-link";
-import { Button } from "./ui/button";
+import { BackLink } from "./back-link";
 import {
   Item,
   ItemActions,
@@ -113,12 +111,7 @@ export function System({
   return (
     <>
       <header className="space-y-2">
-        <Button variant="ghost" className="-ml-3 min-h-11" asChild>
-          <RouteLink route={{ screen: "more" }}>
-            <ChevronLeft />
-            {t.more}
-          </RouteLink>
-        </Button>
+        <BackLink fallback={{ screen: "more" }} language={hass.language} />
         <h1 className="text-xl font-semibold tracking-tight">{t.systemPage}</h1>
         <p className="text-muted-foreground">{t.systemSummary}</p>
       </header>

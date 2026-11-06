@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { navigate, parseRoute, routePath, type Route } from "./navigation";
+import {
+  navigate,
+  parseRoute,
+  previousPath,
+  routePath,
+  type Route,
+} from "./navigation";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -34,6 +40,7 @@ describe("Maison routes", () => {
     expect(parseRoute(path)).toEqual({ screen: "home" });
   });
   it("pushes navigation and replaces the editor history entry on return", () => {
+    history.replaceState(null, "", "/clacamieu/plus");
     const push = vi.spyOn(history, "pushState");
     const replace = vi.spyOn(history, "replaceState");
     const events: boolean[] = [];
@@ -42,13 +49,15 @@ describe("Maison routes", () => {
     window.addEventListener("location-changed", listener);
     navigate("/clacamieu/configuration");
     expect(location.pathname).toBe("/clacamieu/configuration");
+    expect(previousPath()).toBe("/clacamieu/plus");
     navigate("/clacamieu", { replace: true });
+    const from = { clacamieuFrom: "/clacamieu/plus" };
     expect(push).toHaveBeenCalledExactlyOnceWith(
-      null,
+      from,
       "",
       "/clacamieu/configuration",
     );
-    expect(replace).toHaveBeenCalledExactlyOnceWith(null, "", "/clacamieu");
+    expect(replace).toHaveBeenLastCalledWith(from, "", "/clacamieu");
     expect(events).toEqual([false, true]);
     window.removeEventListener("location-changed", listener);
   });

@@ -54,7 +54,7 @@ function fixture(): HassLike {
     user: { id: "example", name: "Example", is_admin: false },
     language: "en",
     callService: vi.fn().mockResolvedValue(null),
-    callWS: vi.fn(),
+    callWS: vi.fn().mockResolvedValue([]),
     hassUrl: (path) => `https://example.test${path}`,
   };
 }
@@ -63,7 +63,7 @@ async function mount(hass: HassLike) {
   portal = document.createElement("div");
   document.body.append(container, portal);
   root = createRoot(container);
-  const onCamera = vi.fn();
+  const onMoreInfo = vi.fn();
   await act(async () =>
     root.render(
       <PortalContainerContext value={portal}>
@@ -74,12 +74,12 @@ async function mount(hass: HassLike) {
             { home_cards: null, rooms: null },
             new Date(),
           )}
-          onCamera={onCamera}
+          onMoreInfo={onMoreInfo}
         />
       </PortalContainerContext>,
     ),
   );
-  return onCamera;
+  return onMoreInfo;
 }
 const button = (scope: ParentNode, name: string) =>
   Array.from(scope.querySelectorAll<HTMLButtonElement>("button")).find(
@@ -97,6 +97,52 @@ async function enterCode(code: string) {
 }
 
 describe("security controls", () => {
+  it("lists recent activity, shows more on demand and opens more-info", async () => {
+    const hass = fixture();
+    hass.states["binary_sensor.door"] = {
+      entity_id: "binary_sensor.door",
+      state: "off",
+      attributes: { device_class: "door", friendly_name: "Front door" },
+      last_changed: "",
+      last_updated: "",
+      context: { id: "test", parent_id: null, user_id: null },
+    };
+    const now = Date.now() / 1000;
+    vi.mocked(hass.callWS).mockImplementation(async (message) =>
+      message.type === "logbook/get_events"
+        ? Array.from({ length: 12 }, (_, index) => ({
+            entity_id: "binary_sensor.door",
+            state: index % 2 ? "off" : "on",
+            when: now - index * 60,
+          }))
+        : [],
+    );
+    const onMoreInfo = await mount(hass);
+    const rows = () =>
+      container.querySelectorAll<HTMLButtonElement>("ol button");
+    expect(rows()).toHaveLength(10);
+    await act(async () => {
+      button(container, "Show 2 more").click();
+    });
+    expect(rows()).toHaveLength(12);
+    await act(async () => {
+      rows()[0].click();
+    });
+    expect(onMoreInfo).toHaveBeenCalledExactlyOnceWith("binary_sensor.door");
+    const seeAll = Array.from(container.querySelectorAll("a")).find(
+      (link) => link.textContent === "See all",
+    )!;
+    expect(seeAll.getAttribute("href")).toBe(
+      "https://example.test/logbook?entity_id=alarm_control_panel.example,binary_sensor.door",
+    );
+    const opening = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("ul button"),
+    ).find((row) => row.textContent?.startsWith("Front door"))!;
+    await act(async () => {
+      opening.click();
+    });
+    expect(onMoreInfo).toHaveBeenLastCalledWith("binary_sensor.door");
+  });
   it("opens a panel-container dialog and sends a code only after confirmation", async () => {
     const hass = fixture();
     await mount(hass);
@@ -187,7 +233,7 @@ describe("security controls", () => {
               { home_cards: null, rooms: null },
               new Date(),
             )}
-            onCamera={vi.fn()}
+            onMoreInfo={vi.fn()}
           />
         </PortalContainerContext>,
       ),
@@ -197,7 +243,7 @@ describe("security controls", () => {
   it("resolves camera URLs, refreshes only while visible and handles failed images", async () => {
     vi.useFakeTimers();
     const hass = fixture();
-    const onCamera = await mount(hass);
+    const onMoreInfo = await mount(hass);
     let image = container.querySelector("img")!;
     expect(image.src).toMatch(
       /^https:\/\/example.test\/api\/camera_proxy\/camera.example\?token=example&_clacamieu=/,
@@ -224,7 +270,7 @@ describe("security controls", () => {
     expect(container.querySelector("img")).toBeNull();
     expect(container.textContent).toContain("Unavailable");
     await act(async () => button(container, "UnavailableEntry camera").click());
-    expect(onCamera).toHaveBeenCalledOnce();
+    expect(onMoreInfo).toHaveBeenCalledOnce();
     await act(async () => vi.advanceTimersByTime(10_000));
     image = container.querySelector("img")!;
     expect(image).not.toBeNull();

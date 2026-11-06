@@ -1,4 +1,5 @@
 import { resolveRoomSensors } from "./room-sensors";
+import { buildRoomCards } from "./room-card";
 import { locale, messages, translatedState } from "./i18n";
 import type {
   DashboardConfig,
@@ -26,6 +27,7 @@ export function buildHomeView(
   hass: HassLike,
   config: DashboardConfig,
   now: Date,
+  controllers: ReadonlySet<string> = new Set(),
 ): HomeView {
   const t = messages(hass.language);
   const language = locale(hass.language);
@@ -70,9 +72,6 @@ export function buildHomeView(
       },
     ];
   });
-  const temperatures = rawRooms.flatMap((room) =>
-    room.temperature == null ? [] : [room.temperature],
-  );
   const weather = states.find((entity) =>
     entity.entity_id.startsWith("weather."),
   );
@@ -131,12 +130,26 @@ export function buildHomeView(
       watts,
     }))
     .sort((a, b) => b.watts - a.watts);
+  const plugTotal = plugPowers.reduce((total, plug) => total + plug.watts, 0);
+  const running = plugPowers.filter((plug) => plug.watts >= 1);
+  const othersOf = (plugs: { watts: number }[]) => {
+    const watts = plugs.reduce((total, plug) => total + plug.watts, 0);
+    return { watts: number(watts), share: watts / plugTotal };
+  };
   const alarmView = (
     alarm: HassEntity | undefined,
   ): NonNullable<HomeData["alarm"]> => {
     return alarm
       ? {
           title: translatedState(t.alarm, alarm.state),
+          status:
+            t.securityModes[alarm.state as keyof typeof t.securityModes] ??
+            translatedState(t.alarm, alarm.state),
+          tone: ["pending", "triggered"].includes(alarm.state)
+            ? "alert"
+            : alarm.state.startsWith("armed") || alarm.state === "arming"
+              ? "active"
+              : "idle",
           safety,
           action:
             alarm.attributes.code_format != null ||
@@ -164,6 +177,8 @@ export function buildHomeView(
         }
       : {
           title: t.alarm.unavailable,
+          status: t.unavailable,
+          tone: "idle",
           safety,
           action: null,
         };
@@ -190,6 +205,12 @@ export function buildHomeView(
             hass.entities[vacuum.entity_id]?.name ??
             vacuum.entity_id,
           state: translatedState(t.vacuum, vacuum.state),
+          tone:
+            vacuum.state === "error"
+              ? "alert"
+              : ["cleaning", "returning"].includes(vacuum.state)
+                ? "active"
+                : "idle",
           battery: battery == null ? null : number(battery),
           action: ["docked", "idle", "paused"].includes(vacuum.state)
             ? {
@@ -207,7 +228,13 @@ export function buildHomeView(
                 }
               : null,
         }
-      : { name: entityId, state: t.unavailable, battery: null, action: null };
+      : {
+          name: entityId,
+          state: t.unavailable,
+          tone: "idle",
+          battery: null,
+          action: null,
+        };
   };
   const data = {
     date: capitalize(
@@ -218,29 +245,14 @@ export function buildHomeView(
       }).format(now),
       language,
     ),
-    indoorTemperature: temperatures.length
-      ? number(
-          temperatures.reduce((total, value) => total + value, 0) /
-            temperatures.length,
-          1,
-        )
-      : null,
-    indoorSensorCount: temperatures.length,
     weather: weather
       ? {
           temperature: outdoor == null ? null : number(outdoor, 1),
           condition: translatedState(t.weather, weather.state),
+          state: weather.state,
         }
       : null,
-    rooms: rawRooms.map((room) => ({
-      id: room.id,
-      name: room.name,
-      temperature:
-        room.temperature == null ? null : number(room.temperature, 1),
-      humidity: room.humidity == null ? null : number(room.humidity),
-      co2: room.co2 == null ? null : number(room.co2),
-      lightsOn: room.lights.some((entity) => entity.state === "on"),
-    })),
+    rooms: buildRoomCards(hass, config, controllers),
     lightsOn: rawRooms.reduce(
       (count, room) =>
         count +
@@ -253,30 +265,29 @@ export function buildHomeView(
     ),
     plugPower: hasPlugPower
       ? {
-          total: plugPowers.length
-            ? number(plugPowers.reduce((total, plug) => total + plug.watts, 0))
-            : t.unavailable,
-          topConsumer: plugPowers.length
-            ? `${plugPowers[0].name} ${number(plugPowers[0].watts)} W`.trim()
-            : "",
+          total: plugPowers.length ? number(plugTotal) : t.unavailable,
+          running: running.length,
+          consumers: running.slice(0, 3).map((plug) => ({
+            name: plug.name,
+            watts: number(plug.watts),
+            share: plugTotal > 0 ? plug.watts / plugTotal : 0,
+          })),
+          others: running.length > 3 ? othersOf(running.slice(3)) : null,
         }
       : null,
   };
   const cards: HomeCardView[] = resolved.home_cards.map((card) => {
     switch (card.type) {
-      case "summary":
-        return {
-          id: card.id,
-          type: card.type,
-          indoorSensorCount: data.indoorSensorCount,
-          indoorTemperature: data.indoorTemperature,
-          weather: data.weather,
-        };
       case "rooms":
         return {
           id: card.id,
           type: card.type,
-          rooms: data.rooms,
+          rooms: card.area_ids
+            ? card.area_ids.flatMap((areaId) =>
+                data.rooms.filter((room) => room.id === areaId),
+              )
+            : data.rooms,
+          areaIds: card.area_ids ?? null,
           lightsOn: data.lightsOn,
         };
       case "alarm":
@@ -297,7 +308,9 @@ export function buildHomeView(
           type: card.type,
           plugPower: data.plugPower ?? {
             total: t.unavailable,
-            topConsumer: "",
+            running: 0,
+            consumers: [],
+            others: null,
           },
         };
       case "entities":
@@ -335,7 +348,7 @@ export function buildHomeView(
         };
     }
   });
-  return { date: data.date, cards };
+  return { date: data.date, weather: data.weather, cards };
 }
 
 export function plugPowerEntities(hass: HassLike): HassEntity[] {
@@ -365,7 +378,7 @@ export function resolveDashboardConfig(
   hass: HassLike,
   config: DashboardConfig,
 ): { home_cards: HomeCard[]; rooms: RoomConfig[] } {
-  const automatic: HomeCard[] = [{ id: "auto-summary", type: "summary" }];
+  const automatic: HomeCard[] = [];
   const states = Object.values(hass.states);
   const alarm = states.find((entity) =>
     entity.entity_id.startsWith("alarm_control_panel."),
@@ -396,3 +409,4 @@ export function resolveDashboardConfig(
     ).filter((room: RoomConfig) => !room.hidden),
   };
 }
+

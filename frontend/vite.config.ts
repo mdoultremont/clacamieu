@@ -6,7 +6,11 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig(({ command, mode }) => {
-  let credentials: { url: string; token: string } | null = null;
+  let credentials: {
+    url: string;
+    token: string;
+    services: boolean;
+  } | null = null;
   if (command === "serve" && mode !== "test") {
     const envPath =
       process.env.CLACAMIEU_HA_ENV ??
@@ -16,7 +20,11 @@ export default defineConfig(({ command, mode }) => {
       throw new Error(
         "The Home Assistant development environment is incomplete.",
       );
-    credentials = { url: env.HA_URL, token: env.HA_TOKEN };
+    credentials = {
+      url: env.HA_URL,
+      token: env.HA_TOKEN,
+      services: process.env.CLACAMIEU_DEV_SERVICES === "1",
+    };
   }
   return {
     base: command === "build" ? "/clacamieu_static/" : "/",
