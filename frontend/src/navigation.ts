@@ -79,6 +79,28 @@ export function previousPath(): string | null {
   return typeof from === "string" ? from : null;
 }
 
+/**
+ * Home Assistant's dialogs, such as more-info, replace the current history
+ * state with their own. Put the panel origin back when the dialog closes, so
+ * the page's back link still returns where it came from.
+ */
+export function keepOriginThroughDialog() {
+  const from = previousPath();
+  if (!from) return;
+  const path = location.pathname;
+  const restore = () => {
+    if (location.pathname !== path) {
+      window.removeEventListener("popstate", restore);
+      return;
+    }
+    if (previousPath() === from) return;
+    const state = history.state as Record<string, unknown> | null;
+    history.replaceState({ ...state, clacamieuFrom: from }, "");
+    if (!state?.open) window.removeEventListener("popstate", restore);
+  };
+  window.addEventListener("popstate", restore);
+}
+
 export function navigate(path: string, { replace = false } = {}) {
   // A replaced entry keeps its origin so Back still returns there.
   const clacamieuFrom = replace ? previousPath() : location.pathname;

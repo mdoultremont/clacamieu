@@ -18,7 +18,12 @@ import { Vacuum } from "./components/vacuum";
 import { System } from "./components/system";
 import { buildRoomView } from "./room-view";
 import { buildRoomCards } from "./room-card";
-import { navigate, parseRoute, routePath } from "./navigation";
+import {
+  keepOriginThroughDialog,
+  navigate,
+  parseRoute,
+  routePath,
+} from "./navigation";
 import { Comfort } from "./components/comfort";
 import { Garden } from "./components/garden";
 import { buildComfortView } from "./comfort-view";
@@ -127,6 +132,7 @@ export function App({
     }
   }
   function openMoreInfo(entityId: string) {
+    keepOriginThroughDialog();
     host.dispatchEvent(
       new CustomEvent("hass-more-info", {
         bubbles: true,
@@ -272,7 +278,10 @@ export function App({
                   }
                 />
               )}
-              {route.screen === "home" && error && (
+              {(route.screen === "home" ||
+                route.screen === "rooms" ||
+                (route.screen === "room" && !room)) &&
+                error && (
                 <p className="error" role="alert">
                   {error}
                 </p>

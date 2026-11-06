@@ -232,9 +232,9 @@ export function PowerCard({
       {segments.length > 0 && (
         <div className="space-y-2">
           <div className="flex h-[1.125rem] gap-[3px]">
-            {segments.map((segment) => (
+            {segments.map((segment, index) => (
               <div
-                key={segment.name}
+                key={index}
                 className={cn(
                   "flex h-full min-w-0 basis-0 items-center rounded-full justify-center text-[0.625rem] leading-none tabular-nums transition-[flex-grow] duration-500",
                   segment.color,
@@ -246,8 +246,8 @@ export function PowerCard({
             ))}
           </div>
           <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            {segments.map((segment) => (
-              <li key={segment.name} className="flex min-w-0 items-center gap-1.5">
+            {segments.map((segment, index) => (
+              <li key={index} className="flex min-w-0 items-center gap-1.5">
                 <span className={cn("size-2 shrink-0 rounded-full", segment.color)} />
                 <span className="truncate">{segment.name}</span>
                 {segment.share < minLabelShare && (

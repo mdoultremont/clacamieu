@@ -483,9 +483,8 @@ function LightingHero({
               <Button
                 key={scene.id}
                 variant="secondary"
-                size="sm"
                 disabled={busy}
-                className="min-h-9 shrink-0 rounded-full px-4"
+                className="min-h-11 shrink-0 rounded-full px-4"
                 onClick={() => onAction(scene.action)}
               >
                 {scene.name}

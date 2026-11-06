@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  keepOriginThroughDialog,
   navigate,
   parseRoute,
   previousPath,
@@ -60,5 +61,21 @@ describe("Maison routes", () => {
     expect(replace).toHaveBeenLastCalledWith(from, "", "/clacamieu");
     expect(events).toEqual([false, true]);
     window.removeEventListener("location-changed", listener);
+  });
+  it("keeps the back-link origin through a Home Assistant dialog", async () => {
+    history.replaceState(null, "", "/clacamieu");
+    navigate("/clacamieu/pieces/room_a");
+    keepOriginThroughDialog();
+    // Home Assistant's dialog manager replaces the entry, then pushes its own.
+    history.replaceState({ dialog: "more-info", open: false }, "");
+    history.pushState({ dialog: "more-info", open: true }, "");
+    const closed = new Promise((resolve) =>
+      window.addEventListener("popstate", resolve, { once: true }),
+    );
+    history.back();
+    await closed;
+    expect(location.pathname).toBe("/clacamieu/pieces/room_a");
+    expect(previousPath()).toBe("/clacamieu");
+    expect(history.state).toMatchObject({ dialog: "more-info" });
   });
 });

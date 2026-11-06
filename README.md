@@ -54,7 +54,7 @@ Rooms are Home Assistant areas. Each area's temperature and humidity sensors
 from its area settings are used first.
 
 Administrators choose and order the Home cards and the rooms from the panel.
-Tap **Modifier** on Home, or **Configurer Maison** in Plus. Each card and room
+Tap **Configurer Maison** in Plus. Each card and room
 can be shown or hidden, moved, and edited. A room can use specific temperature,
 humidity, and CO₂ sensors. **Terminé** saves the settings for the whole
 household. Without saved settings, Maison picks the cards and shows every area.
