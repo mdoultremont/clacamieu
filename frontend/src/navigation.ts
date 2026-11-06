@@ -72,8 +72,43 @@ export function routePath(route: Route): string {
   }
 }
 
+/** The panel path the current history entry was opened from, if any. */
+export function previousPath(): string | null {
+  const from = (history.state as { clacamieuFrom?: unknown } | null)
+    ?.clacamieuFrom;
+  return typeof from === "string" ? from : null;
+}
+
+/**
+ * Home Assistant's dialogs, such as more-info, replace the current history
+ * state with their own. Put the panel origin back when the dialog closes, so
+ * the page's back link still returns where it came from.
+ */
+export function keepOriginThroughDialog() {
+  const from = previousPath();
+  if (!from) return;
+  const path = location.pathname;
+  const restore = () => {
+    if (location.pathname !== path) {
+      window.removeEventListener("popstate", restore);
+      return;
+    }
+    if (previousPath() === from) return;
+    const state = history.state as Record<string, unknown> | null;
+    history.replaceState({ ...state, clacamieuFrom: from }, "");
+    if (!state?.open) window.removeEventListener("popstate", restore);
+  };
+  window.addEventListener("popstate", restore);
+}
+
 export function navigate(path: string, { replace = false } = {}) {
-  history[replace ? "replaceState" : "pushState"](null, "", path);
+  // A replaced entry keeps its origin so Back still returns there.
+  const clacamieuFrom = replace ? previousPath() : location.pathname;
+  history[replace ? "replaceState" : "pushState"](
+    clacamieuFrom ? { clacamieuFrom } : null,
+    "",
+    path,
+  );
   window.dispatchEvent(
     new CustomEvent("location-changed", { detail: { replace } }),
   );

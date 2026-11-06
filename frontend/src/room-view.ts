@@ -1,6 +1,7 @@
-import { numeric, resolveDashboardConfig } from "./home-view";
+import { numeric } from "./home-view";
 import { locale, messages } from "./i18n";
-import { entityArea, resolveRoomSensors } from "./room-sensors";
+import { airLevel } from "./room-lighting";
+import { areaSensor, entityArea, resolveRoomSensors } from "./room-sensors";
 import type {
   DashboardConfig,
   HassEntity,
@@ -20,13 +21,17 @@ export interface RoomLight extends RoomEntity {
   dimmable: boolean;
   group: boolean;
 }
+export type ClimateLabel = "temperature" | "humidity" | "co2" | "pm25";
+
 export interface RoomView {
   id: string;
   name: string;
   lightsOn: number;
   climate: {
-    label: "temperature" | "humidity" | "co2";
+    label: ClimateLabel;
+    entityId: string;
     value: string;
+    raw: number;
     unit: string;
   }[];
   air: "good" | "fair" | "poor" | null;
@@ -34,16 +39,6 @@ export interface RoomView {
   scenes: RoomEntity[];
   devices: (RoomEntity & { actions: ServiceAction[] })[];
   sensors: RoomEntity[];
-}
-
-export function buildRoomsView(
-  hass: HassLike,
-  config: DashboardConfig,
-): RoomView[] {
-  return resolveDashboardConfig(hass, config).rooms.flatMap(({ area_id }) => {
-    const room = buildRoomView(hass, config, area_id);
-    return room ? [room] : [];
-  });
 }
 
 export function buildRoomView(
@@ -99,15 +94,22 @@ export function buildRoomView(
     area_id: areaId,
   };
   let air: RoomView["air"] = null;
-  const climate = resolveRoomSensors(hass, roomConfig).flatMap(
+  const [temperature, humidity, co2] = resolveRoomSensors(hass, roomConfig);
+  const climate = [
+    temperature,
+    humidity,
+    { label: "pm25" as const, entity: areaSensor(hass, areaId, "pm25") },
+    co2,
+  ].flatMap(
     ({ label, entity }) => {
       const value = numeric(entity?.state);
-      if (value === null) return [];
-      if (label === "co2")
-        air = value < 800 ? "good" : value < 1200 ? "fair" : "poor";
+      if (value === null || !entity) return [];
+      if (label === "co2") air = airLevel(value);
       return [
         {
           label,
+          entityId: entity.entity_id,
+          raw: value,
           value: new Intl.NumberFormat(language, {
             minimumFractionDigits: label === "temperature" ? 1 : 0,
             maximumFractionDigits: label === "temperature" ? 1 : 0,
@@ -118,7 +120,9 @@ export function buildRoomView(
               ? "°C"
               : label === "humidity"
                 ? "%"
-                : "ppm"),
+                : label === "pm25"
+                  ? "µg/m³"
+                  : "ppm"),
         },
       ];
     },

@@ -92,11 +92,11 @@ describe("development transport", () => {
 it("keeps dashboard reads and updates in memory without forwarding them", async () => {
   const send = vi.fn().mockResolvedValue({ value: true });
   const calls = developmentDashboardCalls(readOnlyCalls(send), {
-    home_cards: [{ id: "s", type: "summary" }],
+    home_cards: [{ id: "s", type: "power" }],
     rooms: null,
   });
   expect(await calls.callWS({ type: "clacamieu/dashboard/config" })).toEqual({
-    home_cards: [{ id: "s", type: "summary" }],
+    home_cards: [{ id: "s", type: "power" }],
     rooms: null,
   });
   const update = {

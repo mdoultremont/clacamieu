@@ -1,4 +1,5 @@
 import type { Connection, HassEntity } from "home-assistant-js-websocket";
+import type { RoomCard } from "./room-card";
 export type { HassEntity } from "home-assistant-js-websocket";
 
 export interface EntityDisplayEntry {
@@ -57,7 +58,8 @@ export interface HassLike {
 }
 
 export type HomeCard = { hidden?: boolean } & (
-  | { id: string; type: "summary" | "rooms" | "power" }
+  | { id: string; type: "power" }
+  | { id: string; type: "rooms"; area_ids?: string[] }
   | { id: string; type: "alarm" | "vacuum"; entity_id: string }
   | { id: string; type: "entities"; title: string; entity_ids: string[] }
 );
@@ -81,6 +83,10 @@ export interface PanelInfo {
   config?: Record<string, unknown>;
 }
 
+export type LightingCommand =
+  | { command: "toggle" }
+  | { command: "set_scene"; scene: string };
+
 export type ServiceAction = {
   entityId: string;
   label: string;
@@ -102,45 +108,56 @@ export type ServiceAction = {
   | { domain: "light"; service: "toggle" }
   | { domain: "light"; service: "turn_on"; data: { brightness_pct: number } }
   | { domain: "scene"; service: "turn_on" }
+  | {
+      domain: "script";
+      service: "turn_on";
+      data: { variables: LightingCommand };
+    }
   | { domain: "cover"; service: "open_cover" | "close_cover" }
   | { domain: "valve"; service: "open_valve" | "close_valve" }
   | { domain: "switch"; service: "turn_on" | "turn_off" }
 );
 
+export type Tone = "idle" | "active" | "alert";
+
 export interface HomeData {
   date: string;
-  indoorTemperature: string | null;
-  indoorSensorCount: number;
-  weather: { temperature: string | null; condition: string } | null;
-  rooms: {
-    id: string;
-    name: string;
+  weather: {
     temperature: string | null;
-    humidity: string | null;
-    co2: string | null;
-    lightsOn: boolean;
-  }[];
+    condition: string;
+    state: string;
+  } | null;
+  rooms: RoomCard[];
   lightsOn: number;
   alarm: {
     title: string;
+    status: string;
+    tone: Tone;
     safety: { text: string; alert: boolean }[];
     action: ServiceAction | null;
   } | null;
   vacuum: {
     name: string;
     state: string;
+    tone: Tone;
     battery: string | null;
     action: ServiceAction | null;
   } | null;
-  plugPower: { total: string; topConsumer: string } | null;
+  plugPower: {
+    total: string;
+    /** Plugs drawing at least 1 W. */
+    running: number;
+    /** The three largest consumers, with their share of the total. */
+    consumers: { name: string; watts: string; share: number }[];
+    /** Every other plug together, when any draws power. */
+    others: { watts: string; share: number } | null;
+  } | null;
 }
 
 export type HomeCardView = { id: string } & (
-  | ({ type: "summary" } & Pick<
-      HomeData,
-      "indoorTemperature" | "indoorSensorCount" | "weather"
-    >)
-  | ({ type: "rooms" } & Pick<HomeData, "rooms" | "lightsOn">)
+  | ({ type: "rooms" } & Pick<HomeData, "rooms" | "lightsOn"> & {
+      areaIds: string[] | null;
+    })
   | { type: "alarm"; alarm: NonNullable<HomeData["alarm"]> }
   | { type: "vacuum"; vacuum: NonNullable<HomeData["vacuum"]> }
   | { type: "power"; plugPower: NonNullable<HomeData["plugPower"]> }
@@ -160,5 +177,6 @@ export type HomeCardView = { id: string } & (
 
 export interface HomeView {
   date: string;
+  weather: HomeData["weather"];
   cards: HomeCardView[];
 }

@@ -234,7 +234,9 @@ describe("security view", () => {
       id: "binary_sensor.door",
       state: "Ouvert",
       active: true,
-      description: expect.stringMatching(/^Room A · il y a 3\s+h$/),
+      area: "Room A",
+      changed: expect.stringMatching(/^il y a 3\s+h$/),
+      available: true,
     });
     expect(view.leaks).toMatchObject({
       summary: "1 fuite détectée",
@@ -257,11 +259,11 @@ describe("security view", () => {
     hass.states["binary_sensor.leak"].state = "unknown";
     view = buildSecurityView(hass, config, now);
     expect(view.openings.summary).toBe("2 / 3 fermées · 1 indisponible");
+    expect(view.openings.sensors.at(-1)?.id).toBe("binary_sensor.garage");
     expect(view.leaks.summary).toBe("Aucune fuite · 1 indisponible");
     expect(
       view.leaks.sensors.find((sensor) => sensor.id === "binary_sensor.leak")
-        ?.state,
-    ).toBe("Indisponible");
+    ).toMatchObject({ state: "Indisponible", available: false });
   });
   it("handles missing timestamps, actors, and detector groups with English copy", () => {
     const hass = securityFixture();
@@ -273,7 +275,10 @@ describe("security view", () => {
     hass.states["binary_sensor.door"].last_changed = "";
     const view = buildSecurityView(hass, config, now);
     expect(view.alarm?.description).toBe("");
-    expect(view.openings.sensors[0].description).toBe("Room A");
+    expect(view.openings.sensors[0]).toMatchObject({
+      area: "Room A",
+      changed: null,
+    });
     expect(view.detectors.sensors).toEqual([]);
     expect(view.alarm?.modes[1].label).toBe("Home");
     expect(view.leaks.summary).toBe("1 leak detected");

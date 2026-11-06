@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { navigate, parseRoute, routePath, type Route } from "./navigation";
+import {
+  keepOriginThroughDialog,
+  navigate,
+  parseRoute,
+  previousPath,
+  routePath,
+  type Route,
+} from "./navigation";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -34,6 +41,7 @@ describe("Maison routes", () => {
     expect(parseRoute(path)).toEqual({ screen: "home" });
   });
   it("pushes navigation and replaces the editor history entry on return", () => {
+    history.replaceState(null, "", "/clacamieu/plus");
     const push = vi.spyOn(history, "pushState");
     const replace = vi.spyOn(history, "replaceState");
     const events: boolean[] = [];
@@ -42,14 +50,32 @@ describe("Maison routes", () => {
     window.addEventListener("location-changed", listener);
     navigate("/clacamieu/configuration");
     expect(location.pathname).toBe("/clacamieu/configuration");
+    expect(previousPath()).toBe("/clacamieu/plus");
     navigate("/clacamieu", { replace: true });
+    const from = { clacamieuFrom: "/clacamieu/plus" };
     expect(push).toHaveBeenCalledExactlyOnceWith(
-      null,
+      from,
       "",
       "/clacamieu/configuration",
     );
-    expect(replace).toHaveBeenCalledExactlyOnceWith(null, "", "/clacamieu");
+    expect(replace).toHaveBeenLastCalledWith(from, "", "/clacamieu");
     expect(events).toEqual([false, true]);
     window.removeEventListener("location-changed", listener);
+  });
+  it("keeps the back-link origin through a Home Assistant dialog", async () => {
+    history.replaceState(null, "", "/clacamieu");
+    navigate("/clacamieu/pieces/room_a");
+    keepOriginThroughDialog();
+    // Home Assistant's dialog manager replaces the entry, then pushes its own.
+    history.replaceState({ dialog: "more-info", open: false }, "");
+    history.pushState({ dialog: "more-info", open: true }, "");
+    const closed = new Promise((resolve) =>
+      window.addEventListener("popstate", resolve, { once: true }),
+    );
+    history.back();
+    await closed;
+    expect(location.pathname).toBe("/clacamieu/pieces/room_a");
+    expect(previousPath()).toBe("/clacamieu");
+    expect(history.state).toMatchObject({ dialog: "more-info" });
   });
 });

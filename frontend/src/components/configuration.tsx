@@ -16,6 +16,7 @@ import {
   type ConfigEditorAction,
 } from "../config-editor";
 import { numeric } from "../home-view";
+import { buildRoomCards, hasHomeContent } from "../room-card";
 import { locale, messages } from "../i18n";
 import {
   climateSensors,
@@ -71,7 +72,6 @@ type Selection =
   | { type: "add" }
   | null;
 const cardTypes = [
-  "summary",
   "alarm",
   "vacuum",
   "rooms",
@@ -82,7 +82,6 @@ const cardTypes = [
 function cardTitles(language: string): Record<HomeCard["type"], string> {
   const t = messages(language);
   return {
-    summary: t.summaryLabel,
     alarm: t.alarmLabel,
     vacuum: t.vacuumLabel,
     rooms: t.rooms,
@@ -340,6 +339,7 @@ export function Configuration({
                   key={card.id}
                   card={card}
                   hass={hass}
+                  rooms={lists.rooms}
                   dispatch={dispatch}
                 />
                 <MoveButtons
@@ -435,14 +435,18 @@ function MoveButtons({
 function CardOptions({
   card,
   hass,
+  rooms,
   dispatch,
 }: {
   card: HomeCard;
   hass: HassLike;
+  rooms: RoomConfig[];
   dispatch: (action: ConfigEditorAction) => void;
 }) {
   const t = messages(hass.language);
   const [adding, setAdding] = useState(false);
+  if (card.type === "rooms")
+    return <HomeRoomOptions card={card} hass={hass} rooms={rooms} dispatch={dispatch} />;
   if (card.type === "alarm" || card.type === "vacuum") {
     const domain = card.type === "alarm" ? "alarm_control_panel" : "vacuum";
     const ids = [
@@ -672,5 +676,68 @@ function RoomOptions({
         );
       })}
     </>
+  );
+}
+
+// Home favorites: the rooms a rooms card shows, in order. Without a saved
+// list, Home shows the visible rooms that have lights or climate readings.
+function HomeRoomOptions({
+  card,
+  hass,
+  rooms,
+  dispatch,
+}: {
+  card: Extract<HomeCard, { type: "rooms" }>;
+  hass: HassLike;
+  rooms: RoomConfig[];
+  dispatch: (action: ConfigEditorAction) => void;
+}) {
+  const t = messages(hass.language);
+  const all = buildRoomCards(hass, { home_cards: null, rooms }, new Set());
+  const favorites =
+    card.area_ids ??
+    all.filter(hasHomeContent).map((room) => room.id);
+  const rank = (id: string) => {
+    const index = favorites.indexOf(id);
+    return index === -1 ? favorites.length : index;
+  };
+  const rows = [...all]
+    .sort((a, b) => rank(a.id) - rank(b.id))
+    .map((room) => ({
+      id: room.id,
+      title: room.name,
+      hidden: !favorites.includes(room.id),
+    }));
+  const save = (next: typeof rows) =>
+    dispatch({
+      type: "edit-card",
+      card: {
+        ...card,
+        area_ids: next.filter((row) => !row.hidden).map((row) => row.id),
+      },
+    });
+  return (
+    <div className="space-y-2">
+      <p className="font-medium">{t.homeRooms}</p>
+      <p className="text-sm text-muted-foreground">{t.homeRoomsDescription}</p>
+      <div role="list" aria-label={t.homeRooms} className="rounded-xl border">
+        <ConfigSortableList
+          rows={rows}
+          language={hass.language}
+          onMove={(from, to) => {
+            const next = [...rows];
+            next.splice(to, 0, ...next.splice(from, 1));
+            save(next);
+          }}
+          onToggle={(id) =>
+            save(
+              rows.map((row) =>
+                row.id === id ? { ...row, hidden: !row.hidden } : row,
+              ),
+            )
+          }
+        />
+      </div>
+    </div>
   );
 }

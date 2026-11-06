@@ -38,7 +38,7 @@ export function ConfigSortableList({
   language: string;
   onMove: (from: number, to: number) => void;
   onToggle: (id: string) => void;
-  onEdit: (id: string) => void;
+  onEdit?: (id: string) => void;
 }) {
   const t = messages(language);
   const container = usePortalContainer();
@@ -83,7 +83,7 @@ export function ConfigSortableList({
             row={row}
             language={language}
             onToggle={() => onToggle(row.id)}
-            onEdit={() => onEdit(row.id)}
+            onEdit={onEdit && (() => onEdit(row.id))}
           />
         ))}
       </SortableContext>
@@ -100,7 +100,7 @@ function SortableRow({
   row: Row;
   language: string;
   onToggle: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
 }) {
   const t = messages(language);
   const {
@@ -112,6 +112,16 @@ function SortableRow({
     transition,
     isDragging,
   } = useSortable({ id: row.id });
+  const text = (
+    <span className="min-w-0 flex-1">
+      <span className="block font-medium">{row.title}</span>
+      {row.description && (
+        <span className="block text-sm text-muted-foreground">
+          {row.description}
+        </span>
+      )}
+    </span>
+  );
   return (
     <div
       ref={setNodeRef}
@@ -132,22 +142,21 @@ function SortableRow({
       >
         <GripVertical className="size-4" />
       </Button>
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label={`${t.editItem} ${row.title}`}
-        className="flex min-h-14 min-w-0 flex-1 items-center gap-2 rounded-md py-3 text-left outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block font-medium">{row.title}</span>
-          {row.description && (
-            <span className="block text-sm text-muted-foreground">
-              {row.description}
-            </span>
-          )}
+      {onEdit ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`${t.editItem} ${row.title}`}
+          className="flex min-h-14 min-w-0 flex-1 items-center gap-2 rounded-md py-3 text-left outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {text}
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+        </button>
+      ) : (
+        <span className="flex min-h-14 min-w-0 flex-1 items-center py-3">
+          {text}
         </span>
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-      </button>
+      )}
       <div className="switch-target flex items-center">
         <Switch
           checked={!row.hidden}

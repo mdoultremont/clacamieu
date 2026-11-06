@@ -1,5 +1,5 @@
-import { Fragment, useState } from "react";
-import { ChevronLeft, ChevronRight, Thermometer } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { cn } from "cn";
 import {
   formatClimate,
   sortComfortRooms,
@@ -7,19 +7,9 @@ import {
   type ComfortView,
 } from "../comfort-view";
 import { messages } from "../i18n";
-import { ItemSection } from "./item-section";
+import { Meter, co2Scale, humidityScale } from "./air-meter";
 import { RouteLink } from "./route-link";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemSeparator,
-  ItemTitle,
-} from "./ui/item";
+import { BackLink } from "./back-link";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 
 export function Comfort({
@@ -40,12 +30,7 @@ export function Comfort({
   return (
     <>
       <header className="space-y-2">
-        <Button variant="ghost" className="-ml-3 min-h-11" asChild>
-          <RouteLink route={{ screen: "more" }}>
-            <ChevronLeft />
-            {t.more}
-          </RouteLink>
-        </Button>
+        <BackLink fallback={{ screen: "more" }} language={language} />
         <h1 className="text-xl font-semibold tracking-tight">{t.comfort}</h1>
         <p className="text-muted-foreground">
           {t.indoorAverage} ·{" "}
@@ -69,8 +54,8 @@ export function Comfort({
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
-      <ItemSection title={t.rooms}>
-        {sortComfortRooms(view.rooms, filter).map((room, index) => {
+      <section aria-label={t.rooms} className="flex flex-col gap-2">
+        {sortComfortRooms(view.rooms, filter).map((room) => {
           const temperature = formatClimate(
             room.temperature,
             language,
@@ -78,77 +63,116 @@ export function Comfort({
           );
           const humidity = formatClimate(room.humidity, language, "%");
           const co2 = formatClimate(room.co2, language, "ppm");
-          const value =
+          const dewPoint = formatClimate(
+            room.dewPoint,
+            language,
+            room.dewPointUnit,
+          );
+          const headline =
             filter === "all"
               ? temperature
               : filter === "humidity"
                 ? humidity
                 : filter === "co2"
                   ? co2
-                  : formatClimate(room.dewPoint, language, room.dewPointUnit);
-          const details =
-            filter === "all"
-              ? [humidity, co2]
-              : [
-                  temperature,
-                  filter !== "humidity" ? humidity : null,
-                  filter !== "co2" ? co2 : null,
-                ];
-          const description =
-            [...details, room.perception].filter(Boolean).join(" · ") ||
-            (room.temperature === null &&
-            room.humidity === null &&
-            room.co2 === null
-              ? t.unavailable
-              : "");
+                  : dewPoint;
+          const subtitle = room.problems.length
+            ? room.problems.join(" · ")
+            : [
+                filter !== "all" ? temperature : null,
+                room.perception,
+                filter !== "dewPoint" && dewPoint
+                  ? `${t.dewPoint} ${dewPoint}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ");
           return (
-            <Fragment key={room.id}>
-              {index > 0 && <ItemSeparator />}
-              <div role="listitem">
-                <Item size="sm" asChild>
-                  <RouteLink route={{ screen: "room", areaId: room.id }}>
-                    <ItemMedia className="text-muted-foreground">
-                      <Thermometer className="size-4" />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>{room.name}</ItemTitle>
-                      {description && (
-                        <ItemDescription className="tabular-nums">
-                          {description}
-                        </ItemDescription>
+            <RouteLink
+              key={room.id}
+              route={{ screen: "room", areaId: room.id }}
+              className="flex flex-col gap-3 rounded-xl border bg-card p-4 text-card-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-muted/60"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium">{room.name}</p>
+                  {subtitle && (
+                    <p
+                      className={cn(
+                        "text-sm tabular-nums",
+                        room.problems.length
+                          ? "font-medium text-air-poor"
+                          : "text-muted-foreground",
                       )}
-                      {room.problems.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {room.problems.map((problem) => (
-                            <Badge
-                              key={problem}
-                              variant="outline"
-                              className="border-destructive/50 text-destructive"
-                            >
-                              {problem}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </ItemContent>
-                    <ItemActions className="shrink-0 text-right tabular-nums">
-                      {value && <span>{value}</span>}
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    </ItemActions>
-                  </RouteLink>
-                </Item>
+                    >
+                      {subtitle}
+                    </p>
+                  )}
+                </div>
+                <span
+                  data-slot="comfort-headline"
+                  className="shrink-0 text-2xl font-semibold tracking-tight tabular-nums"
+                >
+                  {headline ?? "—"}
+                </span>
               </div>
-            </Fragment>
+              {room.co2 !== null && (
+                <MeterRow
+                  label={t.co2}
+                  value={co2!}
+                  alert={room.co2 > 1200}
+                  meter={<Meter value={room.co2} scale={co2Scale} />}
+                />
+              )}
+              {room.humidity !== null && (
+                <MeterRow
+                  label={t.humidity}
+                  value={humidity!}
+                  alert={room.humidity > 70}
+                  meter={<Meter value={room.humidity} scale={humidityScale} />}
+                />
+              )}
+              {room.temperature === null &&
+                room.humidity === null &&
+                room.co2 === null && (
+                  <p className="text-sm text-muted-foreground">
+                    {t.unavailable}
+                  </p>
+                )}
+            </RouteLink>
           );
         })}
         {view.rooms.length === 0 && (
-          <Item role="listitem">
-            <ItemContent>
-              <ItemDescription>{t.noRooms}</ItemDescription>
-            </ItemContent>
-          </Item>
+          <p className="text-muted-foreground">{t.noRooms}</p>
         )}
-      </ItemSection>
+      </section>
     </>
+  );
+}
+
+function MeterRow({
+  label,
+  value,
+  alert,
+  meter,
+}: {
+  label: string;
+  value: string;
+  alert: boolean;
+  meter: ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[4.5rem_1fr_4.5rem] items-center gap-3 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      {meter}
+      <span
+        className={cn(
+          "text-right tabular-nums",
+          alert ? "font-medium text-air-poor" : "text-muted-foreground",
+        )}
+      >
+        {value}
+      </span>
+    </div>
   );
 }

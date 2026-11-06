@@ -1,50 +1,54 @@
-import { Camera, DoorClosed, Droplets, Shield, Siren } from "lucide-react";
 import {
-  Fragment,
+  Camera,
+  ChevronRight,
+  DoorClosed,
+  Droplets,
+  History,
+  Shield,
+  Siren,
+} from "lucide-react";
+import {
   useEffect,
   useId,
   useState,
   type ComponentType,
+  type MouseEvent,
 } from "react";
+import { cn } from "cn";
+import {
+  activityEntityIds,
+  buildActivity,
+  type ActivityTone,
+} from "../activity-view";
+import { navigate } from "../navigation";
 import { messages } from "../i18n";
+import { useActivity } from "../use-activity";
 import type {
-  AlarmMode,
   SecuritySensorGroup,
   SecurityView,
 } from "../security-view";
 import type { HassLike } from "../types";
+import { AlarmModes } from "./alarm-modes";
+import { EntityRows } from "./entity-rows";
+import { Button } from "./ui/button";
 import { ItemSection } from "./item-section";
 import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "./ui/alert-dialog";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import {
   Item,
-  ItemActions,
   ItemContent,
   ItemDescription,
   ItemMedia,
   ItemSeparator,
   ItemTitle,
 } from "./ui/item";
-import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 
 export function Security({
   view,
   hass,
-  onCamera,
+  onMoreInfo,
 }: {
   view: SecurityView;
   hass: HassLike;
-  onCamera: (entityId: string) => void;
+  onMoreInfo: (entityId: string) => void;
 }) {
   const t = messages(hass.language);
   return (
@@ -63,17 +67,33 @@ export function Security({
                 key={camera.id}
                 camera={camera}
                 hass={hass}
-                onOpen={() => onCamera(camera.id)}
+                onOpen={() => onMoreInfo(camera.id)}
               />
             ))}
           </div>
         </ItemSection>
       )}
-      <SensorGroup title={t.openings} group={view.openings} icon={DoorClosed} />
-      <SensorGroup title={t.leaks} group={view.leaks} icon={Droplets} />
+      <SensorGroup
+        title={t.openings}
+        group={view.openings}
+        icon={DoorClosed}
+        onMoreInfo={onMoreInfo}
+      />
+      <SensorGroup
+        title={t.leaks}
+        group={view.leaks}
+        icon={Droplets}
+        onMoreInfo={onMoreInfo}
+      />
       {view.detectors.sensors.length > 0 && (
-        <SensorGroup title={t.detectors} group={view.detectors} icon={Siren} />
+        <SensorGroup
+          title={t.detectors}
+          group={view.detectors}
+          icon={Siren}
+          onMoreInfo={onMoreInfo}
+        />
       )}
+      <Activity hass={hass} onMoreInfo={onMoreInfo} />
     </>
   );
 }
@@ -86,34 +106,6 @@ function Alarm({
   hass: HassLike;
 }) {
   const t = messages(hass.language);
-  const [selection, setSelection] = useState<AlarmMode | null>(null);
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const codeId = useId();
-  async function confirm() {
-    if (!selection || busy || !alarm.available) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await hass.callService(
-        "alarm_control_panel",
-        selection.service,
-        selection.needsCode ? { code } : {},
-        { entity_id: alarm.id },
-      );
-      setSelection(null);
-      setCode("");
-    } catch (reason) {
-      setError(
-        reason instanceof Error && reason.name === "DevelopmentWriteBlocked"
-          ? t.blockedError
-          : t.securityAlarmError,
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
     <ItemSection title={t.alarmLabel}>
       <Item role="listitem" size="sm">
@@ -129,93 +121,8 @@ function Alarm({
       </Item>
       <ItemSeparator />
       <div className="p-4">
-        <ToggleGroup
-          type="single"
-          value={alarm.state}
-          variant="outline"
-          spacing={2}
-          aria-label={t.alarmLabel}
-          disabled={busy || !alarm.available}
-          className="flex w-full flex-wrap justify-start gap-2"
-          onValueChange={(state) => {
-            const mode = alarm.modes.find((mode) => mode.state === state);
-            if (mode && mode.state !== alarm.state) {
-              setSelection(mode);
-              setError(null);
-              setCode("");
-            }
-          }}
-        >
-          {alarm.modes.map((mode) => (
-            <ToggleGroupItem
-              key={mode.state}
-              value={mode.state}
-              className="min-h-11"
-            >
-              {mode.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        <AlarmModes alarm={alarm} hass={hass} />
       </div>
-      <AlertDialog
-        open={!!selection}
-        onOpenChange={(open) => {
-          if (!open && !busy) {
-            setSelection(null);
-            setCode("");
-            setError(null);
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <form
-            className="grid min-w-0 gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void confirm();
-            }}
-          >
-            <AlertDialogHeader>
-              <AlertDialogTitle>{selection?.confirmation}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t.securityConfirmDescription}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {selection?.needsCode && (
-              <div className="grid gap-2">
-                <label htmlFor={codeId}>{t.securityCode}</label>
-                <Input
-                  id={codeId}
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  required
-                  className="min-h-11 text-base"
-                  value={code}
-                  disabled={busy}
-                  onChange={(event) => setCode(event.target.value)}
-                />
-              </div>
-            )}
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={busy}>{t.cancel}</AlertDialogCancel>
-              <Button
-                type="submit"
-                disabled={
-                  busy || !alarm.available || (!!selection?.needsCode && !code)
-                }
-              >
-                {busy ? t.securityWorking : t.securityConfirm}
-              </Button>
-            </AlertDialogFooter>
-          </form>
-        </AlertDialogContent>
-      </AlertDialog>
     </ItemSection>
   );
 }
@@ -291,55 +198,177 @@ function SensorGroup({
   title,
   group,
   icon: Icon,
+  onMoreInfo,
 }: {
   title: string;
   group: SecuritySensorGroup;
   icon: ComponentType<{ className?: string }>;
+  onMoreInfo: (entityId: string) => void;
 }) {
+  const id = useId();
   return (
-    <ItemSection title={title}>
-      <Item role="listitem" size="sm">
-        <ItemContent>
-          {group.alert ? (
-            <Badge
-              variant="outline"
-              className="border-destructive/50 text-destructive"
-            >
-              {group.summary}
-            </Badge>
-          ) : (
-            <ItemDescription>{group.summary}</ItemDescription>
-          )}
-        </ItemContent>
-      </Item>
-      {group.sensors.map((sensor) => (
-        <Fragment key={sensor.id}>
-          <ItemSeparator />
-          <Item role="listitem" size="sm">
-            <ItemMedia className="text-muted-foreground">
-              <Icon className="size-4" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>{sensor.name}</ItemTitle>
-              {sensor.description && (
-                <ItemDescription>{sensor.description}</ItemDescription>
-              )}
-            </ItemContent>
-            <ItemActions className="max-w-24 shrink-0 text-right text-muted-foreground">
-              {sensor.active ? (
-                <Badge
-                  variant="outline"
-                  className="whitespace-normal border-destructive/50 text-destructive"
-                >
-                  {sensor.state}
-                </Badge>
-              ) : (
-                <span>{sensor.state}</span>
-              )}
-            </ItemActions>
-          </Item>
-        </Fragment>
-      ))}
-    </ItemSection>
+    <section aria-labelledby={id} className="space-y-2">
+      <div className="flex items-baseline justify-between gap-3 px-1 text-xs text-muted-foreground">
+        <h2 id={id} className="flex items-center gap-1.5 font-medium">
+          <Icon className="size-3.5" />
+          {title}
+        </h2>
+        <p className={cn("text-right", group.alert && "font-medium text-air-poor")}>
+          {group.summary}
+        </p>
+      </div>
+      {group.sensors.length > 0 && (
+        <EntityRows
+          onMoreInfo={onMoreInfo}
+          rows={group.sensors.map((sensor) => ({
+            id: sensor.id,
+            name: sensor.name,
+            dot: !sensor.available ? "off" : sensor.active ? "alert" : "good",
+            alert: sensor.active,
+            unavailable: !sensor.available,
+            value:
+              sensor.active || !sensor.available
+                ? [sensor.state, sensor.active ? sensor.changed : null]
+                    .filter(Boolean)
+                    .join(" · ")
+                : (sensor.changed ?? sensor.state),
+          }))}
+        />
+      )}
+    </section>
   );
+}
+
+const collapsedEvents = 10;
+
+const toneDot: Record<ActivityTone, string> = {
+  idle: "bg-muted-foreground/40",
+  active: "bg-glow",
+  alert: "bg-air-poor",
+};
+
+function Activity({
+  hass,
+  onMoreInfo,
+}: {
+  hass: HassLike;
+  onMoreInfo: (entityId: string) => void;
+}) {
+  const t = messages(hass.language);
+  const entries = useActivity(hass);
+  const logbook = `/logbook?entity_id=${activityEntityIds(hass).join(",")}`;
+  const id = useId();
+  const [expanded, setExpanded] = useState(false);
+  if (entries === null) return null;
+  const all = buildActivity(hass, entries, new Date());
+  const total = all.reduce((count, day) => count + day.events.length, 0);
+  // Show the newest events first, and the rest on demand.
+  let budget = expanded ? total : collapsedEvents;
+  const days = all.flatMap((day) => {
+    const events = day.events.slice(0, budget);
+    budget -= events.length;
+    return events.length ? [{ ...day, events }] : [];
+  });
+  return (
+    <section aria-labelledby={id} className="space-y-2">
+      <div className="flex items-center justify-between gap-3 px-1">
+        <h2
+          id={id}
+          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+        >
+          <History className="size-3.5" />
+          {t.activity}
+        </h2>
+        <a
+          href={hass.hassUrl?.(logbook) ?? logbook}
+          onClick={(event) => openHomeAssistantPage(event, hass, logbook)}
+          className="-my-3 -mr-1 flex min-h-11 items-center gap-0.5 px-1 text-xs font-medium text-muted-foreground"
+        >
+          {t.seeAll}
+          <ChevronRight className="size-3.5" />
+        </a>
+      </div>
+      <div className="rounded-xl border bg-card px-4 py-3 text-card-foreground">
+        {!days.length && (
+          <p className="py-1 text-sm text-muted-foreground">{t.noActivity}</p>
+        )}
+        {days.map((day) => (
+          <div key={day.label} className="not-first:mt-3">
+            <h3 className="mb-1 text-xs font-medium text-muted-foreground">
+              {day.label}
+            </h3>
+            <ol className="relative">
+              <span
+                aria-hidden
+                className="absolute top-3 bottom-3 left-[3px] w-px bg-border"
+              />
+              {day.events.map((event) => (
+                <li key={event.id}>
+                  <button
+                    type="button"
+                    onClick={() => onMoreInfo(event.entityId)}
+                    className="flex min-h-11 w-full items-center gap-3 rounded-md py-1.5 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-muted/60"
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "relative size-[7px] shrink-0 rounded-full ring-2 ring-card",
+                        toneDot[event.tone],
+                      )}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{event.name}</span>
+                      {event.area && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {event.area}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span
+                        className={cn(
+                          "block text-xs",
+                          event.tone === "alert" && "font-medium text-air-poor",
+                        )}
+                      >
+                        {event.state}
+                      </span>
+                      <span className="block text-xs tabular-nums text-muted-foreground">
+                        {event.time}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
+        {total > collapsedEvents && (
+          <Button
+            variant="ghost"
+            className="mt-1 min-h-11 w-full text-muted-foreground"
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? t.showLess : t.showMore(total - collapsedEvents)}
+          </Button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Opens a Home Assistant page, such as the logbook, inside Home Assistant's
+ * own navigation. The development server runs elsewhere, so it opens a tab.
+ */
+function openHomeAssistantPage(
+  event: MouseEvent<HTMLAnchorElement>,
+  hass: HassLike,
+  path: string,
+) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey) return;
+  event.preventDefault();
+  const url = new URL(hass.hassUrl?.(path) ?? path, location.href);
+  if (url.origin === location.origin) navigate(path);
+  else window.open(url.href, "_blank", "noopener");
 }

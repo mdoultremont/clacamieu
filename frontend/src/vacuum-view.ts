@@ -14,6 +14,8 @@ export interface VacuumView {
   state: string;
   battery: string | null;
   currentRoom: string | null;
+  lastCleaned: string | null;
+  progress: number | null;
   available: boolean;
   actions: Extract<ServiceAction, { domain: "vacuum" }>[];
   camera: { id: string; picture: string | null } | null;
@@ -141,6 +143,13 @@ export function buildVacuumView(
         ? t.battery(number.format(battery))
         : null,
     currentRoom,
+    lastCleaned: lastCleaned(sensor("cleaning_history")?.state, hass.language),
+    progress: (() => {
+      const progress = numeric(sensor("cleaning_progress")?.state);
+      return progress !== null && progress >= 0 && progress <= 100
+        ? progress
+        : null;
+    })(),
     available: !["unknown", "unavailable"].includes(vacuum.state),
     actions,
     camera: camera
@@ -204,4 +213,15 @@ export function buildVacuumView(
         : [];
     }),
   };
+}
+
+function lastCleaned(state: string | undefined, language: string) {
+  const time = state ? Date.parse(state) : Number.NaN;
+  return Number.isFinite(time)
+    ? new Intl.DateTimeFormat(locale(language), {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      }).format(time)
+    : null;
 }

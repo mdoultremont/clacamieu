@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
 import {
-  ChevronLeft,
   ChevronRight,
   Cloud,
   CloudFog,
@@ -19,6 +18,7 @@ import { messages } from "../i18n";
 import type { HassLike, ServiceAction } from "../types";
 import { ItemSection } from "./item-section";
 import { RouteLink } from "./route-link";
+import { BackLink } from "./back-link";
 import { Button } from "./ui/button";
 import {
   Item,
@@ -122,12 +122,7 @@ export function Garden({
   return (
     <>
       <header className="space-y-2">
-        <Button variant="ghost" className="-ml-3 min-h-11" asChild>
-          <RouteLink route={{ screen: "more" }}>
-            <ChevronLeft />
-            {t.more}
-          </RouteLink>
-        </Button>
+        <BackLink fallback={{ screen: "more" }} language={hass.language} />
         <h1 className="text-xl font-semibold tracking-tight">{t.garden}</h1>
         {view.weather && (
           <div className="flex items-center gap-3">

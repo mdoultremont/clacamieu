@@ -1,4 +1,4 @@
-import type { AreaEntry, HassLike, RoomConfig } from "./types";
+import type { AreaEntry, HassEntity, HassLike, RoomConfig } from "./types";
 
 export const climateSensors = [
   {
@@ -33,20 +33,28 @@ export function resolveRoomSensors(hass: HassLike, room: RoomConfig) {
       room[key] ?? (key === "co2_entity_id" ? null : area?.[key]);
     const entity = override
       ? hass.states[override]
-      : Object.values(hass.states).find(
-          (entity) =>
-            entity.entity_id.startsWith("sensor.") &&
-            entity.attributes.device_class === deviceClass &&
-            !(
-              deviceClass === "temperature" &&
-              derivedTemperature.test(entity.entity_id)
-            ) &&
-            entityArea(hass, entity.entity_id) === room.area_id &&
-            !hass.entities[entity.entity_id]?.hidden &&
-            !hass.entities[entity.entity_id]?.entity_category,
-        );
+      : areaSensor(hass, room.area_id, deviceClass);
     return { key, deviceClass, label, entity };
   });
+}
+
+export function areaSensor(
+  hass: HassLike,
+  areaId: string,
+  deviceClass: string,
+): HassEntity | undefined {
+  return Object.values(hass.states).find(
+    (entity) =>
+      entity.entity_id.startsWith("sensor.") &&
+      entity.attributes.device_class === deviceClass &&
+      !(
+        deviceClass === "temperature" &&
+        derivedTemperature.test(entity.entity_id)
+      ) &&
+      entityArea(hass, entity.entity_id) === areaId &&
+      !hass.entities[entity.entity_id]?.hidden &&
+      !hass.entities[entity.entity_id]?.entity_category,
+  );
 }
 
 const outdoorNames = new Set([

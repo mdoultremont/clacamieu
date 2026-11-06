@@ -22,8 +22,8 @@ Avoid: Device Enhancer
 
 **Maison**
 The household dashboard that Clacamieu adds to the Home Assistant sidebar as a custom panel. Its name stays Maison in every language.
-Its Accueil screen contains ordered cards and rooms. Each room represents a Home Assistant area and can override its climate sensors.
-Avoid: Home, Lovelace dashboard
+Its Home screen, named Home in every language, contains ordered cards and room cards. A room card turns the room's lights on or off from its icon and opens the room page from the rest of the card. Home favorites are the rooms an admin picks and orders for Home in Configure Maison; the Pièces tab still shows every room. Each room represents a Home Assistant area and can override its climate sensors.
+Avoid: Home (for Maison itself), Lovelace dashboard
 
 **Comfort**
 The Maison page that compares climate and air quality across its visible rooms.

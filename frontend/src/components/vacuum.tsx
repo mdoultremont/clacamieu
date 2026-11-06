@@ -1,4 +1,4 @@
-import { ChevronLeft, Home, MapPin, Pause, Play, Search } from "lucide-react";
+import { Home, MapPin, Pause, Play, Search } from "lucide-react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { messages } from "../i18n";
 import {
@@ -8,7 +8,7 @@ import {
 } from "../vacuum-view";
 import type { DashboardConfig, HassLike, ServiceAction } from "../types";
 import { ItemSection } from "./item-section";
-import { RouteLink } from "./route-link";
+import { BackLink } from "./back-link";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
@@ -61,12 +61,7 @@ export function Vacuum({
   return (
     <>
       <header className="space-y-2">
-        <Button variant="ghost" className="-ml-3 min-h-11" asChild>
-          <RouteLink route={{ screen: "more" }}>
-            <ChevronLeft />
-            {t.more}
-          </RouteLink>
-        </Button>
+        <BackLink fallback={{ screen: "more" }} language={hass.language} />
         <h1 className="text-xl font-semibold tracking-tight">
           {view?.name ?? t.vacuumPage}
         </h1>

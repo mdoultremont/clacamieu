@@ -12,10 +12,14 @@ function parseCard(value: unknown): HomeCard | null {
   const hidden = value.hidden === undefined ? {} : { hidden: value.hidden };
   const { id, type } = value;
   switch (type) {
-    case "summary":
-    case "rooms":
     case "power":
       return { id, type, ...hidden };
+    case "rooms":
+      if (value.area_ids === undefined) return { id, type, ...hidden };
+      return Array.isArray(value.area_ids) &&
+        value.area_ids.every((areaId) => typeof areaId === "string" && areaId)
+        ? { id, type, ...hidden, area_ids: [...new Set(value.area_ids)] }
+        : null;
     case "alarm":
     case "vacuum":
       return entityId(value.entity_id) &&

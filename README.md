@@ -31,14 +31,18 @@ with the **Maison dashboard** type. Every user sees it.
 
 Maison has five tabs:
 
-- **Accueil** shows the date, the indoor and outdoor temperature, and one list
-  per card: the alarm, the robot vacuum, the rooms with their
-  climate, the power drawn by smart plugs, and any entity list you add.
-- **Pièces** lists the rooms. Each room page shows its climate and controls its
-  lights, brightness, scenes, switches, covers, and media players.
+- **Home** shows the date, the outdoor weather, and one block per card: the
+  alarm, the robot vacuum, your favorite rooms, the power drawn by smart plugs, and any entity list you add. Admins
+  choose and order the favorite rooms in the rooms card options of Configure
+  Maison.
+- **Pièces** shows a card per room. The card's icon turns the room's lights on
+  or off, through the room's lighting script when it has one. The card shows
+  temperature, humidity, and CO₂, and opens the room page.
+  Each room page shows its climate, with the change over the last hour, and
+  controls its lights, brightness, scenes, switches, covers, and media players.
 - **Sécurité** arms and disarms the alarm, with a confirmation and a code when
   Home Assistant asks for one. It also shows camera stills, doors and windows,
-  leak sensors, and smoke or gas detectors.
+  leak sensors, smoke or gas detectors, and the last 24 hours of activity.
 - **Énergie** reads Home Assistant's own Energy settings and statistics. It shows
   the current plug power and the consumption, cost, and change for the day,
   week, month, or year, per device.
@@ -49,8 +53,8 @@ Maison has five tabs:
 Rooms are Home Assistant areas. Each area's temperature and humidity sensors
 from its area settings are used first.
 
-Administrators choose and order the Accueil cards and the rooms from the panel.
-Tap **Modifier** on Accueil, or **Configurer Maison** in Plus. Each card and room
+Administrators choose and order the Home cards and the rooms from the panel.
+Tap **Configurer Maison** in Plus. Each card and room
 can be shown or hidden, moved, and edited. A room can use specific temperature,
 humidity, and CO₂ sensors. **Terminé** saves the settings for the whole
 household. Without saved settings, Maison picks the cards and shows every area.

@@ -68,8 +68,7 @@ describe("panel lifecycle and screens", () => {
     expect(panel.shadowRoot?.querySelector("h1")?.textContent).toContain(
       "Home",
     );
-    expect(panel.shadowRoot?.textContent).toContain("Room A");
-    expect(panel.shadowRoot?.textContent).toContain("No sensors");
+    expect(panel.shadowRoot?.textContent).not.toContain("Room A");
     expect(
       panel.shadowRoot?.querySelectorAll(".nav-inner button:disabled"),
     ).toHaveLength(0);
@@ -92,7 +91,7 @@ describe("panel lifecycle and screens", () => {
           title: "Devices",
           entity_ids: ["switch.example", "sensor.missing", "light.missing"],
         },
-        { id: "s", type: "summary" },
+        { id: "s", type: "power" },
       ],
       rooms: [],
     });
@@ -127,7 +126,7 @@ describe("panel lifecycle and screens", () => {
       panel.hass = { ...hass, language: "fr" };
     });
     expect(panel.shadowRoot?.querySelector("h1")?.textContent).toContain(
-      "Accueil",
+      "Home",
     );
     await act(async () => {
       (
@@ -220,6 +219,55 @@ describe("panel lifecycle and screens", () => {
       "This action is blocked in development.",
     );
     expect(toggle.getAttribute("aria-checked")).toBe("false");
+  });
+  it("goes back to the page that opened a room, or to Rooms when opened directly", async () => {
+    const hass = fixture();
+    hass.states["sensor.room_a_temperature"] = {
+      entity_id: "sensor.room_a_temperature",
+      state: "20",
+      attributes: { device_class: "temperature" },
+      last_changed: "",
+      last_updated: "",
+      context: { id: "test", parent_id: null, user_id: null },
+    };
+    hass.entities["sensor.room_a_temperature"] = {
+      entity_id: "sensor.room_a_temperature",
+      area_id: "room_a",
+    };
+    const panel = await mount(hass);
+    const shadow = panel.shadowRoot!;
+    const back = () =>
+      Array.from(shadow.querySelectorAll("a")).find((link) =>
+        link.querySelector("svg.lucide-chevron-left"),
+      )!;
+    await act(async () => {
+      (shadow.querySelector('[aria-label="Open Room A"]') as HTMLElement).click();
+    });
+    expect(shadow.querySelector("h1")?.textContent).toBe("Room A");
+    expect(back().textContent).toBe("Home");
+    // The dev adapter and Home Assistant both turn popstate into a route update.
+    const popped = new Promise((resolve) =>
+      window.addEventListener(
+        "popstate",
+        () => {
+          window.dispatchEvent(new CustomEvent("location-changed"));
+          resolve(null);
+        },
+        { once: true },
+      ),
+    );
+    await act(async () => {
+      back().click();
+      await popped;
+    });
+    expect(location.pathname).toBe("/clacamieu");
+    expect(shadow.querySelector("h1")?.textContent).toBe("Home");
+    await act(async () => {
+      history.replaceState(null, "", "/clacamieu/pieces/room_a");
+      panel.route = { prefix: "/clacamieu", path: "/pieces/room_a" };
+    });
+    expect(back().textContent).toBe("Rooms");
+    expect(back().getAttribute("href")).toBe("/clacamieu/pieces");
   });
   it("reads HA routes, falls back from deleted areas, and prevents non-admin configuration", async () => {
     const hass = fixture();
@@ -317,7 +365,7 @@ describe("panel lifecycle and screens", () => {
       { entity_id: "switch.plug" },
     );
     const slider = shadow.querySelector('[role="slider"]') as HTMLElement;
-    expect(slider.getAttribute("aria-label")).toBe("Example lamp brightness");
+    expect(slider.getAttribute("aria-label")).toBe("Room A brightness");
     await act(async () => {
       slider.dispatchEvent(
         new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
@@ -330,9 +378,8 @@ describe("panel lifecycle and screens", () => {
       { entity_id: "light.example" },
     );
     expect(slider.getAttribute("aria-valuenow")).toBe("51");
-    expect(shadow.querySelector('[data-slot="badge"]')?.textContent).toBe(
-      "Poor air",
-    );
+    expect(shadow.textContent).toContain("Poor air");
+    expect(shadow.textContent).toContain("Open a window for ten minutes.");
     let reject!: (error: Error) => void;
     hass.callService = vi.fn(
       () =>
@@ -455,44 +502,31 @@ describe("panel lifecycle and screens", () => {
     });
     expect(listeners.size).toBe(1);
   });
-  it("renders openings and leaks as destructive outline badges", async () => {
+  it("summarizes safety alerts on the Home alarm card and links to Security", async () => {
     const hass = fixture();
-    for (const [id, state, deviceClass] of [
-      ["alarm_control_panel.example", "disarmed", undefined],
-      ["binary_sensor.door", "on", "door"],
-      ["binary_sensor.leak", "on", "moisture"],
+    for (const [id, state, attributes] of [
+      ["alarm_control_panel.example", "disarmed", { supported_features: 2 }],
+      ["binary_sensor.door", "on", { device_class: "door" }],
+      ["binary_sensor.leak", "on", { device_class: "moisture" }],
     ] as const)
       hass.states[id] = {
         entity_id: id,
         state,
-        attributes: { device_class: deviceClass },
+        attributes,
         last_changed: "",
         last_updated: "",
         context: { id: "test", parent_id: null, user_id: null },
       };
     const panel = await mount(hass);
-    const badges = panel.shadowRoot!.querySelectorAll('[data-slot="badge"]');
-    expect(Array.from(badges, (badge) => badge.textContent)).toEqual([
-      "1 open",
-      "leak detected",
-    ]);
-    for (const badge of badges) {
-      expect(badge.getAttribute("data-variant")).toBe("outline");
-      expect(badge.classList.contains("text-destructive")).toBe(true);
-    }
-    const arm = Array.from(panel.shadowRoot!.querySelectorAll("button")).find(
-      (button) => button.textContent === "Arm",
-    )!;
-    expect(arm.getAttribute("data-variant")).toBe("outline");
-    await act(async () => {
-      arm.click();
-    });
-    expect(hass.callService).toHaveBeenCalledExactlyOnceWith(
-      "alarm_control_panel",
-      "alarm_arm_away",
-      {},
-      { entity_id: "alarm_control_panel.example" },
+    const card = Array.from(
+      panel.shadowRoot!.querySelectorAll<HTMLAnchorElement>("a"),
+    ).find((link) => link.textContent?.includes("1 leak detected"))!;
+    expect(card.getAttribute("href")).toBe("/clacamieu/securite");
+    expect(card.querySelector(".text-air-poor")?.textContent).toBe(
+      "1 open1 leak detected",
     );
+    expect(card.querySelector("button")).toBeNull();
+    expect(hass.callService).not.toHaveBeenCalled();
   });
 });
 

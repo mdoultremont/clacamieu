@@ -1,28 +1,27 @@
-import {
-  ChevronRight,
-  Bot,
-  Settings2,
-  DoorOpen,
-  Plug,
-  Shield,
-} from "lucide-react";
-import { Fragment, useId } from "react";
+import { WeatherIcon } from "./weather-icon";
+import { Fragment, useId, type ReactNode } from "react";
 import { messages } from "../i18n";
-import type { HomeView, HomeCardView, ServiceAction } from "../types";
-import { RouteLink } from "./route-link";
+import type {
+  HomeView,
+  HomeCardView,
+  ServiceAction,
+} from "../types";
 import { ItemSection } from "./item-section";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
 import {
   Item,
   ItemActions,
   ItemContent,
   ItemDescription,
-  ItemMedia,
   ItemSeparator,
   ItemTitle,
 } from "./ui/item";
 import { Switch } from "./ui/switch";
+import { AlarmCard, PowerCard, VacuumCard } from "./home-status";
+import type { SecurityView } from "../security-view";
+import type { VacuumView } from "../vacuum-view";
+import { RoomGrid } from "./room-grid";
+import { hasHomeContent } from "../room-card";
+import { cn } from "cn";
 
 type ActionProps = {
   language: string;
@@ -30,29 +29,37 @@ type ActionProps = {
   busy: boolean;
 };
 
+type StatusProps = {
+  security: SecurityView;
+  vacuum: VacuumView | null;
+};
+
 export function Home({
   view,
-  onConfigure,
   ...props
-}: { view: HomeView; onConfigure?: () => void } & ActionProps) {
+}: { view: HomeView } & ActionProps & StatusProps) {
   const t = messages(props.language);
   return (
     <>
-      <header className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-2">
           <h1 className="text-xl font-semibold tracking-tight">{t.home}</h1>
-          {onConfigure && (
-            <Button
-              variant="ghost"
-              className="min-h-11 min-w-11"
-              onClick={onConfigure}
-            >
-              <Settings2 />
-              {t.edit}
-            </Button>
-          )}
+          <p className="text-muted-foreground">{view.date}</p>
         </div>
-        <p className="text-muted-foreground">{view.date}</p>
+        {view.weather && (
+          <div className="shrink-0 text-right" aria-label={t.outside}>
+            <p className="flex items-center justify-end gap-1.5 text-xl font-semibold tabular-nums">
+              <WeatherIcon
+                state={view.weather.state}
+                className="size-5 text-muted-foreground"
+              />
+              {view.weather.temperature != null
+                ? `${view.weather.temperature}°`
+                : "—"}
+            </p>
+            <p className="text-muted-foreground">{view.weather.condition}</p>
+          </div>
+        )}
       </header>
       {view.cards.map((card) => (
         <HomeCard key={card.id} view={card} {...props} />
@@ -66,186 +73,33 @@ function HomeCard({
   language,
   onAction,
   busy,
-}: { view: HomeCardView } & ActionProps) {
-  const t = messages(language);
+  security,
+  vacuum,
+}: { view: HomeCardView } & ActionProps & StatusProps) {
   const id = useId();
   switch (view.type) {
-    case "summary":
-      return (
-        <section className="grid grid-cols-2 gap-3">
-          <div className="flex min-w-0 flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground">
-            <p className="text-muted-foreground">{t.inside}</p>
-            <p className="text-2xl font-semibold tabular-nums">
-              {view.indoorTemperature !== null
-                ? `${view.indoorTemperature}°`
-                : "—"}
-            </p>
-            <p className="text-muted-foreground">
-              {view.indoorSensorCount
-                ? t.averageRooms(view.indoorSensorCount)
-                : t.noClimate}
-            </p>
-          </div>
-          <div className="flex min-w-0 flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground">
-            <p className="text-muted-foreground">{t.outside}</p>
-            <p className="text-2xl font-semibold tabular-nums">
-              {view.weather?.temperature != null
-                ? `${view.weather.temperature}°`
-                : "—"}
-            </p>
-            <p className="text-muted-foreground">
-              {view.weather?.condition ?? t.weather.unavailable}
-            </p>
-          </div>
-        </section>
-      );
     case "alarm":
       return (
-        <ItemSection title={t.alarmLabel}>
-          <Item role="listitem" size="sm">
-            <ItemMedia className="text-muted-foreground">
-              <Shield className="size-4" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>{view.alarm.title}</ItemTitle>
-            </ItemContent>
-            {view.alarm.action && (
-              <ItemActions>
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() =>
-                    view.alarm.action && onAction(view.alarm.action)
-                  }
-                >
-                  {view.alarm.action.label}
-                </Button>
-              </ItemActions>
-            )}
-          </Item>
-          <ItemSeparator />
-          <Item role="listitem" size="sm">
-            <ItemMedia className="text-muted-foreground">
-              <DoorOpen className="size-4" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>{t.openingsLeaks}</ItemTitle>
-              <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
-                {view.alarm.safety.length
-                  ? view.alarm.safety.map((sensor) =>
-                      sensor.alert ? (
-                        <Badge
-                          key={sensor.text}
-                          variant="outline"
-                          className="border-destructive/50 text-destructive"
-                        >
-                          {sensor.text}
-                        </Badge>
-                      ) : (
-                        <span key={sensor.text}>{sensor.text}</span>
-                      ),
-                    )
-                  : t.noSafetySensors}
-              </div>
-            </ItemContent>
-          </Item>
-        </ItemSection>
+        <AlarmCard
+          summary={view.alarm}
+          security={security}
+          language={language}
+        />
       );
     case "vacuum":
       return (
-        <ItemSection title={view.vacuum.name}>
-          <Item role="listitem" size="sm">
-            <ItemMedia className="text-muted-foreground">
-              <Bot className="size-4" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>{view.vacuum.state}</ItemTitle>
-              {view.vacuum.battery !== null && (
-                <ItemDescription className="tabular-nums">
-                  {t.battery(view.vacuum.battery)}
-                </ItemDescription>
-              )}
-            </ItemContent>
-            {view.vacuum.action && (
-              <ItemActions>
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() =>
-                    view.vacuum.action && onAction(view.vacuum.action)
-                  }
-                >
-                  {view.vacuum.action.label}
-                </Button>
-              </ItemActions>
-            )}
-          </Item>
-        </ItemSection>
+        <VacuumCard summary={view.vacuum} vacuum={vacuum} language={language} />
       );
     case "power":
-      return (
-        <ItemSection title={t.plugs}>
-          <Item role="listitem" size="sm">
-            <ItemMedia className="text-muted-foreground">
-              <Plug className="size-4" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>{t.plugPower}</ItemTitle>
-              {view.plugPower.topConsumer && (
-                <ItemDescription className="tabular-nums">
-                  {view.plugPower.topConsumer}
-                </ItemDescription>
-              )}
-            </ItemContent>
-            <ItemActions className="text-base font-medium tabular-nums">
-              {view.plugPower.total === t.unavailable
-                ? t.unavailable
-                : `${view.plugPower.total} W`}
-            </ItemActions>
-          </Item>
-        </ItemSection>
-      );
+      return <PowerCard power={view.plugPower} language={language} />;
     case "rooms":
       return (
-        <ItemSection title={t.rooms} description={t.lightsOn(view.lightsOn)}>
-          {view.rooms.map((room, index) => {
-            const description =
-              [
-                room.humidity !== null ? `${room.humidity} %` : null,
-                room.co2 !== null ? `${room.co2} ppm` : null,
-              ]
-                .filter(Boolean)
-                .join(" · ") || (room.temperature === null ? t.noClimate : "");
-            return (
-              <Fragment key={room.id}>
-                {index > 0 && <ItemSeparator />}
-                <div role="listitem">
-                  <Item size="sm" asChild>
-                    <RouteLink route={{ screen: "room", areaId: room.id }}>
-                      <ItemContent>
-                        <ItemTitle>{room.name}</ItemTitle>
-                        {description && (
-                          <ItemDescription className="tabular-nums">
-                            {description}
-                          </ItemDescription>
-                        )}
-                      </ItemContent>
-                      <ItemActions className="text-base font-medium tabular-nums">
-                        {room.temperature !== null && `${room.temperature}°`}
-                        <ChevronRight className="size-4 text-muted-foreground" />
-                      </ItemActions>
-                    </RouteLink>
-                  </Item>
-                </div>
-              </Fragment>
-            );
-          })}
-          {!view.rooms.length && (
-            <Item role="listitem" size="sm">
-              <ItemDescription>{t.noRooms}</ItemDescription>
-            </Item>
-          )}
-        </ItemSection>
+        <RoomsSection
+          view={view}
+          language={language}
+          busy={busy}
+          onAction={onAction}
+        />
       );
     case "entities":
       return (
@@ -290,4 +144,57 @@ function HomeCard({
         </ItemSection>
       );
   }
+}
+
+function RoomsSection({
+  view,
+  language,
+  busy,
+  onAction,
+}: { view: Extract<HomeCardView, { type: "rooms" }> } & ActionProps) {
+  const t = messages(language);
+  // Automatic selection skips rooms with nothing to show; favorites are explicit.
+  const rooms = view.areaIds ? view.rooms : view.rooms.filter(hasHomeContent);
+  const toAirOut = rooms.filter((room) => room.co2?.level === "poor").length;
+  if (!rooms.length) return null;
+  return (
+    <Section
+      title={t.rooms}
+      description={
+        toAirOut ? t.roomsToAirOut(toAirOut) : t.lightsOn(view.lightsOn)
+      }
+      alert={toAirOut > 0}
+    >
+      <RoomGrid rooms={rooms} language={language} busy={busy} onAction={onAction} />
+    </Section>
+  );
+}
+
+function Section({
+  title,
+  description,
+  alert,
+  children,
+}: {
+  title: string;
+  description?: string;
+  alert?: boolean;
+  children: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} className="space-y-2">
+      <div className="flex items-baseline justify-between gap-3 px-1 text-xs text-muted-foreground">
+        <h2 id={id} className="font-medium">
+          {title}
+        </h2>
+        {description && (
+          <p className={cn("text-right", alert && "font-medium text-air-poor")}>
+            {description}
+          </p>
+        )}
+      </div>
+      {children}
+    </section>
+  );
 }
