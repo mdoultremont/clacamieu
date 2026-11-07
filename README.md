@@ -131,16 +131,27 @@ history. Source statistics are hourly, so a tariff boundary inside an hour uses
 a linear estimate for that hour. The `history_complete` and `estimated`
 attributes describe the current result.
 
-## Installation with HACS
+## Installation from the Marketplace
 
-1. Add this repository as a custom HACS repository with category `Integration`.
-2. Install Clacamieu and restart Home Assistant.
-3. Add Clacamieu from **Settings > Devices & services**.
-4. Choose a meter source type or Light Group+. Meter configurations accept
+Home Assistant 2026.11 and later install custom repositories from the
+Marketplace.
+
+1. Go to **Settings > Marketplace** and select **Add from link**.
+2. Enter `https://github.com/mdoultremont/clacamieu` and select **Add**. Custom
+   repositories need a GitHub connection. If the Marketplace asks for one,
+   select **Continue**, open the GitHub link, and enter the code shown. If it
+   asks for a type, choose `Integration`.
+3. Open the Clacamieu page, select **Install**, and confirm the version. Restart Home
+   Assistant when a repair asks for it.
+4. Add Clacamieu from **Settings > Devices & services**.
+5. Choose a meter source type or Light Group+. Meter configurations accept
    individual sensor rows, named groups and an optional current price. Light
    Group+ accepts member lights and an ordered scene list.
 
-The minimum supported Home Assistant version is 2026.2.
+The minimum supported Home Assistant version is 2026.2. On versions before
+2026.11, add the same URL as a HACS custom repository with category
+`Integration`. Updating to 2026.11 moves an existing HACS installation to the
+Marketplace automatically.
 
 ### Replacing HA Toolkit
 
@@ -151,14 +162,14 @@ Clacamieu.
 
 1. Note the sources, groups, prices, and Light Group+ settings of each HA Toolkit
    entry, then remove the entries from **Settings > Devices & services**.
-2. Remove the HA Toolkit download and its custom repository entry from HACS.
+2. Uninstall HA Toolkit from **Settings > Marketplace**, or from HACS before
+   2026.11.
 3. Restart Home Assistant before adding the repository again. GitHub repository
-   renames preserve an internal identifier, so HACS may otherwise retain the old
-   `ha_toolkit` installation directory.
-4. Add `https://github.com/mdoultremont/clacamieu` as a custom repository with
-   category `Integration`.
-5. Confirm that HACS proposes `/config/custom_components/clacamieu`, install the
-   release, restart Home Assistant, and recreate the entries.
+   renames preserve an internal identifier, so the old `ha_toolkit`
+   installation directory may otherwise remain.
+4. Add `https://github.com/mdoultremont/clacamieu` as described above.
+5. Confirm that `/config/custom_components/clacamieu` exists after installing,
+   restart Home Assistant, and recreate the entries.
 
 ## Development
 
