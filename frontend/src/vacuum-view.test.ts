@@ -476,7 +476,8 @@ describe("vacuum view", () => {
   });
 
   describe("last cleaned per room", () => {
-    const at = (time: string) => Date.parse(`2026-11-${time}:00Z`) / 1000;
+    const at = (time: string) =>
+      Date.parse(`2026-11-${time}${time.length === 8 ? ":00" : ""}Z`) / 1000;
     const points = (...entries: [string, string][]) =>
       entries.map(([time, s]) => ({ s, lu: at(time) }));
     const labels = (
@@ -507,13 +508,27 @@ describe("vacuum view", () => {
           [
             ["07T08:00", "Atrium"],
             ["07T09:01", "Gallery"],
-            ["07T09:02", "Pantry"],
-            ["07T09:29", "Gallery"],
+            ["07T09:01:40", "Pantry"],
+            ["07T09:29:40", "Gallery"],
             ["07T09:34", "Atrium"],
           ],
           ["Pantry", "Gallery", "Atrium"],
         ),
       ).toEqual(["Today", "Not in 10 days", "Not in 10 days"]);
+    });
+
+    it("counts a small room cleaned in two minutes", () => {
+      expect(
+        labels(
+          tour,
+          [
+            ["07T08:00", "Atrium"],
+            ["07T09:01", "Closet"],
+            ["07T09:03", "Pantry"],
+          ],
+          ["Closet"],
+        ),
+      ).toEqual(["Today"]);
     });
 
     it("adds up short stints at a doorway", () => {

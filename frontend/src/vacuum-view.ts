@@ -494,10 +494,10 @@ interface Stint {
 }
 
 // Passing through a room or flickering at a doorway takes seconds; cleaning even a small room takes minutes.
-const minimumCleaningMs = 3 * 60_000;
+const minimumCleaningMs = 90_000;
 
 /**
- * Labels each room by the last day the robot spent at least three minutes in
+ * Labels each room by the last day the robot spent at least 90 seconds in
  * it while cleaning. Within a cleaning session, time before the room sensor
  * first changes is ignored: the robot has not left its starting spot, which
  * also drops mop washing at the dock.
