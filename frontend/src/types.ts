@@ -47,7 +47,7 @@ export interface HassLike {
   themes?: { darkMode?: boolean };
   hassUrl?(path: string): string;
   config?: { time_zone?: string };
-  formatEntityState?: (state: HassEntity) => string;
+  formatEntityState?: (state: HassEntity, value?: string) => string;
   callService(
     domain: string,
     service: string,
@@ -103,6 +103,12 @@ export type ServiceAction = {
       domain: "dreame_vacuum";
       service: "vacuum_clean_segment";
       data: { segments: number[] };
+    }
+  | { domain: "button"; service: "press" }
+  | {
+      domain: "select";
+      service: "select_option";
+      data: { option: string };
     }
   | { domain: "homeassistant"; service: "toggle" }
   | { domain: "light"; service: "toggle" }
