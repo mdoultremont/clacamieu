@@ -353,7 +353,10 @@ export function buildVacuumView(
       : null,
     rooms,
     pins: pins.length ? pins : null,
-    task: underway && mapRooms.length ? taskRooms(mapRooms, attributes) : null,
+    task:
+      underway && mapRooms.length
+        ? taskRooms(mapRooms, attributes, vacuum.state)
+        : null,
     roomHistoryId: roomSensor?.entity_id ?? null,
     settings: (
       [
@@ -616,13 +619,21 @@ function orderedRooms(attributes: HassEntity["attributes"]): VacuumRoom[] {
 function taskRooms(
   rooms: VacuumRoom[],
   attributes: HassEntity["attributes"],
-): VacuumTaskRoom[] {
+  state: string,
+): VacuumTaskRoom[] | null {
   const ids = (value: unknown) =>
     Array.isArray(value)
       ? value.filter((id): id is number => typeof id === "number")
       : [];
   const active = ids(attributes.active_segments);
   const completed = ids(attributes.completed_segments);
+  // Without active segments, only a whole-home clean still covers every room;
+  // zone and spot cleans and the trip home have no room list to follow.
+  if (
+    !active.length &&
+    (state === "returning" || attributes.zone_cleaning || attributes.spot_cleaning)
+  )
+    return null;
   const inTask = active.length
     ? rooms.filter((room) => active.includes(room.id))
     : rooms;
@@ -817,7 +828,9 @@ function station(
     ...present
       .filter(
         ([attribute]) =>
-          !["installed", "disabled"].includes(normalize(attributes[attribute])),
+          !["installed", "disabled", "checking", "unknown"].includes(
+            normalize(attributes[attribute]),
+          ),
       )
       .map(([, part]) => t.stationParts[part]),
     ...(typeof attributes.low_water_warning === "string" &&

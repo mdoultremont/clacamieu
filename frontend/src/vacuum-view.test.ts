@@ -241,6 +241,11 @@ describe("vacuum view", () => {
     expect(
       buildVacuumView(hass, config)!.task!.map(({ status }) => status),
     ).toEqual(["done", "upcoming", "current", "next", "upcoming"]);
+    hass.states["vacuum.robot"].attributes.zone_cleaning = true;
+    expect(buildVacuumView(hass, config)!.task).toBeNull();
+    hass.states["vacuum.robot"].attributes.zone_cleaning = false;
+    hass.states["vacuum.robot"].state = "returning";
+    expect(buildVacuumView(hass, config)!.task).toBeNull();
   });
 
   it("summarises shortcuts by the rooms of their tasks", () => {
@@ -380,6 +385,16 @@ describe("vacuum view", () => {
       ready: false,
       alert: "Dust bag · Low water",
       info: "Frequent auto-empty · Hot water off",
+    });
+    Object.assign(hass.states["vacuum.robot"].attributes, {
+      dust_bag_status: "Installed",
+      low_water_warning: "No warning",
+      clean_water_tank_status: "Checking",
+      dirty_water_tank_status: "Unknown",
+    });
+    expect(buildVacuumView(hass, config)!.station).toMatchObject({
+      ready: true,
+      alert: null,
     });
   });
 

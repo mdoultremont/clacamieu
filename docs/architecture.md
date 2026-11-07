@@ -118,8 +118,10 @@ built from realistic Home Assistant data:
   - The map tab places room pins with the affine transform from the map
     camera's three `calibration_points`. It exists only while those points and
     the room centers do.
-  - Each room's last cleaning is the last day `sensor.*_current_room` named it
-    in ten days of `history/history_during_period`. `use-room-history.ts`
+  - Each room's last cleaning comes from ten days of vacuum state and
+    `sensor.*_current_room` history (`history/history_during_period`). Within
+    each `cleaning` session, time before the room sensor first changes is
+    ignored, and a room counts once the robot spends 90 seconds in it. `use-room-history.ts`
     reads it again whenever the vacuum state changes.
   - Maintenance maps Dreame's consumable keys to their `_left` and
     `_time_left` sensors and `reset_` buttons, flags the items that
