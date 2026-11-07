@@ -42,7 +42,7 @@ export function RoomCard({
       <RouteLink
         route={{ screen: "room", areaId: room.id }}
         aria-label={t.openRoom(room.name)}
-        className="absolute inset-0 z-10 rounded-[inherit] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="absolute inset-0 z-10 rounded-[inherit] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-foreground/5"
       />
       <div className="tray-card flex flex-1 flex-col gap-2 p-3">
         <div className="flex items-center justify-between gap-2">
@@ -148,6 +148,7 @@ function RoomFooter({ items }: { items: RoomFooterItem[] }) {
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(line.current!);
+    observer.observe(ruler.current!);
     return () => observer.disconnect();
   }, [key]);
   const visible = shown
