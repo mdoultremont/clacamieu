@@ -3,11 +3,11 @@ import {
   ChevronRight,
   DoorClosed,
   Droplets,
-  Plug,
   Shield,
   ShieldCheck,
   Siren,
   Wrench,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
@@ -189,15 +189,6 @@ export function VacuumCard({
   );
 }
 
-function Total({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="text-right">
-      <span className="block text-xs text-muted-foreground">{label}</span>
-      <span className="block text-lg font-semibold">{value}</span>
-    </span>
-  );
-}
-
 export function PowerCard({
   power,
   hass,
@@ -216,36 +207,35 @@ export function PowerCard({
     : "grid-cols-[minmax(0,1fr)_auto]";
   return (
     <StatusCard
-      icon={Plug}
+      icon={Zap}
       tone="idle"
-      title={t.energyConsumption}
+      title={[t.energy, view.watts, view.today]
+        .filter((part) => part !== null)
+        .join(" · ")}
       description={view.watts ? t.plugsRunning(view.running) : t.unavailable}
       route={{ screen: "energy" }}
     >
-      {view.watts && (
+      {view.rows.length > 0 && (
         <div
           className={cn(
             "grid items-center gap-x-4 gap-y-1.5 text-sm tabular-nums",
             columns,
           )}
         >
-          <span />
-          <Total label={t.plugsNow} value={view.watts} />
           {view.tracksEnergy && (
-            <Total label={t.today} value={view.today ?? "—"} />
+            <>
+              <span />
+              <span className="text-right text-xs text-muted-foreground">
+                {t.plugsNow}
+              </span>
+              <span className="text-right text-xs text-muted-foreground">
+                {t.today}
+              </span>
+            </>
           )}
-          {view.rows.length > 0 && <span className="col-span-full h-1" />}
           {view.rows.map((row, index) => (
             <Fragment key={index}>
-              <span className="flex min-w-0 items-center gap-2">
-                <span
-                  className={cn(
-                    "size-1.5 shrink-0 rounded-full",
-                    row.running ? "bg-chart-1" : "bg-muted-foreground/30",
-                  )}
-                />
-                <span className="truncate">{row.name}</span>
-              </span>
+              <span className="truncate">{row.name}</span>
               <span
                 className={cn(
                   "text-right",
@@ -263,7 +253,7 @@ export function PowerCard({
           ))}
           {view.others && (
             <>
-              <span className="truncate pl-3.5 text-muted-foreground">
+              <span className="truncate text-muted-foreground">
                 + {t.otherPlugs(view.others.count)}
               </span>
               <span className="text-right text-muted-foreground">
