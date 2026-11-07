@@ -1,20 +1,20 @@
 import { messages } from "../i18n";
 import type { RoomCard } from "../room-card";
-import type { ServiceAction } from "../types";
+import type { HassLike, ServiceAction } from "../types";
 import { RoomGrid } from "./room-grid";
 
 export function Rooms({
   rooms,
-  language,
+  hass,
   busy,
   onAction,
 }: {
   rooms: RoomCard[];
-  language: string;
+  hass: HassLike;
   busy: boolean;
   onAction: (action: ServiceAction) => unknown;
 }) {
-  const t = messages(language);
+  const t = messages(hass.language);
   return (
     <>
       <header>
@@ -23,7 +23,7 @@ export function Rooms({
       {rooms.length ? (
         <RoomGrid
           rooms={rooms}
-          language={language}
+          hass={hass}
           busy={busy}
           onAction={onAction}
         />

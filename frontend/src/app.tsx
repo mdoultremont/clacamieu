@@ -211,7 +211,7 @@ export function App({
                 (route.screen === "room" && !room) ? (
                 <Rooms
                   rooms={buildRoomCards(hass, config, controllers)}
-                  language={hass.language}
+                  hass={hass}
                   onAction={runAction}
                   busy={busy}
                 />

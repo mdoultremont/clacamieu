@@ -9,6 +9,7 @@ import type {
   HomeData,
   HomeCard,
   HomeCardView,
+  PlugReading,
   RoomConfig,
 } from "./types";
 
@@ -113,23 +114,7 @@ export function buildHomeView(
         ]
       : []),
   ];
-  const plugReadings = new Map<string, { watts: number | null }>();
-  for (const entity of plugPowerEntities(hass)) {
-    const deviceId = hass.entities[entity.entity_id].device_id!;
-    const reading = plugReadings.get(deviceId) ?? { watts: null };
-    const power = sensorValue(entity);
-    if (power != null)
-      reading.watts =
-        (reading.watts ?? 0) +
-        power * (entity.attributes.unit_of_measurement === "kW" ? 1000 : 1);
-    plugReadings.set(deviceId, reading);
-  }
-  const plugs = [...plugReadings].map(([id, { watts }]) => ({
-    id,
-    name: hass.devices[id]?.name_by_user ?? hass.devices[id]?.name ?? "",
-    watts,
-    energyId: plugEnergyId(hass, id),
-  }));
+  const plugs = plugReadings(hass);
   const alarmView = (
     alarm: HassEntity | undefined,
   ): NonNullable<HomeData["alarm"]> => {
@@ -327,6 +312,28 @@ export function buildHomeView(
     }
   });
   return { date: data.date, weather: data.weather, cards };
+}
+
+export function plugReadings(hass: HassLike): PlugReading[] {
+  const readings = new Map<string, number | null>();
+  for (const entity of plugPowerEntities(hass)) {
+    const deviceId = hass.entities[entity.entity_id].device_id!;
+    const power = numeric(entity.state);
+    const watts = readings.get(deviceId) ?? null;
+    readings.set(
+      deviceId,
+      power === null
+        ? watts
+        : (watts ?? 0) +
+            power * (entity.attributes.unit_of_measurement === "kW" ? 1000 : 1),
+    );
+  }
+  return [...readings].map(([id, watts]) => ({
+    id,
+    name: hass.devices[id]?.name_by_user ?? hass.devices[id]?.name ?? "",
+    watts,
+    energyId: plugEnergyId(hass, id),
+  }));
 }
 
 export function plugPowerEntities(hass: HassLike): HassEntity[] {

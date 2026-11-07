@@ -518,13 +518,16 @@ describe("panel lifecycle and screens", () => {
         context: { id: "test", parent_id: null, user_id: null },
       };
     const panel = await mount(hass);
-    const card = Array.from(
-      panel.shadowRoot!.querySelectorAll<HTMLAnchorElement>("a"),
-    ).find((link) => link.textContent?.includes("1 leak detected"))!;
+    const tray = Array.from(
+      panel.shadowRoot!.querySelectorAll<HTMLElement>(".tray"),
+    ).find((element) => element.textContent?.includes("Alarm"))!;
+    const card = tray.querySelector("a")!;
     expect(card.getAttribute("href")).toBe("/clacamieu/securite");
-    expect(card.querySelector(".text-air-poor")?.textContent).toBe(
-      "1 open1 leak detected",
+    expect(tray.firstElementChild?.textContent).toBe(
+      "1 open · 1 leak detected",
     );
+    expect(tray.firstElementChild?.className).toContain("text-destructive");
+    expect(tray.lastElementChild).toBe(card);
     expect(card.querySelector("button")).toBeNull();
     expect(hass.callService).not.toHaveBeenCalled();
   });

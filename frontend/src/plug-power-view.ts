@@ -28,6 +28,23 @@ export interface PlugPowerView {
   others: { count: number; watts: string | null; today: string | null } | null;
 }
 
+function format(value: number, digits: number, language: string) {
+  return new Intl.NumberFormat(locale(language), {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
+}
+
+export function formatWatts(watts: number, language: string) {
+  return `${format(watts, 0, language)} W`;
+}
+
+export function formatEnergy(kwh: number, language: string) {
+  return kwh < 1
+    ? `${format(kwh * 1000, 0, language)} Wh`
+    : `${format(kwh, kwh < 10 ? 1 : 0, language)} kWh`;
+}
+
 /**
  * Lists running plugs by current draw, then idle plugs by energy used today,
  * so an appliance that ran this morning stays visible after it stops.
@@ -37,16 +54,6 @@ export function buildPlugPowerView(
   today: Record<string, number | null> | null,
   language: string,
 ): PlugPowerView {
-  const format = (value: number, digits: number) =>
-    new Intl.NumberFormat(locale(language), {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    }).format(value);
-  const formatWatts = (watts: number) => `${format(watts, 0)} W`;
-  const formatEnergy = (kwh: number) =>
-    kwh < 1
-      ? `${format(kwh * 1000, 0)} Wh`
-      : `${format(kwh, kwh < 10 ? 1 : 0)} kWh`;
   const sum = (values: (number | null)[]) => {
     const known = values.filter((value): value is number => value !== null);
     return known.length ? known.reduce((total, value) => total + value) : null;
@@ -69,8 +76,8 @@ export function buildPlugPowerView(
   const row = (entry: (typeof entries)[number]): PlugPowerRow => ({
     name: entry.name,
     running: entry.running,
-    watts: entry.running ? formatWatts(entry.watts!) : null,
-    today: entry.kwh === null ? null : formatEnergy(entry.kwh),
+    watts: entry.running ? formatWatts(entry.watts!, language) : null,
+    today: entry.kwh === null ? null : formatEnergy(entry.kwh, language),
   });
   const rest = listed.slice(shownRows);
   const restWatts = sum(
@@ -80,16 +87,16 @@ export function buildPlugPowerView(
   const totalWatts = sum(entries.map((entry) => entry.watts));
   const totalKwh = sum(entries.map((entry) => entry.kwh));
   return {
-    watts: totalWatts === null ? null : formatWatts(totalWatts),
+    watts: totalWatts === null ? null : formatWatts(totalWatts, language),
     running: entries.filter((entry) => entry.running).length,
-    today: totalKwh === null ? null : formatEnergy(totalKwh),
+    today: totalKwh === null ? null : formatEnergy(totalKwh, language),
     tracksEnergy: plugs.some((plug) => plug.energyId !== null),
     rows: listed.slice(0, shownRows).map(row),
     others: rest.length
       ? {
           count: rest.length,
-          watts: restWatts === null ? null : formatWatts(restWatts),
-          today: restKwh === null ? null : formatEnergy(restKwh),
+          watts: restWatts === null ? null : formatWatts(restWatts, language),
+          today: restKwh === null ? null : formatEnergy(restKwh, language),
         }
       : null,
   };
