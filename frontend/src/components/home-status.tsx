@@ -189,6 +189,15 @@ export function VacuumCard({
   );
 }
 
+function Total({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="text-right">
+      <span className="block text-xs text-muted-foreground">{label}</span>
+      <span className="block text-lg font-semibold">{value}</span>
+    </span>
+  );
+}
+
 export function PowerCard({
   power,
   hass,
@@ -209,35 +218,23 @@ export function PowerCard({
     <StatusCard
       icon={Plug}
       tone="idle"
-      title={view.watts ? `${t.plugs} · ${view.watts}` : t.plugs}
-      description={
-        view.watts
-          ? [
-              t.plugsRunning(view.running),
-              ...(view.today ? [t.plugsToday(view.today)] : []),
-            ].join(" · ")
-          : t.unavailable
-      }
+      title={t.energyConsumption}
+      description={view.watts ? t.plugsRunning(view.running) : t.unavailable}
       route={{ screen: "energy" }}
     >
-      {view.rows.length > 0 && (
+      {view.watts && (
         <div
           className={cn(
             "grid items-center gap-x-4 gap-y-1.5 text-sm tabular-nums",
             columns,
           )}
         >
+          <span />
+          <Total label={t.plugsNow} value={view.watts} />
           {view.tracksEnergy && (
-            <>
-              <span />
-              <span className="text-right text-xs text-muted-foreground">
-                {t.plugsNow}
-              </span>
-              <span className="text-right text-xs text-muted-foreground">
-                {t.today}
-              </span>
-            </>
+            <Total label={t.today} value={view.today ?? "—"} />
           )}
+          {view.rows.length > 0 && <span className="col-span-full h-1" />}
           {view.rows.map((row, index) => (
             <Fragment key={index}>
               <span className="flex min-w-0 items-center gap-2">
