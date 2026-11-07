@@ -195,7 +195,8 @@ individual sources and named groups:
 
 Entity selection is intentional. Every individual source is represented by a
 virtual meter device. When requested, that device links to the physical source
-through `via_device`. The physical device is not the measurement boundary
+through `via_device_id`, set from the source device registry id. A child device
+cannot be a via device, so a source on one gets no link. The physical device is not the measurement boundary
 because it may expose several independent meters or rate sensors.
 
 Group IDs remain stable when names change. Individual target IDs use the source
