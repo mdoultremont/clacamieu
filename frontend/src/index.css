@@ -152,6 +152,24 @@
     border-color: var(--card-border);
     box-shadow: var(--card-shadow);
   }
+  .tray,
+  .tray-card {
+    border: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
+  }
+  .tray {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 3px;
+    border-radius: calc(var(--radius-xl) + 4px);
+    background: var(--muted);
+  }
+  .tray-card {
+    border-radius: var(--radius-xl);
+    background: var(--card);
+    color: var(--card-foreground);
+    box-shadow: 0 1px 2px oklch(0 0 0 / 0.05);
+  }
 }
 
 @layer base {

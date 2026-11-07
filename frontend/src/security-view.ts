@@ -94,7 +94,7 @@ export function buildSecurityView(
     const closed = entities.filter((entity) => entity.state === "off").length;
     const unavailable = entities.length - active - closed;
     const summary = !entities.length
-      ? t.noSafetySensors
+      ? t.noSensors
       : active
         ? activeSummary(active)
         : safeSummary(closed, entities.length);

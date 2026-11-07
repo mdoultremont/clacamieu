@@ -235,7 +235,9 @@ export const en = {
   battery: (level: string) => `Battery ${level} %`,
   alarmLabel: "Alarm",
   openingsLeaks: "Openings and leaks",
-  noSafetySensors: "No sensors",
+  noSensors: "No sensors",
+  roomLightsOn: (count: number) => `${count} on`,
+  roomLightsOff: "Lights off",
   otherPlugs: (count: number) => `${count} other${count === 1 ? "" : "s"}`,
   plugsNow: "Now",
   plugsRunning: (count: number) =>
@@ -562,7 +564,9 @@ export const fr: Messages = {
   battery: (level) => `Batterie ${level} %`,
   alarmLabel: "Alarme",
   openingsLeaks: "Ouvertures et fuites",
-  noSafetySensors: "Aucun capteur",
+  noSensors: "Aucun capteur",
+  roomLightsOn: (count) => `${count} allumée${count === 1 ? "" : "s"}`,
+  roomLightsOff: "Lumières éteintes",
   otherPlugs: (count) => `${count} autre${count === 1 ? "" : "s"}`,
   plugsNow: "Maintenant",
   plugsRunning: (count: number) =>

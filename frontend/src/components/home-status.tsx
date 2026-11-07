@@ -2,10 +2,8 @@ import {
   Bot,
   ChevronRight,
   DoorClosed,
-  Droplets,
   Shield,
   ShieldCheck,
-  Siren,
   Wrench,
   Zap,
   type LucideIcon,
@@ -14,12 +12,13 @@ import { Fragment, type ReactNode } from "react";
 import { cn } from "cn";
 import { messages } from "../i18n";
 import type { Route } from "../navigation";
-import type { SecuritySensorGroup, SecurityView } from "../security-view";
+import type { SecurityView } from "../security-view";
 import { buildPlugPowerView } from "../plug-power-view";
 import type { HassLike, HomeData, Tone } from "../types";
 import { useEnergyToday } from "../use-energy";
 import type { VacuumView } from "../vacuum-view";
 import { RouteLink } from "./route-link";
+import { Tray } from "./tray";
 
 const toneClass: Record<Tone, string> = {
   idle: "bg-muted text-muted-foreground",
@@ -33,6 +32,8 @@ function StatusCard({
   title,
   description,
   route,
+  alert,
+  info,
   children,
 }: {
   icon: LucideIcon;
@@ -40,47 +41,47 @@ function StatusCard({
   title: string;
   description?: string | null;
   route: Route;
+  alert?: ReactNode;
+  info?: ReactNode;
   children?: ReactNode;
 }) {
   return (
-    <RouteLink
-      route={route}
-      className="block space-y-3 rounded-xl border bg-card p-4 text-card-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-muted/60"
-    >
-      <div className="flex items-center gap-3">
-        <span
-          className={cn(
-            "grid size-11 shrink-0 place-items-center rounded-lg",
-            toneClass[tone],
-          )}
-        >
-          <Icon className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{title}</p>
-          {description && (
-            <p className="truncate text-sm text-muted-foreground">
-              {description}
-            </p>
-          )}
+    <Tray alert={alert} info={info}>
+      <RouteLink
+        route={route}
+        className="tray-card block space-y-3 p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-muted/60"
+      >
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              "grid size-11 shrink-0 place-items-center rounded-lg",
+              toneClass[tone],
+            )}
+          >
+            <Icon className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium">{title}</p>
+            {description && (
+              <p className="truncate text-sm text-muted-foreground">
+                {description}
+              </p>
+            )}
+          </div>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
         </div>
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-      </div>
-      {children}
-    </RouteLink>
+        {children}
+      </RouteLink>
+    </Tray>
   );
 }
 
-function Note({ alert, children }: { alert?: boolean; children: ReactNode }) {
+function LineText({ icon: Icon, text }: { icon: LucideIcon; text: string }) {
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 overflow-hidden rounded-lg px-3 py-2 text-sm whitespace-nowrap",
-        alert ? "bg-air-poor/10 text-air-poor" : "bg-muted/70 text-muted-foreground",
-      )}
-    >
-      {children}
-    </div>
+    <>
+      <Icon className="size-3.5 shrink-0" />
+      <span className="truncate">{text}</span>
+    </>
   );
 }
 
@@ -94,16 +95,10 @@ export function AlarmCard({
   language: string;
 }) {
   const t = messages(language);
-  const all: [LucideIcon, SecuritySensorGroup][] = [
-    [DoorClosed, security.openings],
-    [Droplets, security.leaks],
-    [Siren, security.detectors],
-  ];
-  // Openings always show; leaks and detectors only when they alert.
-  const groups = all.filter(
-    ([, group], index) =>
-      group.sensors.length > 0 && (index === 0 || group.alert),
-  );
+  const alerts = [security.openings, security.leaks, security.detectors]
+    .filter((group) => group.alert)
+    .map((group) => group.summary);
+  const { openings } = security;
   return (
     <StatusCard
       icon={summary.tone === "idle" ? Shield : ShieldCheck}
@@ -111,24 +106,18 @@ export function AlarmCard({
       title={`${t.alarmLabel} · ${summary.status}`}
       description={security.alarm?.description}
       route={{ screen: "security" }}
-    >
-      {groups.length > 0 && (
-        <Note alert={groups.some(([, group]) => group.alert)}>
-          {groups.map(([Icon, group]) => (
-            <span
-              key={group.summary}
-              className={cn(
-                "flex min-w-0 items-center gap-1.5",
-                group.alert && "font-medium",
-              )}
-            >
-              <Icon className="size-3.5 shrink-0" />
-              <span className="truncate">{group.summary}</span>
-            </span>
-          ))}
-        </Note>
-      )}
-    </StatusCard>
+      alert={
+        alerts.length > 0 && (
+          <span className="truncate">{alerts.join(" · ")}</span>
+        )
+      }
+      info={
+        !openings.alert &&
+        openings.sensors.length > 0 && (
+          <LineText icon={DoorClosed} text={openings.summary} />
+        )
+      }
+    />
   );
 }
 
@@ -159,6 +148,22 @@ export function VacuumCard({
       title={`${summary.name} · ${summary.state}`}
       description={description}
       route={{ screen: "vacuum" }}
+      alert={
+        summary.tone === "alert" && (
+          <span className="truncate">{summary.state}</span>
+        )
+      }
+      info={
+        low.length > 0 && (
+          <LineText
+            icon={Wrench}
+            text={[
+              t.maintenance,
+              ...low.map((item) => `${item.name} ${item.value}`),
+            ].join(" · ")}
+          />
+        )
+      }
     >
       {vacuum?.progress != null && (
         <div className="space-y-1.5">
@@ -172,18 +177,6 @@ export function VacuumCard({
             {t.cleaningProgress(vacuum.progress)}
           </p>
         </div>
-      )}
-      {low.length > 0 && (
-        <Note>
-          <span className="flex min-w-0 items-center gap-1.5">
-            <Wrench className="size-3.5 shrink-0" />
-            <span className="truncate">
-              {t.maintenance}
-              {" · "}
-              {low.map((item) => `${item.name} ${item.value}`).join(" · ")}
-            </span>
-          </span>
-        </Note>
       )}
     </StatusCard>
   );

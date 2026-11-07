@@ -99,7 +99,7 @@ function HomeCard({
       return (
         <RoomsSection
           view={view}
-          language={language}
+          hass={hass}
           busy={busy}
           onAction={onAction}
         />
@@ -151,11 +151,14 @@ function HomeCard({
 
 function RoomsSection({
   view,
-  language,
+  hass,
   busy,
   onAction,
-}: { view: Extract<HomeCardView, { type: "rooms" }> } & ActionProps) {
-  const t = messages(language);
+}: { view: Extract<HomeCardView, { type: "rooms" }>; hass: HassLike } & Omit<
+  ActionProps,
+  "language"
+>) {
+  const t = messages(hass.language);
   // Automatic selection skips rooms with nothing to show; favorites are explicit.
   const rooms = view.areaIds ? view.rooms : view.rooms.filter(hasHomeContent);
   const toAirOut = rooms.filter((room) => room.co2?.level === "poor").length;
@@ -168,7 +171,7 @@ function RoomsSection({
       }
       alert={toAirOut > 0}
     >
-      <RoomGrid rooms={rooms} language={language} busy={busy} onAction={onAction} />
+      <RoomGrid rooms={rooms} hass={hass} busy={busy} onAction={onAction} />
     </Section>
   );
 }
