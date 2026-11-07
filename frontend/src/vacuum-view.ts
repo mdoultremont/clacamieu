@@ -92,7 +92,7 @@ const stationParts = [
   ["detergent_status", "detergent"],
 ] as const;
 
-/** Days of `sensor.*_current_room` history behind each room's last cleaning. */
+/** Days of vacuum and current-room history behind each room's last cleaning. */
 export const roomHistoryDays = 10;
 
 // Dreame draws each room's number bubble this far above the room's center.
@@ -481,17 +481,35 @@ export function calibrationTransform(
   return (x, y) => [a * x + b * y + c, d * x + e * y + f];
 }
 
-/** Labels each room by the last day `sensor.*_current_room` named it. */
+/** State history of the vacuum and its `sensor.*_current_room`. */
+export interface CleaningHistory {
+  vacuum: HistoryPoint[];
+  room: HistoryPoint[];
+}
+
+interface Stint {
+  state: string;
+  start: number;
+  end: number;
+}
+
+// Passing through a room or flickering at a doorway takes seconds; cleaning even a small room takes minutes.
+const minimumCleaningMs = 3 * 60_000;
+
+/**
+ * Labels each room by the last day the robot spent at least three minutes in
+ * it while cleaning. Within a cleaning session, time before the room sensor
+ * first changes is ignored: the robot has not left its starting spot, which
+ * also drops mop washing at the dock.
+ */
 export function roomLastCleaned(
-  history: HistoryPoint[],
+  history: CleaningHistory,
   now: Date,
   timeZone: string,
   language: string,
 ): (room: string) => string {
   const t = messages(language);
-  const visits = new Map<string, number>();
-  for (const point of history)
-    visits.set(point.s, Math.max(visits.get(point.s) ?? 0, point.lu * 1000));
+  const cleaned = cleanedAt(history, now.getTime());
   const day = (time: number) => {
     const [year, month, date] = new Intl.DateTimeFormat("en-CA", {
       timeZone,
@@ -506,11 +524,57 @@ export function roomLastCleaned(
   };
   const today = day(now.getTime());
   return (room) => {
-    const visit = visits.get(room);
-    if (visit === undefined) return t.notCleanedRecently(roomHistoryDays);
-    const days = today - day(visit);
+    const time = cleaned.get(room);
+    if (time === undefined) return t.notCleanedRecently(roomHistoryDays);
+    const days = today - day(time);
     return days <= 0 ? t.today : days === 1 ? t.yesterday : t.daysAgo(days);
   };
+}
+
+function cleanedAt(history: CleaningHistory, now: number): Map<string, number> {
+  const rooms = stints(history.room, now);
+  const sessions: Stint[] = [];
+  for (const stint of stints(history.vacuum, now)) {
+    if (stint.state !== "cleaning") continue;
+    const last = sessions[sessions.length - 1];
+    if (last?.end === stint.start) last.end = stint.end;
+    else sessions.push({ ...stint });
+  }
+  const cleaned = new Map<string, number>();
+  for (const session of sessions) {
+    const moved = rooms.find(
+      (stint, index) =>
+        index > 0 &&
+        stint.start > session.start &&
+        stint.start < session.end &&
+        stint.state !== rooms[index - 1].state,
+    );
+    if (!moved) continue;
+    const dwell = new Map<string, { time: number; end: number }>();
+    for (const stint of rooms) {
+      const start = Math.max(stint.start, moved.start);
+      const end = Math.min(stint.end, session.end);
+      if (end <= start || ["unknown", "unavailable"].includes(stint.state))
+        continue;
+      const room = dwell.get(stint.state);
+      dwell.set(stint.state, {
+        time: (room?.time ?? 0) + end - start,
+        end: Math.max(room?.end ?? 0, end),
+      });
+    }
+    for (const [room, { time, end }] of dwell)
+      if (time >= minimumCleaningMs)
+        cleaned.set(room, Math.max(cleaned.get(room) ?? 0, end));
+  }
+  return cleaned;
+}
+
+function stints(points: HistoryPoint[], now: number): Stint[] {
+  return points.map((point, index) => ({
+    state: point.s,
+    start: point.lu * 1000,
+    end: index + 1 < points.length ? points[index + 1].lu * 1000 : now,
+  }));
 }
 
 function orderedRooms(attributes: HassEntity["attributes"]): VacuumRoom[] {

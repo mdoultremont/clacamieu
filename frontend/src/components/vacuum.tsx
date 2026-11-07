@@ -91,6 +91,7 @@ export function Vacuum({
   const view = buildVacuumView(hass, config, { services, now });
   const history = useRoomHistory(
     hass,
+    view?.id ?? null,
     view?.roomHistoryId ?? null,
     view?.phase ?? "",
   );

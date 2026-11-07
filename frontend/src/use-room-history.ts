@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import type { HistoryPoint } from "./climate-trend";
 import type { HassLike } from "./types";
-import { roomHistoryDays } from "./vacuum-view";
+import { type CleaningHistory, roomHistoryDays } from "./vacuum-view";
 
-/** Reads the vacuum's current-room history again whenever `refresh` changes. */
+const empty: CleaningHistory = { vacuum: [], room: [] };
+
+/** Reads the vacuum's state and current-room history again whenever `refresh` changes. */
 export function useRoomHistory(
   hass: HassLike,
-  entityId: string | null,
+  vacuumId: string | null,
+  roomId: string | null,
   refresh: string,
-): HistoryPoint[] {
-  const [history, setHistory] = useState<HistoryPoint[]>([]);
+): CleaningHistory {
+  const [history, setHistory] = useState<CleaningHistory>(empty);
   const latestHass = useRef(hass);
   latestHass.current = hass;
   useEffect(() => {
-    if (!entityId) return;
+    if (!vacuumId || !roomId) return;
     let active = true;
     latestHass.current
       .callWS<Record<string, HistoryPoint[]>>({
@@ -21,18 +24,23 @@ export function useRoomHistory(
         start_time: new Date(
           Date.now() - roomHistoryDays * 86_400_000,
         ).toISOString(),
-        entity_ids: [entityId],
+        entity_ids: [vacuumId, roomId],
         minimal_response: true,
         no_attributes: true,
         significant_changes_only: false,
       })
       .then(
-        (result) => active && setHistory(result?.[entityId] ?? []),
-        () => active && setHistory([]),
+        (result) =>
+          active &&
+          setHistory({
+            vacuum: result?.[vacuumId] ?? [],
+            room: result?.[roomId] ?? [],
+          }),
+        () => active && setHistory(empty),
       );
     return () => {
       active = false;
     };
-  }, [entityId, refresh]);
+  }, [vacuumId, roomId, refresh]);
   return history;
 }

@@ -475,29 +475,147 @@ describe("vacuum view", () => {
     expect(buildVacuumView(hass, config, { services })!.pins).toBeNull();
   });
 
-  it("labels each room by the last day the robot reported it", () => {
-    const at = (iso: string) => Date.parse(iso) / 1000;
-    const history = [
-      { s: "Living room", lu: at("2026-11-03T10:00:00Z") },
-      { s: "Hall", lu: at("2026-11-04T08:00:00Z") },
-      // 23:30 in Paris on November 6, still yesterday there.
-      { s: "Hall", lu: at("2026-11-06T22:30:00Z") },
-      { s: "unavailable", lu: at("2026-11-06T22:40:00Z") },
-      { s: "Kitchen", lu: at("2026-11-07T07:00:00Z") },
+  describe("last cleaned per room", () => {
+    const at = (time: string) => Date.parse(`2026-11-${time}:00Z`) / 1000;
+    const points = (...entries: [string, string][]) =>
+      entries.map(([time, s]) => ({ s, lu: at(time) }));
+    const labels = (
+      vacuum: [string, string][],
+      room: [string, string][],
+      rooms: string[],
+      timeZone = "UTC",
+    ) =>
+      rooms.map(
+        roomLastCleaned(
+          { vacuum: points(...vacuum), room: points(...room) },
+          now,
+          timeZone,
+          "en",
+        ),
+      );
+    const tour: [string, string][] = [
+      ["07T08:00", "docked"],
+      ["07T09:00", "cleaning"],
+      ["07T09:30", "returning"],
+      ["07T09:34", "docked"],
     ];
-    const label = roomLastCleaned(history, now, "Europe/Paris", "en");
-    expect(["Kitchen", "Hall", "Living room", "Study"].map(label)).toEqual([
-      "Today",
-      "Yesterday",
-      "4 days ago",
-      "Not in 10 days",
-    ]);
-    expect(roomLastCleaned(history, now, "Asia/Tokyo", "fr")("Hall")).toBe(
-      "Aujourd'hui",
-    );
-    expect(roomLastCleaned([], now, "UTC", "fr")("Hall")).toBe(
-      "Pas depuis 10 jours",
-    );
+
+    it("skips rooms the robot only crosses or returns through", () => {
+      expect(
+        labels(
+          tour,
+          [
+            ["07T08:00", "Atrium"],
+            ["07T09:01", "Gallery"],
+            ["07T09:02", "Pantry"],
+            ["07T09:29", "Gallery"],
+            ["07T09:34", "Atrium"],
+          ],
+          ["Pantry", "Gallery", "Atrium"],
+        ),
+      ).toEqual(["Today", "Not in 10 days", "Not in 10 days"]);
+    });
+
+    it("adds up short stints at a doorway", () => {
+      expect(
+        labels(
+          tour,
+          [
+            ["07T08:00", "Atrium"],
+            ["07T09:01", "Pantry"],
+            ["07T09:10", "Studio"],
+            ["07T09:11", "Pantry"],
+            ["07T09:12", "Studio"],
+            ["07T09:13", "Pantry"],
+            ["07T09:14", "Studio"],
+            ["07T09:15", "unavailable"],
+            ["07T09:20", "Pantry"],
+            ["07T09:30", "Atrium"],
+          ],
+          ["Pantry", "Studio"],
+        ),
+      ).toEqual(["Today", "Today"]);
+    });
+
+    it("ignores mop washing at the dock", () => {
+      expect(
+        labels(
+          [
+            ["06T08:00", "docked"],
+            ["06T10:00", "cleaning"],
+            ["06T10:30", "returning"],
+            ["06T10:31", "cleaning"],
+            ["06T10:36", "docked"],
+          ],
+          [
+            ["06T08:00", "Atrium"],
+            ["06T10:04", "Pantry"],
+            ["06T10:30", "Atrium"],
+          ],
+          ["Pantry", "Atrium"],
+        ),
+      ).toEqual(["Yesterday", "Not in 10 days"]);
+    });
+
+    it("dates a room by the end of its last stint", () => {
+      // 23:31 to 00:20 in Paris, so the cleaning ends on November 7 there.
+      expect(
+        labels(
+          [
+            ["06T22:00", "docked"],
+            ["06T22:30", "cleaning"],
+            ["06T23:20", "returning"],
+            ["06T23:25", "docked"],
+          ],
+          [
+            ["06T22:00", "Atrium"],
+            ["06T22:31", "Library"],
+            ["06T23:22", "Atrium"],
+          ],
+          ["Library"],
+          "Europe/Paris",
+        ),
+      ).toEqual(["Today"]);
+    });
+
+    it("keeps the latest session that cleaned each room", () => {
+      const label = roomLastCleaned(
+        {
+          vacuum: points(
+            ["03T08:00", "docked"],
+            ["03T09:00", "cleaning"],
+            ["03T10:00", "docked"],
+            ["05T09:00", "cleaning"],
+            ["05T09:30", "paused"],
+            ["05T09:40", "cleaning"],
+            ["05T10:00", "docked"],
+            ["07T09:00", "cleaning"],
+            ["07T09:30", "docked"],
+          ),
+          room: points(
+            ["03T08:00", "Atrium"],
+            ["03T09:01", "Library"],
+            ["03T09:30", "Pantry"],
+            ["03T10:00", "Atrium"],
+            ["05T09:01", "Library"],
+            ["05T09:50", "Atrium"],
+            ["07T09:01", "Library"],
+            ["07T09:02", "Pantry"],
+            ["07T09:30", "Atrium"],
+          ),
+        },
+        now,
+        "UTC",
+        "fr",
+      );
+      expect(["Library", "Pantry"].map(label)).toEqual([
+        "Il y a 2 jours",
+        "Aujourd'hui",
+      ]);
+      expect(
+        roomLastCleaned({ vacuum: [], room: [] }, now, "UTC", "fr")("Library"),
+      ).toBe("Pas depuis 10 jours");
+    });
   });
 
   it("keeps the basics for a vacuum without Dreame entities", () => {
