@@ -237,7 +237,9 @@ export const en = {
   openingsLeaks: "Openings and leaks",
   noSafetySensors: "No sensors",
   plugs: "Plugs",
-  otherPlugs: "Others",
+  otherPlugs: (count: number) => `${count} other${count === 1 ? "" : "s"}`,
+  plugsNow: "Now",
+  plugsToday: (energy: string) => `${energy} today`,
   plugsRunning: (count: number) =>
     count === 0
       ? "Nothing running"
@@ -564,7 +566,9 @@ export const fr: Messages = {
   openingsLeaks: "Ouvertures et fuites",
   noSafetySensors: "Aucun capteur",
   plugs: "Prises",
-  otherPlugs: "Autres",
+  otherPlugs: (count) => `${count} autre${count === 1 ? "" : "s"}`,
+  plugsNow: "Maintenant",
+  plugsToday: (energy) => `${energy} aujourd'hui`,
   plugsRunning: (count: number) =>
     count === 0
       ? "Rien en marche"

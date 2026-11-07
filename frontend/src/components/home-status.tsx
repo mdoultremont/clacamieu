@@ -10,12 +10,14 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { cn } from "cn";
 import { messages } from "../i18n";
 import type { Route } from "../navigation";
 import type { SecuritySensorGroup, SecurityView } from "../security-view";
-import type { HomeData, Tone } from "../types";
+import { buildPlugPowerView } from "../plug-power-view";
+import type { HassLike, HomeData, Tone } from "../types";
+import { useEnergyToday } from "../use-energy";
 import type { VacuumView } from "../vacuum-view";
 import { RouteLink } from "./route-link";
 
@@ -187,77 +189,96 @@ export function VacuumCard({
   );
 }
 
-const seriesColors = [
-  "bg-chart-1 text-chart-1-foreground",
-  "bg-chart-2 text-chart-2-foreground",
-  "bg-chart-3 text-chart-3-foreground",
-];
-// Below this share, a segment is too narrow for its value, which moves to the legend.
-const minLabelShare = 0.12;
-
 export function PowerCard({
   power,
-  language,
+  hass,
 }: {
   power: NonNullable<HomeData["plugPower"]>;
-  language: string;
+  hass: HassLike;
 }) {
-  const t = messages(language);
-  const unavailable = power.total === t.unavailable;
-  const segments = [
-    ...power.consumers.map((consumer, index) => ({
-      ...consumer,
-      color: seriesColors[index],
-    })),
-    ...(power.others
-      ? [
-          {
-            name: t.otherPlugs,
-            ...power.others,
-            color: "bg-muted-foreground/30 text-foreground",
-          },
-        ]
-      : []),
-  ];
-  // Plugs under 1 W are left out, so the segments fill the gauge between them.
-  const shown = segments.reduce((total, segment) => total + segment.share, 0);
+  const t = messages(hass.language);
+  const today = useEnergyToday(
+    hass,
+    power.plugs.flatMap((plug) => (plug.energyId ? [plug.energyId] : [])),
+  );
+  const view = buildPlugPowerView(power.plugs, today, hass.language);
+  const columns = view.tracksEnergy
+    ? "grid-cols-[minmax(0,1fr)_auto_auto]"
+    : "grid-cols-[minmax(0,1fr)_auto]";
   return (
     <StatusCard
       icon={Plug}
       tone="idle"
-      title={unavailable ? t.plugs : `${t.plugs} · ${power.total} W`}
-      description={unavailable ? t.unavailable : t.plugsRunning(power.running)}
+      title={view.watts ? `${t.plugs} · ${view.watts}` : t.plugs}
+      description={
+        view.watts
+          ? [
+              t.plugsRunning(view.running),
+              ...(view.today ? [t.plugsToday(view.today)] : []),
+            ].join(" · ")
+          : t.unavailable
+      }
       route={{ screen: "energy" }}
     >
-      {segments.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex h-[1.125rem] gap-[3px]">
-            {segments.map((segment, index) => (
-              <div
-                key={index}
+      {view.rows.length > 0 && (
+        <div
+          className={cn(
+            "grid items-center gap-x-4 gap-y-1.5 text-sm tabular-nums",
+            columns,
+          )}
+        >
+          {view.tracksEnergy && (
+            <>
+              <span />
+              <span className="text-right text-xs text-muted-foreground">
+                {t.plugsNow}
+              </span>
+              <span className="text-right text-xs text-muted-foreground">
+                {t.today}
+              </span>
+            </>
+          )}
+          {view.rows.map((row, index) => (
+            <Fragment key={index}>
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full",
+                    row.running ? "bg-chart-1" : "bg-muted-foreground/30",
+                  )}
+                />
+                <span className="truncate">{row.name}</span>
+              </span>
+              <span
                 className={cn(
-                  "flex h-full min-w-0 basis-0 items-center rounded-full justify-center text-[0.625rem] leading-none tabular-nums transition-[flex-grow] duration-500",
-                  segment.color,
+                  "text-right",
+                  !row.running && "text-muted-foreground",
                 )}
-                style={{ flexGrow: segment.share / shown }}
               >
-                {segment.share >= minLabelShare && `${segment.watts} W`}
-              </div>
-            ))}
-          </div>
-          <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            {segments.map((segment, index) => (
-              <li key={index} className="flex min-w-0 items-center gap-1.5">
-                <span className={cn("size-2 shrink-0 rounded-full", segment.color)} />
-                <span className="truncate">{segment.name}</span>
-                {segment.share < minLabelShare && (
-                  <span className="tabular-nums">
-                    {segment.watts} W
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+                {row.watts ?? "—"}
+              </span>
+              {view.tracksEnergy && (
+                <span className="text-right text-muted-foreground">
+                  {row.today ?? "—"}
+                </span>
+              )}
+            </Fragment>
+          ))}
+          {view.others && (
+            <>
+              <span className="truncate pl-3.5 text-muted-foreground">
+                + {t.otherPlugs(view.others.count)}
+              </span>
+              <span className="text-right text-muted-foreground">
+                {view.others.watts ?? "—"}
+              </span>
+              {view.tracksEnergy && (
+                <span className="text-right text-muted-foreground">
+                  {view.others.today ?? "—"}
+                </span>
+              )}
+            </>
+          )}
         </div>
       )}
     </StatusCard>

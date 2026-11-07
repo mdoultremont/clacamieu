@@ -143,15 +143,17 @@ export interface HomeData {
     battery: string | null;
     action: ServiceAction | null;
   } | null;
-  plugPower: {
-    total: string;
-    /** Plugs drawing at least 1 W. */
-    running: number;
-    /** The three largest consumers, with their share of the total. */
-    consumers: { name: string; watts: string; share: number }[];
-    /** Every other plug together, when any draws power. */
-    others: { watts: string; share: number } | null;
-  } | null;
+  plugPower: { plugs: PlugReading[] } | null;
+}
+
+export interface PlugReading {
+  /** Device id. */
+  id: string;
+  name: string;
+  /** Current draw, or null without a reading. */
+  watts: number | null;
+  /** Energy sensor whose statistics give today's consumption. */
+  energyId: string | null;
 }
 
 export type HomeCardView = { id: string } & (
