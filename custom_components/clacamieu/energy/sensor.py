@@ -20,7 +20,7 @@ from homeassistant.util import dt as dt_util
 from custom_components.clacamieu.const import DOMAIN, NAME
 
 from .discovery import target_object_id
-from .models import TargetKind
+from .models import MeterTarget, TargetKind
 from .periods import CALENDAR_METRICS, METRICS, Metric
 from .recorder import async_backfill_statistics
 
@@ -97,22 +97,7 @@ class ClacamieuSensor(SensorEntity):
             name=target.name,
             manufacturer=NAME,
             model=f"{target.sources[0].configuration_type.value} {device_type}",
-            via_device=self._source_via_device(),
         )
-
-    def _source_via_device(self) -> tuple[str, str] | None:
-        """Return a stable parent identifier for a linked individual meter."""
-        target = self.runtime.target
-        if (
-            target.kind is not TargetKind.SOURCE
-            or not target.attach_to_device
-            or not target.device_id
-        ):
-            return None
-        source_device = dr.async_get(self.runtime.hass).async_get(target.device_id)
-        if source_device is None or not source_device.identifiers:
-            return None
-        return min(source_device.identifiers)
 
     @property
     def _series(self) -> CumulativeSeries | None:
@@ -177,6 +162,8 @@ class ClacamieuSensor(SensorEntity):
     async def async_added_to_hass(self) -> None:
         """Attach requested physical metrics and resume statistics backfill."""
         await super().async_added_to_hass()
+        if self.device_entry is not None:
+            _link_parent_device(self.hass, self.device_entry.id, self.runtime.target)
         self.async_on_remove(self.runtime.async_add_listener(self._handle_update))
         backfill = self._async_backfill()
         name = f"Backfill statistics for {self.entity_id}"
@@ -239,6 +226,30 @@ class CostMetricSensor(ClacamieuSensor):
         super().__init__(runtime, metric, ValueKind.COST)
 
 
+def _parent_device_id(hass: HomeAssistant, target: MeterTarget) -> str | None:
+    """Return the source device registry id for a linked individual meter."""
+    if (
+        target.kind is not TargetKind.SOURCE
+        or not target.attach_to_device
+        or not target.device_id
+    ):
+        return None
+    device = dr.async_get(hass).async_get(target.device_id)
+    # Child devices, added in Home Assistant 2026.9, cannot be via devices.
+    return device.id if isinstance(device, dr.DeviceEntry) else None
+
+
+@callback
+def _link_parent_device(
+    hass: HomeAssistant, device_id: str, target: MeterTarget
+) -> None:
+    device_registry = dr.async_get(hass)
+    device = device_registry.async_get(device_id)
+    parent_id = _parent_device_id(hass, target)
+    if device is not None and device.via_device_id != parent_id:
+        device_registry.async_update_device(device_id, via_device_id=parent_id)
+
+
 def _window_type(metric: Metric) -> str:
     if metric is Metric.TOTAL:
         return "lifetime"
@@ -270,24 +281,10 @@ def _remove_stale_registry_entries(
     }
     device_registry = dr.async_get(hass)
     for entity in entities:
-        device_info = entity.device_info
-        if not device_info:
-            continue
-        identifiers = set(device_info.get("identifiers", set()))
+        identifiers = entity.device_info.get("identifiers", set())
         device = device_registry.async_get_device(identifiers=identifiers)
-        if device is None:
-            continue
-        via_device = device_info.get("via_device")
-        parent = (
-            device_registry.async_get_device(identifiers={via_device})
-            if via_device
-            else None
-        )
-        desired_parent_id = parent.id if parent else None
-        if device.via_device_id != desired_parent_id:
-            device_registry.async_update_device(
-                device.id, via_device_id=desired_parent_id
-            )
+        if device is not None:
+            _link_parent_device(hass, device.id, entity.runtime.target)
 
     for device in list(device_registry.devices.values()):
         integration_identifiers = {

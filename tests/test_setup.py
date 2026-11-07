@@ -218,3 +218,62 @@ async def test_group_with_price_creates_virtual_device_and_cost_sensors(
     virtual_device = dr.async_get(hass).async_get(next(iter(virtual_device_ids)))
     assert virtual_device is not None
     assert virtual_device.name == "Housekeeping"
+
+
+async def test_unlinking_clears_parent_of_device_with_disabled_sensors(
+    recorder_mock: object,
+    enable_custom_integrations: None,
+    hass: HomeAssistant,
+) -> None:
+    """The parent link follows the configuration even when every sensor is off."""
+    del recorder_mock, enable_custom_integrations
+    entity_id, device_id = _add_source(hass)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="configuration",
+        version=1,
+        data={
+            CONF_CONFIGURATION_TYPE: ConfigurationType.ELECTRICITY_ENERGY.value,
+            CONF_SOURCE_ENTITY_IDS: [entity_id],
+            CONF_ATTACH_ENTITY_IDS: [entity_id],
+            CONF_GROUPS: [],
+        },
+    )
+    entry.add_to_hass(hass)
+    with (
+        patch(
+            "custom_components.clacamieu.energy.runtime.MeterSourceRuntime.async_start",
+            _start_source,
+        ),
+        patch(
+            "custom_components.clacamieu.energy.sensor.async_backfill_statistics",
+            AsyncMock(return_value=0),
+        ),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        entity_registry = er.async_get(hass)
+        generated = [
+            item
+            for item in entity_registry.entities.values()
+            if item.platform == DOMAIN
+        ]
+        virtual_device_id = generated[0].device_id
+        for item in generated:
+            entity_registry.async_update_entity(
+                item.entity_id, disabled_by=er.RegistryEntryDisabler.USER
+            )
+        assert dr.async_get(hass).async_get(virtual_device_id).via_device_id == (
+            device_id
+        )
+
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        hass.config_entries.async_update_entry(
+            entry,
+            data={**entry.data, CONF_ATTACH_ENTITY_IDS: []},
+        )
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert dr.async_get(hass).async_get(virtual_device_id).via_device_id is None
+    assert await hass.config_entries.async_unload(entry.entry_id)

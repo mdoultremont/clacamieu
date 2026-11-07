@@ -44,13 +44,13 @@ The change is complete when all commands pass and every modified user-facing str
 ## Frontend
 
 - `frontend/` holds the Maison panel: Vite, React, TypeScript, Tailwind CSS, and shadcn components. Use pnpm with `--dir frontend`, never npm or npx.
-- `pnpm --dir frontend build` writes the panel module to `custom_components/clacamieu/frontend/dist/`. Commit the rebuilt `dist/` with every frontend change. HACS installs from the repository tree, and CI fails when the committed bundle differs from a fresh build.
+- `pnpm --dir frontend build` writes the panel module to `custom_components/clacamieu/frontend/dist/`. Commit the rebuilt `dist/` with every frontend change. The Home Assistant Marketplace (HACS before 2026.11) installs from the repository tree, and CI fails when the committed bundle differs from a fresh build.
 - `pnpm --dir frontend dev` serves the panel on `localhost:5174` with live data from the Home Assistant instance named by `HA_URL` and `HA_TOKEN` in the file at `CLACAMIEU_HA_ENV` (default `../homeassistant/.env` next to this repository). The development connection rejects every WebSocket command outside a read-only allowlist. It also rejects service calls unless the server starts with `CLACAMIEU_DEV_SERVICES=1`, which sends them to the real instance. Never print or commit these values. `check-bundle.mjs` fails when either value appears in `dist/`. Development pages show a light and dark mode switch that never ships in `dist/`.
 - The panel renders in its own shadow root. Keep user-facing strings in `frontend/src/i18n.ts` with English and French values, and keep Home Assistant data derivation in pure functions such as `buildHomeView`.
 
 ## Distribution
 
-- Keep the repository compatible with HACS category `Integration`.
+- Keep the repository installable as an `Integration` repository from the Home Assistant Marketplace and from HACS on versions before 2026.11. Both read `hacs.json`.
 - Publish only `custom_components/clacamieu` as the integration directory.
 - Keep the manifest version and project version aligned when preparing a release.
 - Verify the repository with `git rev-parse --show-toplevel` before committing, tagging, or pushing.
