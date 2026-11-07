@@ -113,29 +113,23 @@ export function buildHomeView(
         ]
       : []),
   ];
-  const powerByDevice = new Map<string, number>();
-  let hasPlugPower = false;
+  const plugReadings = new Map<string, { watts: number | null }>();
   for (const entity of plugPowerEntities(hass)) {
     const deviceId = hass.entities[entity.entity_id].device_id!;
-    hasPlugPower = true;
+    const reading = plugReadings.get(deviceId) ?? { watts: null };
     const power = sensorValue(entity);
-    if (power == null) continue;
-    const watts =
-      power * (entity.attributes.unit_of_measurement === "kW" ? 1000 : 1);
-    powerByDevice.set(deviceId, (powerByDevice.get(deviceId) ?? 0) + watts);
+    if (power != null)
+      reading.watts =
+        (reading.watts ?? 0) +
+        power * (entity.attributes.unit_of_measurement === "kW" ? 1000 : 1);
+    plugReadings.set(deviceId, reading);
   }
-  const plugPowers = [...powerByDevice]
-    .map(([id, watts]) => ({
-      name: hass.devices[id]?.name_by_user ?? hass.devices[id]?.name ?? "",
-      watts,
-    }))
-    .sort((a, b) => b.watts - a.watts);
-  const plugTotal = plugPowers.reduce((total, plug) => total + plug.watts, 0);
-  const running = plugPowers.filter((plug) => plug.watts >= 1);
-  const othersOf = (plugs: { watts: number }[]) => {
-    const watts = plugs.reduce((total, plug) => total + plug.watts, 0);
-    return { watts: number(watts), share: watts / plugTotal };
-  };
+  const plugs = [...plugReadings].map(([id, { watts }]) => ({
+    id,
+    name: hass.devices[id]?.name_by_user ?? hass.devices[id]?.name ?? "",
+    watts,
+    energyId: plugEnergyId(hass, id),
+  }));
   const alarmView = (
     alarm: HassEntity | undefined,
   ): NonNullable<HomeData["alarm"]> => {
@@ -263,18 +257,7 @@ export function buildHomeView(
         ).length,
       0,
     ),
-    plugPower: hasPlugPower
-      ? {
-          total: plugPowers.length ? number(plugTotal) : t.unavailable,
-          running: running.length,
-          consumers: running.slice(0, 3).map((plug) => ({
-            name: plug.name,
-            watts: number(plug.watts),
-            share: plugTotal > 0 ? plug.watts / plugTotal : 0,
-          })),
-          others: running.length > 3 ? othersOf(running.slice(3)) : null,
-        }
-      : null,
+    plugPower: plugs.length ? { plugs } : null,
   };
   const cards: HomeCardView[] = resolved.home_cards.map((card) => {
     switch (card.type) {
@@ -306,12 +289,7 @@ export function buildHomeView(
         return {
           id: card.id,
           type: card.type,
-          plugPower: data.plugPower ?? {
-            total: t.unavailable,
-            running: 0,
-            consumers: [],
-            others: null,
-          },
+          plugPower: data.plugPower ?? { plugs: [] },
         };
       case "entities":
         return {
@@ -372,6 +350,25 @@ export function plugPowerEntities(hass: HassLike): HassEntity[] {
       plugDevices.has(entry.device_id)
     );
   });
+}
+
+/** The energy sensor whose statistics give a plug's consumption. */
+function plugEnergyId(hass: HassLike, deviceId: string): string | null {
+  return (
+    Object.values(hass.states).find((entity) => {
+      const entry = hass.entities[entity.entity_id];
+      return (
+        entity.entity_id.startsWith("sensor.") &&
+        entry?.device_id === deviceId &&
+        !entry.hidden &&
+        !entry.entity_category &&
+        entity.attributes.device_class === "energy" &&
+        ["total", "total_increasing"].includes(
+          String(entity.attributes.state_class),
+        )
+      );
+    })?.entity_id ?? null
+  );
 }
 
 export function resolveDashboardConfig(

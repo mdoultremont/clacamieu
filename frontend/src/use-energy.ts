@@ -118,3 +118,70 @@ export function useEnergy(hass: HassLike, period: EnergyPeriod) {
   }, [hass.callWS, period, timeZone, revision]);
   return { state, reload: () => setRevision((value) => value + 1) };
 }
+
+/**
+ * Energy used since midnight per statistic, in kWh. Reads five-minute
+ * statistics so the current hour counts before Recorder compiles it.
+ * Returns null while loading or after an error.
+ */
+export function useEnergyToday(
+  hass: HassLike,
+  statisticIds: string[],
+): Record<string, number | null> | null {
+  const [today, setToday] = useState<Record<string, number | null> | null>(
+    null,
+  );
+  const [revision, setRevision] = useState(0);
+  const latestHass = useRef(hass);
+  latestHass.current = hass;
+  const timeZone = energyTimeZone(hass);
+  const key = [...statisticIds].sort().join(",");
+  useEffect(() => {
+    const ids = key ? key.split(",") : [];
+    if (!ids.length) return;
+    let active = true;
+    const now = new Date();
+    latestHass.current
+      .callWS<EnergyStatistics>({
+        type: "recorder/statistics_during_period",
+        statistic_ids: ids,
+        start_time: new Date(
+          energyRange("day", now, timeZone).start,
+        ).toISOString(),
+        end_time: now.toISOString(),
+        period: "5minute",
+        types: ["change"],
+        units: { energy: "kWh" },
+      })
+      .then((statistics) => {
+        if (!active) return;
+        setToday(
+          Object.fromEntries(
+            ids.map((id) => {
+              const changes = (statistics[id] ?? []).flatMap((point) =>
+                point.change === null ? [] : [point.change],
+              );
+              return [
+                id,
+                changes.length
+                  ? changes.reduce((total, change) => total + change)
+                  : null,
+              ];
+            }),
+          ),
+        );
+      })
+      .catch(() => {
+        if (active) setToday(null);
+      });
+    const timer = window.setTimeout(
+      () => setRevision((value) => value + 1),
+      300_000,
+    );
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [hass.callWS, key, timeZone, revision]);
+  return today;
+}

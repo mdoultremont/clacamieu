@@ -2,6 +2,7 @@ import { WeatherIcon } from "./weather-icon";
 import { Fragment, useId, type ReactNode } from "react";
 import { messages } from "../i18n";
 import type {
+  HassLike,
   HomeView,
   HomeCardView,
   ServiceAction,
@@ -30,6 +31,7 @@ type ActionProps = {
 };
 
 type StatusProps = {
+  hass: HassLike;
   security: SecurityView;
   vacuum: VacuumView | null;
 };
@@ -73,6 +75,7 @@ function HomeCard({
   language,
   onAction,
   busy,
+  hass,
   security,
   vacuum,
 }: { view: HomeCardView } & ActionProps & StatusProps) {
@@ -91,7 +94,7 @@ function HomeCard({
         <VacuumCard summary={view.vacuum} vacuum={vacuum} language={language} />
       );
     case "power":
-      return <PowerCard power={view.plugPower} language={language} />;
+      return <PowerCard power={view.plugPower} hass={hass} />;
     case "rooms":
       return (
         <RoomsSection

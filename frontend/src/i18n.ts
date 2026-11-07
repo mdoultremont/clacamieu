@@ -236,8 +236,8 @@ export const en = {
   alarmLabel: "Alarm",
   openingsLeaks: "Openings and leaks",
   noSafetySensors: "No sensors",
-  plugs: "Plugs",
-  otherPlugs: "Others",
+  otherPlugs: (count: number) => `${count} other${count === 1 ? "" : "s"}`,
+  plugsNow: "Now",
   plugsRunning: (count: number) =>
     count === 0
       ? "Nothing running"
@@ -563,8 +563,8 @@ export const fr: Messages = {
   alarmLabel: "Alarme",
   openingsLeaks: "Ouvertures et fuites",
   noSafetySensors: "Aucun capteur",
-  plugs: "Prises",
-  otherPlugs: "Autres",
+  otherPlugs: (count) => `${count} autre${count === 1 ? "" : "s"}`,
+  plugsNow: "Maintenant",
   plugsRunning: (count: number) =>
     count === 0
       ? "Rien en marche"

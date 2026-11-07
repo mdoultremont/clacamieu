@@ -194,6 +194,7 @@ export function App({
               {route.screen === "home" ? (
                 <Home
                   view={buildHomeView(hass, config, now, controllers)}
+                  hass={hass}
                   security={buildSecurityView(hass, config, now)}
                   vacuum={buildVacuumView(hass, config, services)}
                   language={hass.language}

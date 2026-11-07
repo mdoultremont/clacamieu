@@ -304,15 +304,21 @@ describe("home view", () => {
       "",
       "plug_b",
     );
+    add(
+      hass,
+      entity("sensor.a_energy", "4.2", {
+        device_class: "energy",
+        state_class: "total_increasing",
+      }),
+      "",
+      "plug_a",
+    );
     add(hass, entity("sensor.unrelated", "900", { device_class: "power" }));
     expect(view(hass).plugPower).toEqual({
-      total: "92",
-      running: 2,
-      consumers: [
-        { name: "Appliance A", watts: "80", share: 80 / 92.4 },
-        { name: "Appliance B", watts: "12", share: 12.4 / 92.4 },
+      plugs: [
+        { id: "plug_a", name: "Appliance A", watts: 80, energyId: "sensor.a_energy" },
+        { id: "plug_b", name: "Appliance B", watts: 12.4, energyId: null },
       ],
-      others: null,
     });
   });
   it("keeps a plug card with unavailable readings instead of claiming zero watts", () => {
@@ -325,10 +331,7 @@ describe("home view", () => {
       "plug_a",
     );
     expect(view(hass).plugPower).toEqual({
-      total: "Indisponible",
-      running: 0,
-      consumers: [],
-      others: null,
+      plugs: [{ id: "plug_a", name: "", watts: null, energyId: null }],
     });
   });
   it("uses the injected Home Assistant state formatter for entities", () => {
@@ -585,7 +588,7 @@ describe("dashboard configuration", () => {
       vacuum: { state: "Indisponible", action: null },
     });
     expect(result.cards[3]).toMatchObject({
-      plugPower: { total: "Indisponible" },
+      plugPower: { plugs: [] },
     });
   });
 });
