@@ -196,7 +196,7 @@ export function App({
                   view={buildHomeView(hass, config, now, controllers)}
                   hass={hass}
                   security={buildSecurityView(hass, config, now)}
-                  vacuum={buildVacuumView(hass, config, services)}
+                  vacuum={buildVacuumView(hass, config, { services, now })}
                   language={hass.language}
                   onAction={runAction}
                   busy={busy}
@@ -237,6 +237,7 @@ export function App({
                 <Vacuum
                   hass={hass}
                   config={config}
+                  now={now}
                   onAction={runAction}
                   busy={busy}
                   error={error}

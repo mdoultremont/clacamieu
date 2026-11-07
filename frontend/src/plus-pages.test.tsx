@@ -77,15 +77,24 @@ it("offers both Maison routes and hides the vacuum page when no vacuum exists", 
     absent.shadow.querySelector('a[href="/clacamieu/plus/aspirateur"]'),
   ).toBeNull();
 });
-it("sends room cleaning through the shared action path and shows its inline error", async () => {
+it("cleans the chosen rooms through the shared action path and shows its inline error", async () => {
   const { shadow, hass } = await mount("/plus/aspirateur");
   expect(
     shadow.querySelector('.bottom-nav [aria-current="page"]')?.textContent,
   ).toBe("More");
+  const button = (text: string) =>
+    [...shadow.querySelectorAll("button")].find((element) =>
+      element.textContent?.includes(text),
+    )!;
+  expect(shadow.textContent).toContain("Tap rooms to choose them");
+  expect(button("Clean everything")).toBeDefined();
   await act(async () => {
-    (
-      shadow.querySelector('[aria-label="Clean Study"]') as HTMLButtonElement
-    ).click();
+    button("Study").click();
+  });
+  expect(button("Study").getAttribute("aria-pressed")).toBe("true");
+  expect(shadow.textContent).toContain("1 Study");
+  await act(async () => {
+    button("Clean 1 room").click();
   });
   expect(hass.callService).toHaveBeenCalledExactlyOnceWith(
     "dreame_vacuum",

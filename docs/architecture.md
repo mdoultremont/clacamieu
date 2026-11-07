@@ -106,8 +106,28 @@ built from realistic Home Assistant data:
   `isOutdoorArea`, which matches only exact area or floor names such as "Jardin"
   or "Terrasse". Watering lists `valve.*` entities and irrigation controllers
   that expose outlets as switches next to an `irrigation_duration` setting.
-- `vacuum-view.ts` reads the vacuum's live map camera, consumables, statistics,
-  and Dreame segment cleaning when `get_services` offers it.
+- `vacuum-view.ts` derives a phase from the vacuum state, and the phase picks
+  the tone and the controls that `supported_features` allows. The rest reads
+  the vacuum's device entities and degrades to status, controls, the live map
+  camera, and statistics for vacuums without Dreame entities.
+  - Rooms come from the selected map in `cleaning_sequence` order, and
+    selections clean through `dreame_vacuum.vacuum_clean_segment` when
+    `get_services` offers it. Robots with customized cleaning follow their
+    stored sequence whatever order the segments arrive in, so a selection is
+    ranked and sent in that order rather than in tap order.
+  - The map tab places room pins with the affine transform from the map
+    camera's three `calibration_points`. It exists only while those points and
+    the room centers do.
+  - Each room's last cleaning comes from ten days of vacuum state and
+    `sensor.*_current_room` history (`history/history_during_period`). Within
+    each `cleaning` session, time before the room sensor first changes is
+    ignored, and a room counts once the robot spends 90 seconds in it. `use-room-history.ts`
+    reads it again whenever the vacuum state changes.
+  - Maintenance maps Dreame's consumable keys to their `_left` and
+    `_time_left` sensors and `reset_` buttons, flags the items that
+    `binary_sensor.*_maintenance` lists, and estimates the next one from
+    average daily cleaning time. Shortcuts, cleaning mode and suction selects,
+    and station attributes appear only when the device exposes them.
 - `system-view.ts` reports a device as offline only when none of its entities
   responds, because online devices often keep feature-gated entities
   unavailable.
