@@ -22,7 +22,7 @@ import { climateTrend, type ClimateTrend } from "../climate-trend";
 import { useClimateHistory } from "../use-climate-history";
 import type { RoomLighting } from "../room-lighting";
 import { AirMeter } from "./air-meter";
-import { entityIcons } from "./entity-icon";
+import { activeIcons, entityIcons } from "./entity-icon";
 import { EntityRows } from "./entity-rows";
 import { cn } from "cn";
 import { BackLink } from "./back-link";
@@ -64,7 +64,7 @@ export function Room({
 } & ActionProps) {
   const t = messages(language);
   const sensors = [...view.sensors].sort(
-    (a, b) => Number(b.alert) - Number(a.alert),
+    (a, b) => Number(b.active) - Number(a.active),
   );
   return (
     <>
@@ -180,11 +180,13 @@ export function Room({
                 id: sensor.id,
                 name: sensor.name,
                 value:
-                  sensor.alert && sensor.changed
+                  sensor.active && sensor.changed
                     ? `${sensor.state} · ${sensor.changed}`
                     : sensor.state,
-                icon: entityIcons[sensor.deviceClass],
-                alert: sensor.alert,
+                icon:
+                  (sensor.active && activeIcons[sensor.deviceClass]) ||
+                  entityIcons[sensor.deviceClass],
+                active: sensor.active,
                 unavailable: !sensor.available,
               }))}
             />

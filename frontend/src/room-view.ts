@@ -41,7 +41,7 @@ export interface RoomDevice extends RoomEntity {
 }
 
 /** Whether an "on" state is worth surfacing, by binary sensor class. */
-const alertWhenOn = {
+const activeWhenOn = {
   door: true,
   window: true,
   garage_door: true,
@@ -49,10 +49,10 @@ const alertWhenOn = {
   motion: false,
   occupancy: false,
 } as const;
-export type SensorClass = keyof typeof alertWhenOn;
+export type SensorClass = keyof typeof activeWhenOn;
 export interface RoomSensor extends RoomEntity {
   deviceClass: SensorClass;
-  alert: boolean;
+  active: boolean;
   /** When the state last changed, relative to now. */
   changed: string | null;
 }
@@ -252,7 +252,7 @@ export function buildRoomView(
       const deviceClass = entity.attributes.device_class as SensorClass;
       if (
         !entity.entity_id.startsWith("binary_sensor.") ||
-        !Object.hasOwn(alertWhenOn, deviceClass)
+        !Object.hasOwn(activeWhenOn, deviceClass)
       )
         return [];
       const changed = Date.parse(entity.last_changed);
@@ -260,7 +260,7 @@ export function buildRoomView(
         {
           ...entityView(entity),
           deviceClass,
-          alert: alertWhenOn[deviceClass] && entity.state === "on",
+          active: activeWhenOn[deviceClass] && entity.state === "on",
           changed: Number.isFinite(changed)
             ? relativeTime(changed, now, language)
             : null,

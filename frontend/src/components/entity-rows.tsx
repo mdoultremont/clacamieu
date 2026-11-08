@@ -9,6 +9,8 @@ export interface EntityRow {
   /** A status dot before the name; none when absent. */
   dot?: "good" | "alert" | "off";
   icon?: LucideIcon;
+  /** A state worth noticing that isn't a problem, such as an open window. */
+  active?: boolean;
   alert?: boolean;
   unavailable?: boolean;
 }
@@ -46,13 +48,23 @@ export function EntityRows({
               />
             )}
             {Icon && (
-              <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+              <span
+                aria-hidden
+                className={cn(
+                  "-mx-1.5 grid size-7 shrink-0 place-items-center rounded-md transition-colors",
+                  row.active
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground",
+                )}
+              >
+                <Icon className="size-4" />
+              </span>
             )}
             <span
               className={cn(
                 "min-w-0 flex-1 truncate",
                 row.unavailable && "text-muted-foreground",
-                row.alert && "font-medium",
+                (row.alert || row.active) && "font-medium",
               )}
             >
               {row.name}
@@ -60,7 +72,11 @@ export function EntityRows({
             <span
               className={cn(
                 "shrink-0 text-right text-xs tabular-nums",
-                row.alert ? "text-air-poor" : "text-muted-foreground",
+                row.alert
+                  ? "text-air-poor"
+                  : row.active
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground",
               )}
             >
               {row.value}

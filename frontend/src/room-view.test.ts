@@ -133,7 +133,7 @@ describe("room views", () => {
     ]);
     expect(room.air).toBe("good");
   });
-  it("reads cover positions and flags only open or wet sensors as alerts", () => {
+  it("reads cover positions and marks only open or wet sensors as active", () => {
     const hass = fixture();
     hass.states["cover.blind"].attributes.current_position = 40;
     hass.states["switch.plug"].attributes.current_position = 40;
@@ -163,7 +163,7 @@ describe("room views", () => {
       position: null,
     });
     expect(
-      Object.fromEntries(room.sensors.map((sensor) => [sensor.id, sensor.alert])),
+      Object.fromEntries(room.sensors.map((sensor) => [sensor.id, sensor.active])),
     ).toEqual({
       "binary_sensor.door": true,
       "binary_sensor.window": false,
