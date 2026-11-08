@@ -180,7 +180,7 @@ export function Room({
                 id: sensor.id,
                 name: sensor.name,
                 value: sensor.state,
-                detail: (sensor.active && sensor.changed) || undefined,
+                detail: (sensor.available && sensor.changed) || undefined,
                 icon:
                   (sensor.active && activeIcons[sensor.deviceClass]) ||
                   entityIcons[sensor.deviceClass],

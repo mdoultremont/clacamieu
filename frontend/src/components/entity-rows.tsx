@@ -6,7 +6,7 @@ export interface EntityRow {
   name: string;
   /** Short state or time shown on the right. */
   value: string;
-  /** Muted text after the value, such as when it changed. */
+  /** A muted line under the value, such as when it changed. */
   detail?: string;
   /** A status dot before the name; none when absent. */
   dot?: "good" | "alert" | "off";
@@ -67,10 +67,17 @@ export function EntityRows({
                 row.alert ? "text-air-poor" : "text-muted-foreground",
               )}
             >
-              <span className={cn(row.active && "font-semibold text-foreground")}>
+              <span
+                className={cn(
+                  "block",
+                  row.active && "font-semibold text-foreground",
+                )}
+              >
                 {row.value}
               </span>
-              {row.detail && ` · ${row.detail}`}
+              {row.detail && (
+                <span className="block text-[0.6875rem]">{row.detail}</span>
+              )}
             </span>
           </button>
         </li>
