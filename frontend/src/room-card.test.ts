@@ -38,8 +38,8 @@ describe("room footer", () => {
           hasLights: true,
           lightsOn: 2,
           plugs: [
-            { id: "a", name: "A", watts: 100, energyId: "sensor.a" },
-            { id: "b", name: "B", watts: 20.4, energyId: "sensor.b" },
+            { id: "a", name: "A", watts: 100, powerId: "sensor.a_power", energyId: "sensor.a" },
+            { id: "b", name: "B", watts: 20.4, powerId: "sensor.b_power", energyId: "sensor.b" },
           ],
         }),
         { "sensor.a": 0.5, "sensor.b": 1.2 },
@@ -65,7 +65,7 @@ describe("room footer", () => {
   it("shows plug power at low draw and before energy loads", () => {
     expect(
       footer(
-        room({ plugs: [{ id: "a", name: "A", watts: 0, energyId: "x" }] }),
+        room({ plugs: [{ id: "a", name: "A", watts: 0, powerId: "sensor.a_power", energyId: "x" }] }),
       ),
     ).toEqual(["power:0 W"]);
   });

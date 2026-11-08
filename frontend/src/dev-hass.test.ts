@@ -48,6 +48,7 @@ describe("development transport", () => {
     "auth/current_user",
     "get_config",
     "clacamieu/dashboard/config",
+    "clacamieu/dashboard/cycles",
     "frontend/get_user_data",
     "energy/get_prefs",
     "recorder/statistics_during_period",
@@ -123,6 +124,29 @@ it("keeps dashboard reads and updates in memory without forwarding them", async 
   ).rejects.toBeInstanceOf(DevelopmentWriteBlocked);
   expect(send).toHaveBeenCalledTimes(1);
   warn.mockRestore();
+});
+
+it("keeps cycle dismissals in memory and only moves them later", async () => {
+  const send = vi.fn();
+  const calls = developmentDashboardCalls(
+    readOnlyCalls(send),
+    { home_cards: null, rooms: null },
+    { "switch.washer": Date.UTC(2026, 10, 8, 10) },
+  );
+  const dismiss = (ended_at: string) =>
+    calls.callWS({
+      type: "clacamieu/dashboard/cycle/dismiss",
+      entity_id: "switch.washer",
+      ended_at,
+    });
+  await dismiss("2026-11-08T09:00:00.000Z");
+  expect(await calls.callWS({ type: "clacamieu/dashboard/cycles" })).toEqual({
+    dismissed: { "switch.washer": "2026-11-08T10:00:00.000Z" },
+  });
+  expect(await dismiss("2026-11-08T12:00:00.000Z")).toEqual({
+    dismissed: { "switch.washer": "2026-11-08T12:00:00.000Z" },
+  });
+  expect(send).not.toHaveBeenCalled();
 });
 
 it("allows daily weather subscriptions and blocks every other subscription in development", async () => {

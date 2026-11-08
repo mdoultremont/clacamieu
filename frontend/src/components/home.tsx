@@ -18,6 +18,9 @@ import {
 } from "./ui/item";
 import { Switch } from "./ui/switch";
 import { AlarmCard, PowerCard, VacuumCard } from "./home-status";
+import { CycleIslands } from "./cycle-island";
+import { buildCycleChips } from "../cycle-view";
+import { useCycleDismissals, useCycles } from "../use-cycles";
 import type { SecurityView } from "../security-view";
 import type { VacuumView } from "../vacuum-view";
 import { RoomGrid } from "./room-grid";
@@ -38,12 +41,16 @@ type StatusProps = {
 
 export function Home({
   view,
+  now,
   ...props
-}: { view: HomeView } & ActionProps & StatusProps) {
+}: { view: HomeView; now: Date } & ActionProps & StatusProps) {
   const t = messages(props.language);
+  const cycles = useCycles(props.hass, view.cycleAppliances, now);
+  const { dismissed, dismiss } = useCycleDismissals(props.hass);
   return (
     <>
-      <header className="flex items-start justify-between gap-3">
+      <header className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-2">
           <h1 className="text-xl font-semibold tracking-tight">{t.home}</h1>
           <p className="text-muted-foreground">{view.date}</p>
@@ -62,6 +69,19 @@ export function Home({
             <p className="text-muted-foreground">{view.weather.condition}</p>
           </div>
         )}
+      </div>
+        <CycleIslands
+          chips={buildCycleChips(
+            view.cycleAppliances,
+            cycles,
+            dismissed,
+            now.getTime(),
+            props.language,
+          )}
+          now={now}
+          language={props.language}
+          onDismiss={dismiss}
+        />
       </header>
       {view.cards.map((card) => (
         <HomeCard key={card.id} view={card} {...props} />

@@ -1,3 +1,4 @@
+import { cycleAppliances } from "./cycle-view";
 import { resolveRoomSensors } from "./room-sensors";
 import { buildRoomCards } from "./room-card";
 import { locale, messages, translatedState } from "./i18n";
@@ -114,7 +115,8 @@ export function buildHomeView(
         ]
       : []),
   ];
-  const plugs = plugReadings(hass);
+  const hiddenPlugs = hiddenPlugDevices(hass, config);
+  const plugs = plugReadings(hass).filter((plug) => !hiddenPlugs.has(plug.id));
   const alarmView = (
     alarm: HassEntity | undefined,
   ): NonNullable<HomeData["alarm"]> => {
@@ -311,29 +313,52 @@ export function buildHomeView(
         };
     }
   });
-  return { date: data.date, weather: data.weather, cards };
+  return {
+    date: data.date,
+    weather: data.weather,
+    cards,
+    cycleAppliances: cycleAppliances(hass, config),
+  };
 }
 
 export function plugReadings(hass: HassLike): PlugReading[] {
-  const readings = new Map<string, number | null>();
+  const readings = new Map<string, { watts: number | null; powerId: string }>();
   for (const entity of plugPowerEntities(hass)) {
     const deviceId = hass.entities[entity.entity_id].device_id!;
     const power = numeric(entity.state);
-    const watts = readings.get(deviceId) ?? null;
-    readings.set(
-      deviceId,
-      power === null
-        ? watts
-        : (watts ?? 0) +
-            power * (entity.attributes.unit_of_measurement === "kW" ? 1000 : 1),
-    );
+    const reading = readings.get(deviceId) ?? {
+      watts: null,
+      powerId: entity.entity_id,
+    };
+    if (power !== null)
+      reading.watts =
+        (reading.watts ?? 0) +
+        power * (entity.attributes.unit_of_measurement === "kW" ? 1000 : 1);
+    readings.set(deviceId, reading);
   }
-  return [...readings].map(([id, watts]) => ({
+  return [...readings].map(([id, { watts, powerId }]) => ({
     id,
     name: hass.devices[id]?.name_by_user ?? hass.devices[id]?.name ?? "",
     watts,
+    powerId,
     energyId: plugEnergyId(hass, id),
   }));
+}
+
+/** Plugs whose switch an admin hid in its room. */
+function hiddenPlugDevices(hass: HassLike, config: DashboardConfig) {
+  return new Set(
+    (config.rooms ?? []).flatMap((room) =>
+      (room.entities ?? []).flatMap((element) => {
+        const deviceId = hass.entities[element.entity_id]?.device_id;
+        return element.display === "hidden" &&
+          element.entity_id.startsWith("switch.") &&
+          deviceId
+          ? [deviceId]
+          : [];
+      }),
+    ),
+  );
 }
 
 export function plugPowerEntities(hass: HassLike): HassEntity[] {

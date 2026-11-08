@@ -5,6 +5,7 @@ const plug = (id: string, watts: number | null, energyId: string | null = `senso
   id,
   name: id,
   watts,
+  powerId: `sensor.${id}_power`,
   energyId,
 });
 
@@ -19,9 +20,9 @@ describe("buildPlugPowerView", () => {
     expect(view.today).toBe("2,7 kWh");
     expect(view.running).toBe(2);
     expect(view.rows).toEqual([
-      { name: "oven", running: true, watts: "1\u202f054 W", today: "1,2 kWh" },
-      { name: "box", running: true, watts: "24 W", today: "600 Wh" },
-      { name: "washer", running: false, watts: null, today: "900 Wh" },
+      { name: "oven", running: true, watts: "1\u202f054 W", today: "1,2 kWh", share: expect.closeTo(1.24 / 2.74) },
+      { name: "box", running: true, watts: "24 W", today: "600 Wh", share: expect.closeTo(0.6 / 2.74) },
+      { name: "washer", running: false, watts: null, today: "900 Wh", share: expect.closeTo(0.9 / 2.74) },
     ]);
     expect(view.others).toBeNull();
   });
@@ -33,7 +34,13 @@ describe("buildPlugPowerView", () => {
       "en",
     );
     expect(view.rows.map((row) => row.name)).toEqual(["a", "b", "c"]);
-    expect(view.others).toEqual({ count: 2, watts: "5 W", today: "400 Wh" });
+    expect(view.others).toEqual({
+      count: 2,
+      running: true,
+      watts: "5 W",
+      today: "400 Wh",
+      share: expect.closeTo(0.4 / 3.4),
+    });
   });
 
   it("shows power alone while today's energy loads or without energy sensors", () => {
@@ -41,7 +48,7 @@ describe("buildPlugPowerView", () => {
     expect(loading.today).toBeNull();
     expect(loading.tracksEnergy).toBe(true);
     expect(loading.rows).toEqual([
-      { name: "a", running: true, watts: "50 W", today: null },
+      { name: "a", running: true, watts: "50 W", today: null, share: null },
     ]);
     const untracked = buildPlugPowerView([plug("a", 50, null)], {}, "en");
     expect(untracked.tracksEnergy).toBe(false);

@@ -1,5 +1,6 @@
 import type { Connection, HassEntity } from "home-assistant-js-websocket";
 import type { RoomCard } from "./room-card";
+import type { CycleAppliance } from "./cycle-view";
 import type { EntityDisplay } from "./room-display";
 export type { HassEntity } from "home-assistant-js-websocket";
 
@@ -166,6 +167,8 @@ export interface PlugReading {
   name: string;
   /** Current draw, or null without a reading. */
   watts: number | null;
+  /** The power sensor whose history shows the plug's cycles. */
+  powerId: string;
   /** Energy sensor whose statistics give today's consumption. */
   energyId: string | null;
 }
@@ -195,4 +198,5 @@ export interface HomeView {
   date: string;
   weather: HomeData["weather"];
   cards: HomeCardView[];
+  cycleAppliances: CycleAppliance[];
 }

@@ -204,6 +204,7 @@ export const en = {
   entityDisplays: {
     control: "Control",
     power: "Power",
+    cycle: "Cycle",
     hidden: "Hidden",
   } satisfies Record<EntityDisplay, string>,
   entityDisplay: (name: string) => `How ${name} shows`,
@@ -331,6 +332,20 @@ export const en = {
   roomLightsOff: "Lights off",
   otherPlugs: (count: number) => `${count} other${count === 1 ? "" : "s"}`,
   plugsNow: "Now",
+  todayEnergy: (energy: string) => `${energy} today`,
+  appliances: "Appliances",
+  cycleRunning: "Running",
+  cycleFinished: "Done",
+  cycleFinishedChip: "done",
+  cycleIdle: "Idle",
+  cycleSince: (duration: string) => `For ${duration}`,
+  cycleLength: (duration: string) => `${duration} cycle`,
+  cycleFinishedIn: (room: string) => `Cycle done · ${room}`,
+  cycleDuration: (hours: number, minutes: number) =>
+    hours ? `${hours} h ${String(minutes).padStart(2, "0")}` : `${minutes} min`,
+  cycleDismiss: "Hide",
+  viewRoom: "View room",
+  cycleDetails: (name: string) => `${name} cycle details`,
   plugsRunning: (count: number) =>
     count === 0
       ? "Nothing running"
@@ -622,6 +637,7 @@ export const fr: Messages = {
   entityDisplays: {
     control: "Commande",
     power: "Conso",
+    cycle: "Cycle",
     hidden: "Masqué",
   },
   entityDisplay: (name) => `Affichage de ${name}`,
@@ -750,6 +766,20 @@ export const fr: Messages = {
   roomLightsOff: "Lumières éteintes",
   otherPlugs: (count) => `${count} autre${count === 1 ? "" : "s"}`,
   plugsNow: "Maintenant",
+  todayEnergy: (energy) => `${energy} aujourd'hui`,
+  appliances: "Appareils",
+  cycleRunning: "En marche",
+  cycleFinished: "Terminé",
+  cycleFinishedChip: "terminé",
+  cycleIdle: "À l'arrêt",
+  cycleSince: (duration) => `Depuis ${duration}`,
+  cycleLength: (duration) => `cycle de ${duration}`,
+  cycleFinishedIn: (room) => `Cycle terminé · ${room}`,
+  cycleDuration: (hours, minutes) =>
+    hours ? `${hours} h ${String(minutes).padStart(2, "0")}` : `${minutes} min`,
+  cycleDismiss: "Masquer",
+  viewRoom: "Voir la pièce",
+  cycleDetails: (name) => `Détails du cycle ${name}`,
   plugsRunning: (count: number) =>
     count === 0
       ? "Rien en marche"

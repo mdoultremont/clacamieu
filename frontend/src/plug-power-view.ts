@@ -14,6 +14,8 @@ export interface PlugPowerRow {
   watts: string | null;
   /** Formatted energy used today, or null when unknown. */
   today: string | null;
+  /** This plug's part of today's energy across all plugs, from 0 to 1. */
+  share: number | null;
 }
 
 export interface PlugPowerView {
@@ -25,7 +27,7 @@ export interface PlugPowerView {
   /** Whether any plug has an energy sensor, so a today column makes sense. */
   tracksEnergy: boolean;
   rows: PlugPowerRow[];
-  others: { count: number; watts: string | null; today: string | null } | null;
+  others: Omit<PlugPowerRow, "name"> & { count: number } | null;
 }
 
 function format(value: number, digits: number, language: string) {
@@ -73,19 +75,22 @@ export function buildPlugPowerView(
           ? b.watts! - a.watts!
           : b.kwh! - a.kwh!,
     );
+  const totalWatts = sum(entries.map((entry) => entry.watts));
+  const totalKwh = sum(entries.map((entry) => entry.kwh));
+  const share = (kwh: number | null) =>
+    kwh === null || !totalKwh ? null : kwh / totalKwh;
   const row = (entry: (typeof entries)[number]): PlugPowerRow => ({
     name: entry.name,
     running: entry.running,
     watts: entry.running ? formatWatts(entry.watts!, language) : null,
     today: entry.kwh === null ? null : formatEnergy(entry.kwh, language),
+    share: share(entry.kwh),
   });
   const rest = listed.slice(shownRows);
   const restWatts = sum(
     rest.map((entry) => (entry.running ? entry.watts : null)),
   );
   const restKwh = sum(rest.map((entry) => entry.kwh));
-  const totalWatts = sum(entries.map((entry) => entry.watts));
-  const totalKwh = sum(entries.map((entry) => entry.kwh));
   return {
     watts: totalWatts === null ? null : formatWatts(totalWatts, language),
     running: entries.filter((entry) => entry.running).length,
@@ -95,8 +100,10 @@ export function buildPlugPowerView(
     others: rest.length
       ? {
           count: rest.length,
+          running: restWatts !== null,
           watts: restWatts === null ? null : formatWatts(restWatts, language),
           today: restKwh === null ? null : formatEnergy(restKwh, language),
+          share: share(restKwh),
         }
       : null,
   };

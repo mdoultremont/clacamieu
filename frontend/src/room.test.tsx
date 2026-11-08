@@ -113,6 +113,7 @@ async function mount(
         <Room
           view={buildRoomView(hass, config, "kitchen", new Date())!}
           hass={hass}
+          now={new Date()}
           lighting={null}
           language="en"
           onMoreInfo={vi.fn()}
@@ -158,7 +159,11 @@ describe("room customization", () => {
         (button) => button.textContent,
       ),
     ).toEqual(["Control", "Hidden"]);
-    expect(group("Oven").querySelectorAll("button")).toHaveLength(3);
+    expect(
+      Array.from(group("Oven").querySelectorAll("button")).map(
+        (button) => button.textContent,
+      ),
+    ).toEqual(["Control", "Power", "Cycle", "Hidden"]);
     await act(async () => {
       Array.from(group("Kettle").querySelectorAll("button"))
         .find((button) => button.textContent === "Hidden")!

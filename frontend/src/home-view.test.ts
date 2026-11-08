@@ -316,8 +316,20 @@ describe("home view", () => {
     add(hass, entity("sensor.unrelated", "900", { device_class: "power" }));
     expect(view(hass).plugPower).toEqual({
       plugs: [
-        { id: "plug_a", name: "Appliance A", watts: 80, energyId: "sensor.a_energy" },
-        { id: "plug_b", name: "Appliance B", watts: 12.4, energyId: null },
+        {
+          id: "plug_a",
+          name: "Appliance A",
+          watts: 80,
+          powerId: "sensor.a_power",
+          energyId: "sensor.a_energy",
+        },
+        {
+          id: "plug_b",
+          name: "Appliance B",
+          watts: 12.4,
+          powerId: "sensor.b_power",
+          energyId: null,
+        },
       ],
     });
   });
@@ -331,8 +343,58 @@ describe("home view", () => {
       "plug_a",
     );
     expect(view(hass).plugPower).toEqual({
-      plugs: [{ id: "plug_a", name: "", watts: null, energyId: null }],
+      plugs: [
+        {
+          id: "plug_a",
+          name: "",
+          watts: null,
+          powerId: "sensor.a_power",
+          energyId: null,
+        },
+      ],
     });
+  });
+  it("leaves plugs hidden in their room out of the power card and lists cycle appliances", () => {
+    const hass = fixture();
+    for (const id of ["washer", "lamp", "fridge"]) {
+      add(hass, entity(`switch.${id}`, "on", { friendly_name: id }), "room_a", id);
+      add(
+        hass,
+        entity(`sensor.${id}_power`, "3", { device_class: "power" }),
+        "room_a",
+        id,
+      );
+    }
+    const result = buildHomeView(
+      hass,
+      {
+        home_cards: [{ id: "p", type: "power" }],
+        rooms: [
+          {
+            area_id: "room_a",
+            entities: [
+              { entity_id: "switch.washer", display: "cycle" },
+              { entity_id: "switch.lamp", display: "hidden" },
+              { entity_id: "light.missing", display: "cycle" },
+            ],
+          },
+        ],
+      },
+      now,
+    );
+    const power = result.cards.find((card) => card.type === "power");
+    expect(
+      power?.type === "power" && power.plugPower.plugs.map((plug) => plug.id),
+    ).toEqual(["washer", "fridge"]);
+    expect(result.cycleAppliances).toEqual([
+      expect.objectContaining({
+        entityId: "switch.washer",
+        name: "washer",
+        areaId: "room_a",
+        areaName: "Room A",
+        plug: expect.objectContaining({ powerId: "sensor.washer_power" }),
+      }),
+    ]);
   });
   it("uses the injected Home Assistant state formatter for entities", () => {
     const hass = fixture();

@@ -197,6 +197,7 @@ export function App({
               {route.screen === "home" ? (
                 <Home
                   view={buildHomeView(hass, config, now, controllers)}
+                  now={now}
                   hass={hass}
                   security={buildSecurityView(hass, config, now)}
                   vacuum={buildVacuumView(hass, config, { services, now })}
@@ -223,6 +224,7 @@ export function App({
                   key={route.areaId}
                   view={room!}
                   hass={hass}
+                  now={now}
                   onMoreInfo={openMoreInfo}
                   lighting={buildRoomLighting(
                     hass,
