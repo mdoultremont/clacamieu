@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronRight, GripVertical } from "lucide-react";
+import type { ReactNode } from "react";
 import { messages } from "../i18n";
 import { usePortalContainer } from "../portal-container";
 import { Button } from "./ui/button";
@@ -25,6 +26,8 @@ type Row = {
   title: string;
   description?: string;
   hidden?: boolean;
+  /** A control in place of the visibility switch. */
+  trailing?: ReactNode;
 };
 
 export function ConfigSortableList({
@@ -37,7 +40,7 @@ export function ConfigSortableList({
   rows: Row[];
   language: string;
   onMove: (from: number, to: number) => void;
-  onToggle: (id: string) => void;
+  onToggle?: (id: string) => void;
   onEdit?: (id: string) => void;
 }) {
   const t = messages(language);
@@ -82,7 +85,7 @@ export function ConfigSortableList({
             key={row.id}
             row={row}
             language={language}
-            onToggle={() => onToggle(row.id)}
+            onToggle={() => onToggle?.(row.id)}
             onEdit={onEdit && (() => onEdit(row.id))}
           />
         ))}
@@ -157,13 +160,15 @@ function SortableRow({
           {text}
         </span>
       )}
-      <div className="switch-target flex items-center">
-        <Switch
-          checked={!row.hidden}
-          onCheckedChange={onToggle}
-          aria-label={`${t.show} ${row.title}`}
-        />
-      </div>
+      {row.trailing ?? (
+        <div className="switch-target flex items-center">
+          <Switch
+            checked={!row.hidden}
+            onCheckedChange={onToggle}
+            aria-label={`${t.show} ${row.title}`}
+          />
+        </div>
+      )}
     </div>
   );
 }

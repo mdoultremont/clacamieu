@@ -17,7 +17,8 @@ every installed update. Unloading the entry removes the panel.
 
 `dashboard/runtime.py` stores version 2 settings in `clacamieu.dashboard`.
 `home_cards` selects ordered Home cards and `rooms` selects ordered
-areas with optional temperature, humidity, and CO₂ entity overrides. Cards and
+areas with optional temperature, humidity, and CO₂ entity overrides and an
+ordered `entities` list for room customization. Cards and
 rooms can retain their position and options with `hidden: true`. Absent or false
 means visible. A null list
 uses automatic configuration; an empty list hides every card or room. The Store
@@ -29,9 +30,9 @@ WebSocket tests.
 `dashboard/websocket.py` exposes `clacamieu/dashboard/config` to every user and
 `clacamieu/dashboard/config/update` to administrators. Updates replace both lists.
 Voluptuous validates card types, required fields, entity ID syntax, alarm and
-vacuum domains, unique card IDs and area IDs, and existing areas. Entities may be
-missing or unavailable. Limits are 100 cards, 500 rooms, and 500 entities per
-entities card. The settings model keeps validated mappings to avoid a separate
+vacuum domains, unique card IDs and area IDs, room entity displays, and existing
+areas. Entities may be missing or unavailable. Limits are 100 cards, 500 rooms,
+and 500 entities per entities card or room. The settings model keeps validated mappings to avoid a separate
 serialization model for each card.
 
 The frontend never reads Home Assistant through anything other than the `hass`
@@ -87,7 +88,15 @@ Each screen has a pure view builder next to `home-view.ts`, and each has tests
 built from realistic Home Assistant data:
 
 - `room-view.ts` lists a room's lights with groups before their members, its
-  scenes, devices, and binary sensors.
+  scenes, devices, and binary sensors. A room's saved `entities` list orders
+  each section, and unlisted elements follow in their default order. Each
+  light, device, and sensor carries its display. `room-display.ts` owns the
+  display union and which displays an element offers, so a new display is one
+  entry there, one in the Python schema, and one rendering branch in
+  `components/room.tsx`. A saved display the element no longer offers, such as
+  power on a plug that lost its power sensor, falls back to control. The
+  Customize room sheet saves through the same admin-only update command; when
+  rooms are automatic, saving materializes them as the Configuration screen does.
 - `security-view.ts` picks the configured or first alarm, reads its modes from
   `supported_features`, and asks for a code when `code_format` is set and the
   action is a disarm or `code_arm_required` is true, as Home Assistant's own

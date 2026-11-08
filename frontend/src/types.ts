@@ -1,5 +1,6 @@
 import type { Connection, HassEntity } from "home-assistant-js-websocket";
 import type { RoomCard } from "./room-card";
+import type { EntityDisplay } from "./room-display";
 export type { HassEntity } from "home-assistant-js-websocket";
 
 export interface EntityDisplayEntry {
@@ -70,6 +71,13 @@ export interface RoomConfig {
   temperature_entity_id?: string | null;
   humidity_entity_id?: string | null;
   co2_entity_id?: string | null;
+  /** The room page's elements in order, with how each one shows. */
+  entities?: RoomEntityConfig[];
+}
+
+export interface RoomEntityConfig {
+  entity_id: string;
+  display: EntityDisplay;
 }
 
 export interface DashboardConfig {

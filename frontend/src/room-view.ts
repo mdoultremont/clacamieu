@@ -1,6 +1,7 @@
 import { formatClimate, roomPerception } from "./comfort-view";
-import { numeric } from "./home-view";
+import { numeric, plugReadings } from "./home-view";
 import { locale, messages } from "./i18n";
+import { displayOptions, type EntityDisplay } from "./room-display";
 import { airLevel } from "./room-lighting";
 import { areaSensor, entityArea, resolveRoomSensors } from "./room-sensors";
 import { relativeTime } from "./security-view";
@@ -8,6 +9,7 @@ import type {
   DashboardConfig,
   HassEntity,
   HassLike,
+  PlugReading,
   ServiceAction,
 } from "./types";
 
@@ -18,7 +20,11 @@ export interface RoomEntity {
   on: boolean;
   available: boolean;
 }
-export interface RoomLight extends RoomEntity {
+/** An element whose order and display an admin chooses per room. */
+export interface RoomElement extends RoomEntity {
+  display: EntityDisplay;
+}
+export interface RoomLight extends RoomElement {
   brightness: number | null;
   dimmable: boolean;
   group: boolean;
@@ -33,8 +39,10 @@ const deviceDomains = [
   "input_boolean",
 ] as const;
 export type DeviceDomain = (typeof deviceDomains)[number];
-export interface RoomDevice extends RoomEntity {
+export interface RoomDevice extends RoomElement {
   domain: DeviceDomain;
+  /** The smart plug reading of a switch whose device measures power. */
+  power: PlugReading | null;
   /** Cover position from 0 (closed) to 100 (open). */
   position: number | null;
   actions: ServiceAction[];
@@ -50,7 +58,7 @@ const activeWhenOn = {
   occupancy: false,
 } as const;
 export type SensorClass = keyof typeof activeWhenOn;
-export interface RoomSensor extends RoomEntity {
+export interface RoomSensor extends RoomElement {
   deviceClass: SensorClass;
   active: boolean;
   /** When the state last changed, relative to now. */
@@ -73,6 +81,7 @@ export interface RoomView {
   comfort: string | null;
   /** The weather entity's temperature, such as "8,2°C". */
   outdoor: string | null;
+  /** Lights, devices, and sensors list every element in saved order, hidden ones included. */
   lights: RoomLight[];
   scenes: RoomEntity[];
   devices: RoomDevice[];
@@ -108,6 +117,26 @@ export function buildRoomView(
     on: !["off", "unavailable", "unknown", "standby"].includes(entity.state),
     available: !["unavailable", "unknown"].includes(entity.state),
   });
+  const roomConfig = config.rooms?.find((room) => room.area_id === areaId) ?? {
+    area_id: areaId,
+  };
+  const saved = roomConfig.entities ?? [];
+  const position = new Map(saved.map((entry, index) => [entry.entity_id, index]));
+  const savedDisplay = new Map(
+    saved.map((entry) => [entry.entity_id, entry.display]),
+  );
+  const inSavedOrder = <T extends RoomElement>(elements: T[]) =>
+    elements.sort(
+      (a, b) =>
+        (position.get(a.id) ?? saved.length) -
+        (position.get(b.id) ?? saved.length),
+    );
+  const display = (id: string, power?: PlugReading | null) => {
+    const chosen = savedDisplay.get(id);
+    return chosen && displayOptions({ power }).includes(chosen)
+      ? chosen
+      : "control";
+  };
   const lights = entities.filter((entity) =>
     entity.entity_id.startsWith("light."),
   );
@@ -129,9 +158,9 @@ export function buildRoomView(
     .filter((entity) => Array.isArray(entity.attributes.entity_id))
     .forEach(addLight);
   lights.forEach(addLight);
-  const roomConfig = config.rooms?.find((room) => room.area_id === areaId) ?? {
-    area_id: areaId,
-  };
+  const plugs = entities.some((entity) => entity.entity_id.startsWith("switch."))
+    ? new Map(plugReadings(hass).map((plug) => [plug.id, plug]))
+    : new Map<string, PlugReading>();
   let air: RoomView["air"] = null;
   const [temperature, humidity, co2] = resolveRoomSensors(hass, roomConfig);
   const climate = [
@@ -192,81 +221,94 @@ export function buildRoomView(
       hass.language,
       weather?.attributes.temperature_unit ?? "°C",
     ),
-    lights: orderedLights.map((entity) => {
-      const brightness = numeric(entity.attributes.brightness);
-      return {
-        ...entityView(entity),
-        on: entity.state === "on",
-        brightness:
-          brightness === null
-            ? null
-            : Math.round((Math.min(255, Math.max(0, brightness)) / 255) * 100),
-        dimmable:
-          Array.isArray(entity.attributes.supported_color_modes) &&
-          entity.attributes.supported_color_modes.some(
-            (mode: string) => mode !== "onoff",
-          ),
-        group: Array.isArray(entity.attributes.entity_id),
-      };
-    }),
+    lights: inSavedOrder(
+      orderedLights.map((entity) => {
+        const brightness = numeric(entity.attributes.brightness);
+        return {
+          ...entityView(entity),
+          display: display(entity.entity_id),
+          on: entity.state === "on",
+          brightness:
+            brightness === null
+              ? null
+              : Math.round((Math.min(255, Math.max(0, brightness)) / 255) * 100),
+          dimmable:
+            Array.isArray(entity.attributes.supported_color_modes) &&
+            entity.attributes.supported_color_modes.some(
+              (mode: string) => mode !== "onoff",
+            ),
+          group: Array.isArray(entity.attributes.entity_id),
+        };
+      }),
+    ),
     scenes: entities
       .filter((entity) => entity.entity_id.startsWith("scene."))
       .map(entityView),
-    devices: entities.flatMap((entity): RoomDevice[] => {
-      const domain = entity.entity_id.split(".")[0] as DeviceDomain;
-      if (!deviceDomains.includes(domain)) return [];
-      const view = entityView(entity);
-      const cover = domain === "cover";
-      return [
-        {
-          ...view,
-          domain,
-          position: cover ? numeric(entity.attributes.current_position) : null,
-          actions: cover
-            ? [
-                {
-                  domain: "cover",
-                  service: "open_cover",
-                  entityId: view.id,
-                  label: t.openCover(view.name),
-                },
-                {
-                  domain: "cover",
-                  service: "close_cover",
-                  entityId: view.id,
-                  label: t.closeCover(view.name),
-                },
-              ]
-            : [
-                {
-                  domain: "homeassistant",
-                  service: "toggle",
-                  entityId: view.id,
-                  label: view.name,
-                },
-              ],
-        },
-      ];
-    }),
-    sensors: entities.flatMap((entity): RoomSensor[] => {
-      const deviceClass = entity.attributes.device_class as SensorClass;
-      if (
-        !entity.entity_id.startsWith("binary_sensor.") ||
-        !Object.hasOwn(activeWhenOn, deviceClass)
-      )
-        return [];
-      const changed = Date.parse(entity.last_changed);
-      return [
-        {
-          ...entityView(entity),
-          deviceClass,
-          active: activeWhenOn[deviceClass] && entity.state === "on",
-          changed: Number.isFinite(changed)
-            ? relativeTime(changed, now, language)
-            : null,
-        },
-      ];
-    }),
+    devices: inSavedOrder(
+      entities.flatMap((entity): RoomDevice[] => {
+        const domain = entity.entity_id.split(".")[0] as DeviceDomain;
+        if (!deviceDomains.includes(domain)) return [];
+        const view = entityView(entity);
+        const cover = domain === "cover";
+        const deviceId = hass.entities[entity.entity_id]?.device_id;
+        const power =
+          (domain === "switch" && deviceId && plugs.get(deviceId)) || null;
+        return [
+          {
+            ...view,
+            display: display(view.id, power),
+            domain,
+            power,
+            position: cover ? numeric(entity.attributes.current_position) : null,
+            actions: cover
+              ? [
+                  {
+                    domain: "cover",
+                    service: "open_cover",
+                    entityId: view.id,
+                    label: t.openCover(view.name),
+                  },
+                  {
+                    domain: "cover",
+                    service: "close_cover",
+                    entityId: view.id,
+                    label: t.closeCover(view.name),
+                  },
+                ]
+              : [
+                  {
+                    domain: "homeassistant",
+                    service: "toggle",
+                    entityId: view.id,
+                    label: view.name,
+                  },
+                ],
+          },
+        ];
+      }),
+    ),
+    sensors: inSavedOrder(
+      entities.flatMap((entity): RoomSensor[] => {
+        const deviceClass = entity.attributes.device_class as SensorClass;
+        if (
+          !entity.entity_id.startsWith("binary_sensor.") ||
+          !Object.hasOwn(activeWhenOn, deviceClass)
+        )
+          return [];
+        const changed = Date.parse(entity.last_changed);
+        return [
+          {
+            ...entityView(entity),
+            display: display(entity.entity_id),
+            deviceClass,
+            active: activeWhenOn[deviceClass] && entity.state === "on",
+            changed: Number.isFinite(changed)
+              ? relativeTime(changed, now, language)
+              : null,
+          },
+        ];
+      }),
+    ),
   };
 }
 

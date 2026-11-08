@@ -29,6 +29,7 @@ import { Garden } from "./components/garden";
 import { buildComfortView } from "./comfort-view";
 import { buildGardenView } from "./garden-view";
 import { More } from "./components/more";
+import { withRoomEntities } from "./config-editor";
 import { parseDashboardConfig } from "./dashboard-config";
 import { buildHomeView } from "./home-view";
 import { buildRoomLighting, lightingControllers } from "./room-lighting";
@@ -232,6 +233,22 @@ export function App({
                   onAction={runAction}
                   busy={busy}
                   error={error}
+                  onCustomize={
+                    hass.user.is_admin && configLoaded
+                      ? async (entities) => {
+                          const saved = await hass.callWS<unknown>({
+                            type: "clacamieu/dashboard/config/update",
+                            ...withRoomEntities(
+                              config,
+                              hass,
+                              route.areaId,
+                              entities,
+                            ),
+                          });
+                          setConfig(parseDashboardConfig(saved));
+                        }
+                      : undefined
+                  }
                 />
               ) : route.screen === "energy" ? (
                 <Energy hass={hass} />
