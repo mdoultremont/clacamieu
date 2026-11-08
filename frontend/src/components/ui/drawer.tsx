@@ -49,6 +49,22 @@ function DrawerOverlay({
   );
 }
 
+/**
+ * The dialog's scroll lock listens on the document, where the shadow root
+ * retargets every event to the panel host, so it cancels scrolling inside the
+ * drawer too. Scroll gestures that start in the drawer stop at its edge.
+ */
+function keepScrollInside(node: HTMLDivElement | null) {
+  if (!node) return;
+  const stop = (event: Event) => event.stopPropagation();
+  node.addEventListener("wheel", stop);
+  node.addEventListener("touchmove", stop);
+  return () => {
+    node.removeEventListener("wheel", stop);
+    node.removeEventListener("touchmove", stop);
+  };
+}
+
 function DrawerContent({
   className,
   children,
@@ -58,6 +74,7 @@ function DrawerContent({
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
       <DrawerPrimitive.Content
+        ref={keepScrollInside}
         data-slot="drawer-content"
         className={cn(
           "group/drawer-content fixed z-50 flex h-auto flex-col bg-background",
