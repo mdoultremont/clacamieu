@@ -182,6 +182,7 @@ async def test_settings_default_and_round_trip(
                     {"entity_id": "switch.oven", "display": "power"},
                     {"entity_id": "light.missing", "display": "hidden"},
                     {"entity_id": "switch.kettle", "display": "control"},
+                    {"entity_id": "switch.washer", "display": "cycle"},
                 ],
             },
         ],
@@ -201,7 +202,10 @@ async def test_settings_default_and_round_trip(
         assert read_back["result"] == saved
         await hass.async_block_till_done()
         assert hass_storage["clacamieu.dashboard"]["version"] == 2
-        assert hass_storage["clacamieu.dashboard"]["data"] == saved
+        assert hass_storage["clacamieu.dashboard"]["data"] == {
+            **saved,
+            "cycle_dismissals": {},
+        }
 
 
 @pytest.mark.usefixtures("recorder_mock", "enable_custom_integrations")
@@ -315,7 +319,7 @@ async def test_settings_migrate_v1_store(
             "rooms": [
                 {
                     "area_id": "kitchen",
-                    "entities": [{"entity_id": "switch.oven", "display": "cycle"}],
+                    "entities": [{"entity_id": "switch.oven", "display": "chart"}],
                 }
             ]
         },
@@ -409,3 +413,87 @@ async def test_settings_reject_unknown_areas_and_non_admins(
         hass_read_only_access_token,
     )
     assert non_admin_read["result"] == {"home_cards": None, "rooms": None}
+
+
+@pytest.mark.usefixtures("recorder_mock", "enable_custom_integrations")
+async def test_any_user_dismisses_a_finished_cycle_for_every_device(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    hass_storage: dict[str, Any],
+    hass_read_only_access_token: str,
+) -> None:
+    """A dismissal keeps the latest cycle end and survives settings updates."""
+    hass.states.async_set("switch.washer", "on")
+    entry = await _setup_dashboard(hass)
+    empty = await _ws(hass, hass_ws_client, {"type": "clacamieu/dashboard/cycles"})
+    assert empty["result"] == {"dismissed": {}}
+
+    dismissed = await _ws(
+        hass,
+        hass_ws_client,
+        {
+            "type": "clacamieu/dashboard/cycle/dismiss",
+            "entity_id": "switch.washer",
+            "ended_at": "2026-11-08T10:15:00.000Z",
+        },
+        hass_read_only_access_token,
+    )
+    expected = {"dismissed": {"switch.washer": "2026-11-08T10:15:00+00:00"}}
+    assert dismissed["result"] == expected
+    earlier = await _ws(
+        hass,
+        hass_ws_client,
+        {
+            "type": "clacamieu/dashboard/cycle/dismiss",
+            "entity_id": "switch.washer",
+            "ended_at": "2026-11-08T09:00:00+00:00",
+        },
+    )
+    assert earlier["result"] == expected
+    await _ws(
+        hass,
+        hass_ws_client,
+        {"type": "clacamieu/dashboard/config/update", "home_cards": [], "rooms": None},
+    )
+    await hass.async_block_till_done()
+    assert hass_storage["clacamieu.dashboard"]["data"] == {
+        "home_cards": [],
+        "rooms": None,
+        "cycle_dismissals": expected["dismissed"],
+    }
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    reloaded = await _ws(hass, hass_ws_client, {"type": "clacamieu/dashboard/cycles"})
+    assert reloaded["result"] == expected
+
+
+@pytest.mark.parametrize(
+    ("message", "code"),
+    [
+        (
+            {"entity_id": "switch.missing", "ended_at": "2026-11-08T10:15:00Z"},
+            "not_found",
+        ),
+        ({"entity_id": "switch.washer", "ended_at": "yesterday"}, "invalid_format"),
+        ({"entity_id": "bad", "ended_at": "2026-11-08T10:15:00Z"}, "invalid_format"),
+        ({"entity_id": "switch.washer"}, "invalid_format"),
+    ],
+)
+@pytest.mark.usefixtures("recorder_mock", "enable_custom_integrations")
+async def test_cycle_dismissal_rejects_unknown_entities_and_bad_times(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    message: dict[str, Any],
+    code: str,
+) -> None:
+    """Only existing entities and valid timestamps are stored."""
+    hass.states.async_set("switch.washer", "on")
+    await _setup_dashboard(hass)
+    result = await _ws(
+        hass,
+        hass_ws_client,
+        {"type": "clacamieu/dashboard/cycle/dismiss", **message},
+    )
+    assert result["error"]["code"] == code
+    read_back = await _ws(hass, hass_ws_client, {"type": "clacamieu/dashboard/cycles"})
+    assert read_back["result"] == {"dismissed": {}}

@@ -22,12 +22,14 @@ if TYPE_CHECKING:
 
 COMMAND_GET_CONFIG = f"{DOMAIN}/dashboard/config"
 COMMAND_UPDATE_CONFIG = f"{DOMAIN}/dashboard/config/update"
+COMMAND_GET_CYCLES = f"{DOMAIN}/dashboard/cycles"
+COMMAND_DISMISS_CYCLE = f"{DOMAIN}/dashboard/cycle/dismiss"
 
 
 MAX_CARDS = 100
 MAX_ROOMS = 500
 MAX_ENTITIES = 500
-ENTITY_DISPLAYS = ("control", "power", "hidden")
+ENTITY_DISPLAYS = ("control", "power", "cycle", "hidden")
 
 
 def _unique(key: str) -> Callable[[list[dict[str, Any]]], list[dict[str, Any]]]:
@@ -127,6 +129,8 @@ def async_register_commands(hass: HomeAssistant) -> None:
     """Register the dashboard commands. Registering again replaces them."""
     websocket_api.async_register_command(hass, ws_get_config)
     websocket_api.async_register_command(hass, ws_update_config)
+    websocket_api.async_register_command(hass, ws_get_cycles)
+    websocket_api.async_register_command(hass, ws_dismiss_cycle)
 
 
 @websocket_api.websocket_command({vol.Required("type"): COMMAND_GET_CONFIG})
@@ -179,6 +183,48 @@ async def ws_update_config(
         return
     await runtime.async_update(DashboardConfig.from_dict(msg))
     connection.send_result(msg["id"], runtime.config.as_dict())
+
+
+@websocket_api.websocket_command({vol.Required("type"): COMMAND_GET_CYCLES})
+@callback
+def ws_get_cycles(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return the end of each cycle appliance's dismissed cycle."""
+    if (runtime := _runtime(hass)) is None:
+        connection.send_error(
+            msg["id"], websocket_api.ERR_NOT_FOUND, "Dashboard not set up"
+        )
+        return
+    connection.send_result(msg["id"], {"dismissed": dict(runtime.cycle_dismissals)})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): COMMAND_DISMISS_CYCLE,
+        vol.Required("entity_id"): cv.entity_id,
+        vol.Required("ended_at"): cv.datetime,
+    }
+)
+@websocket_api.async_response
+async def ws_dismiss_cycle(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Hide a finished cycle on every device until the appliance runs again."""
+    if (runtime := _runtime(hass)) is None:
+        connection.send_error(
+            msg["id"], websocket_api.ERR_NOT_FOUND, "Dashboard not set up"
+        )
+        return
+    if hass.states.get(msg["entity_id"]) is None:
+        connection.send_error(
+            msg["id"],
+            websocket_api.ERR_NOT_FOUND,
+            f"Unknown entity: {msg['entity_id']}",
+        )
+        return
+    await runtime.async_dismiss_cycle(msg["entity_id"], msg["ended_at"])
+    connection.send_result(msg["id"], {"dismissed": dict(runtime.cycle_dismissals)})
 
 
 def _runtime(hass: HomeAssistant) -> DashboardRuntime | None:
