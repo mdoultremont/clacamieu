@@ -29,6 +29,13 @@ WebSocket tests.
 
 `dashboard/websocket.py` exposes `clacamieu/dashboard/config` to every user and
 `clacamieu/dashboard/config/update` to administrators. Updates replace both lists.
+The store also keeps `cycle_dismissals`, the end time of each cycle appliance's
+dismissed cycle by entity ID. Any signed-in user reads it with
+`clacamieu/dashboard/cycles` and adds to it with `clacamieu/dashboard/cycle/dismiss`,
+because hiding a finished cycle is a household action rather than a setting.
+A dismissal applies only to an existing entity and only moves later. Settings
+updates leave it untouched. Adding the key needed no store version change: older
+data reads as no dismissals.
 Voluptuous validates card types, required fields, entity ID syntax, alarm and
 vacuum domains, unique card IDs and area IDs, room entity displays, and existing
 areas. Entities may be missing or unavailable. Limits are 100 cards, 500 rooms,
@@ -40,7 +47,8 @@ property that Home Assistant sets on the panel element. `HassLike` in
 `frontend/src/types.ts` names the subset the panel uses. In production the
 real `hass` object satisfies it. In development, `dev-hass.ts` builds the same
 shape from a WebSocket connection. It seeds in-memory dashboard settings from
-one real read and handles both dashboard commands locally. Commands outside
+one real read and handles the dashboard commands locally, including cycle
+dismissals. Commands outside
 the read-only allowlist remain blocked. Service calls are blocked too, unless
 `CLACAMIEU_DEV_SERVICES=1` starts the server, so a developer can drive the
 real instance while testing controls.
@@ -97,6 +105,17 @@ built from realistic Home Assistant data:
   power on a plug that lost its power sensor, falls back to control. The
   Customize room sheet saves through the same admin-only update command; when
   rooms are automatic, saving materializes them as the Configuration screen does.
+- `cycle-view.ts` lists cycle appliances, the plugs an admin set to the
+  cycle display, and detects each one's cycle from its power sensor. A cycle
+  starts at 5 W and ends where power dropped below 5 W once it stays there for
+  10 minutes. It then shows as finished for 6 hours. Ten days of a washing
+  machine, a dryer, and a dishwasher set these values: standby stays under
+  2 W, and the dishwasher pauses for five minutes mid-cycle. `use-cycles.ts`
+  reads 12 hours of `history/history_during_period` every five minutes and
+  records live readings in between. Home shows a chip per running or
+  undismissed finished cycle; a chip grows into a card that overlays the page,
+  so opening it never moves the content below. The Home power card leaves out
+  plugs whose switch is hidden in its room.
 - `security-view.ts` picks the configured or first alarm, reads its modes from
   `supported_features`, and asks for a code when `code_format` is set and the
   action is a disarm or `code_arm_required` is true, as Home Assistant's own
@@ -143,6 +162,7 @@ built from realistic Home Assistant data:
 
 The development harness allows these read-only commands in addition to the
 registries, panels, user, and configuration: `clacamieu/dashboard/config`,
+`clacamieu/dashboard/cycles`,
 `frontend/get_user_data`, `energy/get_prefs`,
 `recorder/statistics_during_period`, `recorder/get_statistics_metadata`,
 `get_services`, `repairs/list_issues`, `logbook/get_events`,

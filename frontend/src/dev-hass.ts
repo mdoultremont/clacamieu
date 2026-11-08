@@ -4,6 +4,7 @@ import {
   createLongLivedTokenAuth,
   subscribeEntities,
 } from "home-assistant-js-websocket";
+import { parseCycleDismissals } from "./cycle-view";
 import { parseDashboardConfig } from "./dashboard-config";
 import type {
   DashboardConfig,
@@ -30,6 +31,7 @@ const readTypes = new Set([
   "auth/current_user",
   "get_config",
   "clacamieu/dashboard/config",
+  "clacamieu/dashboard/cycles",
   "frontend/get_user_data",
   "energy/get_prefs",
   "recorder/statistics_during_period",
@@ -79,13 +81,30 @@ export function readOnlyConnection(
 export function developmentDashboardCalls(
   calls: Pick<HassLike, "callWS" | "callService">,
   seed: DashboardConfig,
+  dismissedSeed: Record<string, number> = {},
 ): Pick<HassLike, "callWS" | "callService"> {
   let config = structuredClone(seed);
+  const dismissed = { ...dismissedSeed };
+  const cycles = () => ({
+    dismissed: Object.fromEntries(
+      Object.entries(dismissed).map(([id, at]) => [
+        id,
+        new Date(at).toISOString(),
+      ]),
+    ),
+  });
   return {
     ...calls,
     callWS: async <T>(
       message: { type: string } & Record<string, unknown>,
     ): Promise<T> => {
+      if (message.type === "clacamieu/dashboard/cycle/dismiss") {
+        const id = String(message.entity_id);
+        const at = Date.parse(String(message.ended_at));
+        if (Number.isFinite(at) && !(dismissed[id] >= at)) dismissed[id] = at;
+        return cycles() as T;
+      }
+      if (message.type === "clacamieu/dashboard/cycles") return cycles() as T;
       if (message.type === "clacamieu/dashboard/config/update") {
         config = parseDashboardConfig(message);
         return structuredClone(config) as T;
@@ -166,11 +185,17 @@ export async function createDevHass(
           type: "config/floor_registry/list",
         }),
       ]);
-    const dashboard = await calls
-      .callWS<unknown>({ type: "clacamieu/dashboard/config" })
-      .catch(() => null);
+    const [dashboard, dismissals] = await Promise.all(
+      ["clacamieu/dashboard/config", "clacamieu/dashboard/cycles"].map((type) =>
+        calls.callWS<unknown>({ type }).catch(() => null),
+      ),
+    );
     let snapshot: HassLike = {
-      ...developmentDashboardCalls(calls, parseDashboardConfig(dashboard)),
+      ...developmentDashboardCalls(
+        calls,
+        parseDashboardConfig(dashboard),
+        parseCycleDismissals(dismissals),
+      ),
       hassUrl: (path) => new URL(path, url).href,
       connection: readOnlyConnection(connection),
       floors: Object.fromEntries(

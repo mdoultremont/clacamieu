@@ -195,72 +195,111 @@ export function PowerCard({
     power.plugs.flatMap((plug) => (plug.energyId ? [plug.energyId] : [])),
   );
   const view = buildPlugPowerView(power.plugs, today, hass.language);
-  const columns = view.tracksEnergy
-    ? "grid-cols-[minmax(0,1fr)_auto_auto]"
-    : "grid-cols-[minmax(0,1fr)_auto]";
+  const rows = [
+    ...view.rows,
+    ...(view.others
+      ? [{ ...view.others, name: `+ ${t.otherPlugs(view.others.count)}` }]
+      : []),
+  ];
   return (
-    <StatusCard
-      icon={Zap}
-      tone="idle"
-      title={[t.energy, view.watts, view.today]
-        .filter((part) => part !== null)
-        .join(" · ")}
-      description={view.watts ? t.plugsRunning(view.running) : t.unavailable}
-      route={{ screen: "energy" }}
-    >
-      {view.rows.length > 0 && (
-        <div
-          className={cn(
-            "grid items-center gap-x-4 gap-y-1.5 text-sm tabular-nums",
-            columns,
-          )}
-        >
-          {view.tracksEnergy && (
-            <>
-              <span />
-              <span className="text-right text-xs text-muted-foreground">
-                {t.plugsNow}
-              </span>
-              <span className="text-right text-xs text-muted-foreground">
-                {t.today}
-              </span>
-            </>
-          )}
-          {view.rows.map((row, index) => (
-            <Fragment key={index}>
-              <span className="truncate">{row.name}</span>
-              <span
-                className={cn(
-                  "text-right",
-                  !row.running && "text-muted-foreground",
-                )}
-              >
-                {row.watts ?? "—"}
-              </span>
-              {view.tracksEnergy && (
-                <span className="text-right text-muted-foreground">
-                  {row.today ?? "—"}
-                </span>
-              )}
-            </Fragment>
-          ))}
-          {view.others && (
-            <>
-              <span className="truncate text-muted-foreground">
-                + {t.otherPlugs(view.others.count)}
-              </span>
-              <span className="text-right text-muted-foreground">
-                {view.others.watts ?? "—"}
-              </span>
-              {view.tracksEnergy && (
-                <span className="text-right text-muted-foreground">
-                  {view.others.today ?? "—"}
-                </span>
-              )}
-            </>
-          )}
+    <Tray>
+      <RouteLink
+        route={{ screen: "energy" }}
+        className="tray-card block space-y-3 p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-muted/60"
+      >
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              "grid size-11 shrink-0 place-items-center rounded-lg",
+              toneClass.idle,
+            )}
+          >
+            <Zap className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium">{t.energy}</p>
+            <p className="truncate text-sm tabular-nums text-muted-foreground">
+              {view.today
+                ? t.todayEnergy(view.today)
+                : view.watts
+                  ? t.plugsRunning(view.running)
+                  : t.unavailable}
+            </p>
+          </div>
+          <p className="shrink-0 text-xl font-semibold tracking-tight tabular-nums">
+            {view.watts ?? "—"}
+          </p>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
         </div>
-      )}
-    </StatusCard>
+        {rows.length > 0 && (
+          <div
+            className={cn(
+              "grid items-center gap-x-3 text-sm tabular-nums",
+              view.tracksEnergy
+                ? "grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+                : "grid-cols-[auto_minmax(0,1fr)_auto]",
+            )}
+          >
+            {view.tracksEnergy && (
+              <>
+                <span className="col-span-2" />
+                <span className="text-right text-xs text-muted-foreground">
+                  {t.plugsNow}
+                </span>
+                <span className="text-right text-xs text-muted-foreground">
+                  {t.today}
+                </span>
+              </>
+            )}
+            {rows.map((row, index) => (
+              <Fragment key={index}>
+                <span
+                  aria-hidden
+                  className={cn(
+                    "mt-2 size-1.5 rounded-full",
+                    row.running ? "bg-running" : "bg-muted-foreground/30",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "mt-2 truncate",
+                    "count" in row && "text-muted-foreground",
+                  )}
+                >
+                  {row.name}
+                </span>
+                <span
+                  className={cn(
+                    "mt-2 text-right",
+                    !row.running && "text-muted-foreground",
+                  )}
+                >
+                  {row.watts ?? "—"}
+                </span>
+                {view.tracksEnergy && (
+                  <span className="mt-2 text-right text-muted-foreground">
+                    {row.today ?? "—"}
+                  </span>
+                )}
+                {view.tracksEnergy && (
+                  <span
+                    aria-hidden
+                    className="col-start-2 col-end-[-1] mt-1 h-1 overflow-hidden rounded-full bg-muted"
+                  >
+                    <span
+                      className={cn(
+                        "block h-full rounded-full transition-[width] duration-500",
+                        row.running ? "bg-glow" : "bg-muted-foreground/30",
+                      )}
+                      style={{ width: `${(row.share ?? 0) * 100}%` }}
+                    />
+                  </span>
+                )}
+              </Fragment>
+            ))}
+          </div>
+        )}
+      </RouteLink>
+    </Tray>
   );
 }

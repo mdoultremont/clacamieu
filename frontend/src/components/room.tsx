@@ -8,6 +8,7 @@ import {
   Sun,
   TrendingDown,
   TrendingUp,
+  WashingMachine,
   Wind,
   type LucideIcon,
 } from "lucide-react";
@@ -26,6 +27,8 @@ import type {
   RoomEntityConfig,
   ServiceAction,
 } from "../types";
+import { cycleDetail, type CycleState } from "../cycle-view";
+import { useCycles } from "../use-cycles";
 import { useEnergyToday } from "../use-energy";
 import { climateTrend, type ClimateTrend } from "../climate-trend";
 import { useClimateHistory } from "../use-climate-history";
@@ -65,9 +68,11 @@ export function Room({
   onAction,
   error,
   onCustomize,
+  now,
 }: {
   view: RoomView;
   hass: HassLike;
+  now: Date;
   lighting: RoomLighting | null;
   onMoreInfo: (entityId: string) => void;
   language: string;
@@ -91,6 +96,15 @@ export function Room({
         ? [device.power.energyId]
         : [],
     ),
+  );
+  const cycles = useCycles(
+    hass,
+    devices.flatMap((device) =>
+      device.display === "cycle" && device.power
+        ? [{ entityId: device.id, plug: device.power }]
+        : [],
+    ),
+    now,
   );
   const hidden: EntityRow[] = [
     ...view.lights.map((light) => ({ ...light, icon: Lightbulb })),
@@ -200,7 +214,17 @@ export function Room({
       {devices.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {devices.map((device) =>
-            device.display === "power" && device.power ? (
+            device.display === "cycle" && device.power ? (
+              <CycleTile
+                key={device.id}
+                device={device}
+                watts={device.power.watts}
+                cycle={cycles[device.id] ?? { status: "idle" }}
+                now={now}
+                language={language}
+                onMoreInfo={onMoreInfo}
+              />
+            ) : device.display === "power" && device.power ? (
               <PowerTile
                 key={device.id}
                 device={device}
@@ -475,6 +499,66 @@ function PowerTile({
       language={language}
       onMoreInfo={onMoreInfo}
     />
+  );
+}
+
+const cycleTones = {
+  running: "bg-running/15 text-running",
+  finished: "bg-finished/15 text-finished",
+};
+
+/** An appliance shown by its cycle: running, recently finished, or idle. */
+function CycleTile({
+  device,
+  watts,
+  cycle,
+  now,
+  language,
+  onMoreInfo,
+}: {
+  device: RoomDevice;
+  watts: number | null;
+  cycle: CycleState;
+  now: Date;
+  language: string;
+  onMoreInfo: (entityId: string) => void;
+}) {
+  const t = messages(language);
+  return (
+    <Tray className="col-span-2">
+      <div className="tray-card relative flex items-center gap-3 p-3">
+        <button
+          type="button"
+          aria-label={t.entityDetails(device.name)}
+          onClick={() => onMoreInfo(device.id)}
+          className="absolute inset-0 rounded-[inherit] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-foreground/5"
+        />
+        <Badge
+          icon={WashingMachine}
+          className={
+            cycle.status === "running"
+              ? glowBadge
+              : "bg-muted text-muted-foreground"
+          }
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{device.name}</p>
+          <p className="truncate text-sm tabular-nums text-muted-foreground">
+            {cycleDetail(cycle, watts, now.getTime(), language)}
+          </p>
+        </div>
+        {cycle.status !== "idle" && (
+          <span
+            className={cn(
+              "pointer-events-none shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
+              cycleTones[cycle.status],
+            )}
+          >
+            {cycle.status === "running" ? t.cycleRunning : t.cycleFinished}
+          </span>
+        )}
+      </div>
+    </Tray>
   );
 }
 
