@@ -8,19 +8,25 @@ import {
   TrendingDown,
   TrendingUp,
   Wind,
+  type LucideIcon,
 } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { messages } from "../i18n";
-import type { RoomLight, RoomView } from "../room-view";
+import type {
+  RoomDevice,
+  RoomLight,
+  RoomView,
+} from "../room-view";
 import type { HassLike, ServiceAction } from "../types";
 import { climateTrend, type ClimateTrend } from "../climate-trend";
 import { useClimateHistory } from "../use-climate-history";
 import type { RoomLighting } from "../room-lighting";
 import { AirMeter } from "./air-meter";
+import { activeIcons, entityIcons } from "./entity-icon";
 import { EntityRows } from "./entity-rows";
 import { cn } from "cn";
-import { ItemSection } from "./item-section";
 import { BackLink } from "./back-link";
+import { Tray, trayLine } from "./tray";
 import { Button } from "./ui/button";
 import {
   Item,
@@ -57,6 +63,9 @@ export function Room({
   error: string | null;
 } & ActionProps) {
   const t = messages(language);
+  const sensors = [...view.sensors].sort(
+    (a, b) => Number(b.active) - Number(a.active),
+  );
   return (
     <>
       <header className="space-y-2">
@@ -76,8 +85,8 @@ export function Room({
           {error}
         </p>
       )}
-      {lighting && (
-        <LightingHero
+      {lighting ? (
+        <LightingTray
           name={view.name}
           lighting={lighting}
           lights={view.lights}
@@ -85,106 +94,255 @@ export function Room({
           busy={busy}
           onAction={onAction}
         />
-      )}
-      {view.climate.length > 0 && (
-        <Climate view={view} hass={hass} />
-      )}
-      {!lighting && view.lights.length > 0 && (
-        <ItemSection title={t.lights}>
-          <LightRows
-            lights={view.lights}
-            language={language}
-            busy={busy}
-            onAction={onAction}
-          />
-        </ItemSection>
-      )}
-      {!lighting && view.scenes.length > 0 && (
-        <ItemSection title={t.scenes}>
-          <div role="listitem" className="p-3">
-            <div className="flex w-full flex-wrap gap-2">
-              {view.scenes.map((scene) => (
-                <Button
-                  key={scene.id}
-                  variant="outline"
-                  disabled={busy}
-                  className="min-h-11 max-w-full h-auto whitespace-normal break-words px-4 py-2"
-                  onClick={() =>
-                    onAction({
+      ) : (
+        <>
+          {view.lights.length > 0 && (
+            <Tray>
+              <div
+                role="list"
+                aria-label={t.lights}
+                className="tray-card overflow-hidden"
+              >
+                <LightRows
+                  lights={view.lights}
+                  language={language}
+                  busy={busy}
+                  onAction={onAction}
+                />
+              </div>
+            </Tray>
+          )}
+          {view.scenes.length > 0 && (
+            <Tray>
+              <section aria-label={t.scenes} className="tray-card p-4">
+                <SceneChips
+                  scenes={view.scenes.map((scene) => ({
+                    id: scene.id,
+                    name: scene.name,
+                    action: {
                       domain: "scene",
                       service: "turn_on",
                       entityId: scene.id,
                       label: scene.name,
-                    })
-                  }
-                >
-                  {scene.name}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </ItemSection>
+                    },
+                  }))}
+                  busy={busy}
+                  onAction={onAction}
+                />
+              </section>
+            </Tray>
+          )}
+        </>
       )}
       {view.devices.length > 0 && (
-        <ItemSection title={t.devices}>
-          {view.devices.map((device, index) => (
-            <Fragment key={device.id}>
-              {index > 0 && <ItemSeparator />}
-              <Item size="sm" role="listitem">
-                <ItemContent>
-                  <ItemTitle>{device.name}</ItemTitle>
-                  <ItemDescription>{device.state}</ItemDescription>
-                </ItemContent>
-                <ItemActions
-                  className={
-                    device.actions.length === 1 ? "switch-target" : undefined
-                  }
-                >
-                  {device.actions.length === 1 ? (
-                    <Switch
-                      aria-label={device.name}
-                      checked={device.on}
-                      disabled={busy || !device.available}
-                      onCheckedChange={() => onAction(device.actions[0])}
-                    />
-                  ) : (
-                    device.actions.map((action, i) => (
-                      <Button
-                        key={action.service}
-                        variant="outline"
-                        size="icon"
-                        className="size-11"
-                        aria-label={action.label}
-                        disabled={busy || !device.available}
-                        onClick={() => onAction(action)}
-                      >
-                        {i === 0 ? <ArrowUp /> : <ArrowDown />}
-                      </Button>
-                    ))
-                  )}
-                </ItemActions>
-              </Item>
-            </Fragment>
+        <div className="grid grid-cols-2 gap-2">
+          {view.devices.map((device) => (
+            <DeviceTile
+              key={device.id}
+              device={device}
+              language={language}
+              onMoreInfo={onMoreInfo}
+              busy={busy}
+              onAction={onAction}
+            />
           ))}
-        </ItemSection>
+        </div>
       )}
-      {view.sensors.length > 0 && (
+      {view.climate.length > 0 && (
+        <Tray
+          alert={
+            view.air === "poor" && (
+              <>
+                <Wind className="size-3.5 shrink-0" />
+                <span className="truncate">{t.airOutAdvice}</span>
+              </>
+            )
+          }
+          info={
+            [view.comfort, view.outdoor && `${t.outside} ${view.outdoor}`]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
+        >
+          <Climate view={view} hass={hass} />
+        </Tray>
+      )}
+      {sensors.length > 0 && (
         <section className="space-y-2" aria-label={t.sensors}>
           <h2 className="px-1 text-xs font-medium text-muted-foreground">
             {t.sensors}
           </h2>
-          <EntityRows
-            onMoreInfo={onMoreInfo}
-            rows={view.sensors.map((sensor) => ({
-              id: sensor.id,
-              name: sensor.name,
-              value: sensor.state,
-              unavailable: !sensor.available,
-            }))}
-          />
+          <Tray>
+            <EntityRows
+              className="tray-card"
+              onMoreInfo={onMoreInfo}
+              rows={sensors.map((sensor) => ({
+                id: sensor.id,
+                name: sensor.name,
+                value: sensor.state,
+                detail: (sensor.available && sensor.changed) || undefined,
+                icon:
+                  (sensor.active && activeIcons[sensor.deviceClass]) ||
+                  entityIcons[sensor.deviceClass],
+                active: sensor.active,
+                unavailable: !sensor.available,
+              }))}
+            />
+          </Tray>
         </section>
       )}
     </>
+  );
+}
+
+const glowBadge =
+  "bg-glow text-glow-foreground shadow-[0_6px_18px_-8px_var(--glow)]";
+
+/** A small tray whose body opens more-info and whose control sits on top. */
+function Tile({
+  entityId,
+  name,
+  description,
+  badge,
+  control,
+  language,
+  onMoreInfo,
+}: {
+  entityId: string;
+  name: string;
+  description: string;
+  badge: ReactNode;
+  control?: ReactNode;
+  language: string;
+  onMoreInfo: (entityId: string) => void;
+}) {
+  return (
+    <Tray>
+      <div className="tray-card relative flex flex-1 flex-col gap-2 p-3">
+        <button
+          type="button"
+          aria-label={messages(language).entityDetails(name)}
+          onClick={() => onMoreInfo(entityId)}
+          className="absolute inset-0 rounded-[inherit] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-foreground/5"
+        />
+        <div className="flex min-h-11 items-center justify-between gap-2">
+          {badge}
+          {control && <div className="relative flex gap-1">{control}</div>}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-medium">{name}</p>
+          <p className="truncate text-sm tabular-nums text-muted-foreground">
+            {description}
+          </p>
+        </div>
+      </div>
+    </Tray>
+  );
+}
+
+function Badge({
+  icon: Icon,
+  className,
+}: {
+  icon: LucideIcon;
+  className: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "grid size-9 shrink-0 place-items-center rounded-lg transition-[background-color,color,box-shadow] duration-200",
+        className,
+      )}
+    >
+      <Icon className="size-[1.125rem]" />
+    </span>
+  );
+}
+
+function DeviceTile({
+  device,
+  language,
+  onMoreInfo,
+  busy,
+  onAction,
+}: {
+  device: RoomDevice;
+  language: string;
+  onMoreInfo: (entityId: string) => void;
+} & ActionProps) {
+  const cover = device.domain === "cover";
+  return (
+    <Tile
+      entityId={device.id}
+      name={device.name}
+      description={
+        cover && device.position !== null
+          ? `${device.state} · ${device.position} %`
+          : device.state
+      }
+      badge={
+        <Badge
+          icon={entityIcons[device.domain]}
+          className={
+            device.on && !cover
+              ? glowBadge
+              : "bg-muted text-muted-foreground"
+          }
+        />
+      }
+      control={
+        cover ? (
+          device.actions.map((action, i) => (
+            <Button
+              key={action.service}
+              variant="outline"
+              size="icon"
+              className="size-11"
+              aria-label={action.label}
+              disabled={busy || !device.available}
+              onClick={() => onAction(action)}
+            >
+              {i === 0 ? <ArrowUp /> : <ArrowDown />}
+            </Button>
+          ))
+        ) : (
+          <span className="switch-target flex items-center">
+            <Switch
+              aria-label={device.name}
+              checked={device.on}
+              disabled={busy || !device.available}
+              onCheckedChange={() => onAction(device.actions[0])}
+            />
+          </span>
+        )
+      }
+      language={language}
+      onMoreInfo={onMoreInfo}
+    />
+  );
+}
+
+function SceneChips({
+  scenes,
+  busy,
+  onAction,
+}: {
+  scenes: { id: string; name: string; action: ServiceAction }[];
+} & ActionProps) {
+  return (
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
+      {scenes.map((scene) => (
+        <Button
+          key={scene.id}
+          variant="secondary"
+          disabled={busy}
+          className="min-h-11 shrink-0 rounded-full px-4"
+          onClick={() => onAction(scene.action)}
+        >
+          {scene.name}
+        </Button>
+      ))}
+    </div>
   );
 }
 
@@ -308,10 +466,7 @@ function Climate({ view, hass }: { view: RoomView; hass: HassLike }) {
   const co2 = view.climate.find((sensor) => sensor.label === "co2");
   const poor = view.air === "poor";
   return (
-    <section
-      aria-label={t.climate}
-      className="space-y-4 rounded-xl border bg-card p-4 text-card-foreground"
-    >
+    <section aria-label={t.climate} className="tray-card space-y-4 p-4">
       {readings.length > 0 && (
         <dl
           className="grid divide-x"
@@ -377,19 +532,13 @@ function Climate({ view, hass }: { view: RoomView; hass: HassLike }) {
             <span>1200</span>
             <span>2000</span>
           </div>
-          {poor && (
-            <p className="flex items-center gap-2 rounded-lg bg-air-poor/10 px-3 py-2 text-sm text-air-poor">
-              <Wind className="size-4 shrink-0" />
-              {t.airOutAdvice}
-            </p>
-          )}
         </div>
       )}
     </section>
   );
 }
 
-function LightingHero({
+function LightingTray({
   name,
   lighting,
   lights,
@@ -411,95 +560,86 @@ function LightingHero({
   }
   const { on } = lighting;
   return (
-    <section
-      aria-label={t.lights}
-      className="space-y-4 rounded-xl border bg-card p-4 text-card-foreground"
-    >
-      <label className="flex cursor-pointer items-center gap-3">
-        <span
-          className={cn(
-            "grid size-11 shrink-0 place-items-center rounded-lg transition-[background-color,color,box-shadow] duration-200",
-            on
-              ? "bg-glow text-glow-foreground shadow-[0_6px_18px_-8px_var(--glow)]"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          <Lightbulb className="size-5" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-medium">{t.lights}</span>
-          <span className="block text-sm tabular-nums text-muted-foreground">
-            {!lighting.available
-              ? t.unavailable
-              : !on
-                ? t.roomOff
-                : lighting.brightness !== null
-                  ? `${t.roomOn} · ${lighting.brightness} %`
-                  : t.roomOn}
+    <Tray>
+      <section aria-label={t.lights} className="tray-card space-y-4 p-4">
+        <label className="flex cursor-pointer items-center gap-3">
+          <span
+            className={cn(
+              "grid size-11 shrink-0 place-items-center rounded-lg transition-[background-color,color,box-shadow] duration-200",
+              on ? glowBadge : "bg-muted text-muted-foreground",
+            )}
+          >
+            <Lightbulb className="size-5" />
           </span>
-        </span>
-        <span className="switch-target flex items-center">
-          <Switch
-            aria-label={t.roomLights(name)}
-            checked={on}
-            disabled={busy || !lighting.available}
-            onCheckedChange={() => onAction(lighting.toggle)}
-          />
-        </span>
-      </label>
-      {on && lighting.dimmable && (
-        <div className="flex items-center gap-3">
-          <Sun className="size-4 shrink-0 text-muted-foreground" />
-          <Slider
-            aria-label={t.brightness(name)}
-            className="min-h-11 flex-1"
-            value={[value]}
-            min={1}
-            max={100}
-            step={1}
-            disabled={busy}
-            onValueChange={([next]) => setValue(next)}
-            onValueCommit={async ([next]) => {
-              const done = await onAction({
-                domain: "light",
-                service: "turn_on",
-                entityId: lighting.entityId,
-                label: name,
-                data: { brightness_pct: next },
-              });
-              if (!done) setValue(lighting.brightness ?? 100);
-            }}
-          />
-          <span className="w-10 text-right text-sm tabular-nums">
-            {value} %
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">{t.lights}</span>
+            <span className="block text-sm tabular-nums text-muted-foreground">
+              {!lighting.available
+                ? t.unavailable
+                : !on
+                  ? t.roomOff
+                  : lighting.brightness !== null
+                    ? `${t.roomOn} · ${lighting.brightness} %`
+                    : t.roomOn}
+            </span>
           </span>
-        </div>
-      )}
-      {lighting.scenes.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">{t.scenes}</p>
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
-            {lighting.scenes.map((scene) => (
-              <Button
-                key={scene.id}
-                variant="secondary"
-                disabled={busy}
-                className="min-h-11 shrink-0 rounded-full px-4"
-                onClick={() => onAction(scene.action)}
-              >
-                {scene.name}
-              </Button>
-            ))}
+          <span className="switch-target flex items-center">
+            <Switch
+              aria-label={t.roomLights(name)}
+              checked={on}
+              disabled={busy || !lighting.available}
+              onCheckedChange={() => onAction(lighting.toggle)}
+            />
+          </span>
+        </label>
+        {on && lighting.dimmable && (
+          <div className="flex items-center gap-3">
+            <Sun className="size-4 shrink-0 text-muted-foreground" />
+            <Slider
+              aria-label={t.brightness(name)}
+              className="min-h-11 flex-1"
+              value={[value]}
+              min={1}
+              max={100}
+              step={1}
+              disabled={busy}
+              onValueChange={([next]) => setValue(next)}
+              onValueCommit={async ([next]) => {
+                const done = await onAction({
+                  domain: "light",
+                  service: "turn_on",
+                  entityId: lighting.entityId,
+                  label: name,
+                  data: { brightness_pct: next },
+                });
+                if (!done) setValue(lighting.brightness ?? 100);
+              }}
+            />
+            <span className="w-10 text-right text-sm tabular-nums">
+              {value} %
+            </span>
           </div>
-        </div>
-      )}
+        )}
+        {lighting.scenes.length > 0 && (
+          <SceneChips scenes={lighting.scenes} busy={busy} onAction={onAction} />
+        )}
+      </section>
       {lights.length > 0 && (
-        <details className="group -mx-4 -mb-4 border-t">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 text-sm text-muted-foreground [&::-webkit-details-marker]:hidden">
+        <details className="group">
+          <summary
+            className={cn(
+              trayLine,
+              "min-h-11 cursor-pointer list-none justify-between [&::-webkit-details-marker]:hidden",
+            )}
+          >
             {t.allLights(lights.length)}
-            <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+            <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
           </summary>
-          <div role="list" aria-label={t.lights} className="border-t">
+          <div
+            role="list"
+            aria-label={t.lights}
+            className="tray-card overflow-hidden"
+          >
             <LightRows
               lights={lights}
               language={language}
@@ -509,7 +649,7 @@ function LightingHero({
           </div>
         </details>
       )}
-    </section>
+    </Tray>
   );
 }
 

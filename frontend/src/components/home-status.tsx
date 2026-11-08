@@ -20,7 +20,7 @@ import type { VacuumView } from "../vacuum-view";
 import { RouteLink } from "./route-link";
 import { Tray } from "./tray";
 
-const toneClass: Record<Tone, string> = {
+export const toneClass: Record<Tone, string> = {
   idle: "bg-muted text-muted-foreground",
   active: "bg-primary text-primary-foreground",
   alert: "bg-destructive text-white",
@@ -140,7 +140,7 @@ export function VacuumCard({
   ]
     .filter(Boolean)
     .join(" · ");
-  const low = vacuum?.consumables.filter((item) => item.low) ?? [];
+  const low = vacuum?.maintenance.items.filter((item) => item.flagged) ?? [];
   return (
     <StatusCard
       icon={Bot}

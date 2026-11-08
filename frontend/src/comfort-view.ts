@@ -57,21 +57,6 @@ export function buildComfortView(
       const dewPoint = sensors.find((entity) =>
         /_dew_?point$/.test(entity.entity_id),
       );
-      const perception = sensors.find(
-        (entity) =>
-          /_(?:thermal_|dew_?point_)?perception$/.test(entity.entity_id) &&
-          !["unknown", "unavailable"].includes(entity.state),
-      );
-      const humidityLabel =
-        humidity === null
-          ? null
-          : humidity < 40
-            ? t.comfortPerception.dry
-            : humidity <= 60
-              ? t.comfortPerception.comfortable
-              : humidity <= 70
-                ? t.comfortPerception.humid
-                : t.comfortPerception.veryHumid;
       return [
         {
           id: room.area_id,
@@ -83,13 +68,7 @@ export function buildComfortView(
             resolved[0].entity?.attributes.unit_of_measurement ?? "°C",
           dewPoint: numeric(dewPoint?.state),
           dewPointUnit: dewPoint?.attributes.unit_of_measurement ?? "°C",
-          perception: perception
-            ? (hass.formatEntityState?.(perception) ??
-              t.comfortPerception[
-                perception.state as keyof typeof t.comfortPerception
-              ] ??
-              humidityLabel)
-            : humidityLabel,
+          perception: roomPerception(hass, room.area_id, humidity),
           problems: [
             ...(humidity !== null && humidity > 70 ? [t.highHumidity] : []),
             ...(co2 !== null && co2 > 1200 ? [t.highCo2] : []),
@@ -129,4 +108,38 @@ export function sortComfortRooms(
     return room[filter] ?? -Infinity;
   };
   return [...rooms].sort((a, b) => score(b) - score(a));
+}
+
+/** The room's comfort in words, from a perception sensor or its humidity. */
+export function roomPerception(
+  hass: HassLike,
+  areaId: string,
+  humidity: number | null,
+): string | null {
+  const t = messages(hass.language);
+  const perception = Object.values(hass.states).find(
+    (entity) =>
+      entity.entity_id.startsWith("sensor.") &&
+      /_(?:thermal_|dew_?point_)?perception$/.test(entity.entity_id) &&
+      entityArea(hass, entity.entity_id) === areaId &&
+      !hass.entities[entity.entity_id]?.hidden &&
+      !hass.entities[entity.entity_id]?.entity_category &&
+      !["unknown", "unavailable"].includes(entity.state),
+  );
+  const humidityLabel =
+    humidity === null
+      ? null
+      : humidity < 40
+        ? t.comfortPerception.dry
+        : humidity <= 60
+          ? t.comfortPerception.comfortable
+          : humidity <= 70
+            ? t.comfortPerception.humid
+            : t.comfortPerception.veryHumid;
+  if (!perception) return humidityLabel;
+  return (
+    hass.formatEntityState?.(perception) ??
+    t.comfortPerception[perception.state as keyof typeof t.comfortPerception] ??
+    humidityLabel
+  );
 }

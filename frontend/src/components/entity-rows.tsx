@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { cn } from "cn";
 
 export interface EntityRow {
@@ -5,8 +6,13 @@ export interface EntityRow {
   name: string;
   /** Short state or time shown on the right. */
   value: string;
+  /** A muted line under the value, such as when it changed. */
+  detail?: string;
   /** A status dot before the name; none when absent. */
   dot?: "good" | "alert" | "off";
+  icon?: LucideIcon;
+  /** A state worth noticing that isn't a problem, such as an open window. */
+  active?: boolean;
   alert?: boolean;
   unavailable?: boolean;
 }
@@ -21,13 +27,16 @@ const dotClass = {
 export function EntityRows({
   rows,
   onMoreInfo,
+  className = "rounded-xl border bg-card text-card-foreground",
 }: {
   rows: EntityRow[];
   onMoreInfo: (entityId: string) => void;
+  /** The list's surface; a bordered card unless a tray provides one. */
+  className?: string;
 }) {
   return (
-    <ul className="divide-y overflow-hidden rounded-xl border bg-card text-card-foreground">
-      {rows.map((row) => (
+    <ul className={cn("divide-y overflow-hidden", className)}>
+      {rows.map(({ icon: Icon, ...row }) => (
         <li key={row.id}>
           <button
             type="button"
@@ -39,6 +48,9 @@ export function EntityRows({
                 aria-hidden
                 className={cn("size-2 shrink-0 rounded-full", dotClass[row.dot])}
               />
+            )}
+            {Icon && (
+              <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
             )}
             <span
               className={cn(
@@ -55,7 +67,17 @@ export function EntityRows({
                 row.alert ? "text-air-poor" : "text-muted-foreground",
               )}
             >
-              {row.value}
+              <span
+                className={cn(
+                  "block",
+                  row.active && "font-semibold text-foreground",
+                )}
+              >
+                {row.value}
+              </span>
+              {row.detail && (
+                <span className="block text-[0.6875rem]">{row.detail}</span>
+              )}
             </span>
           </button>
         </li>

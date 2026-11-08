@@ -30,6 +30,9 @@ export function Tray({
   );
 }
 
+export const trayLine =
+  "flex min-h-8 min-w-0 items-center gap-1.5 overflow-hidden px-2.5 py-1.5 text-[0.8125rem] whitespace-nowrap text-muted-foreground";
+
 export function TrayLine({
   ref,
   className,
@@ -42,10 +45,7 @@ export function TrayLine({
   return (
     <div
       ref={ref}
-      className={cn(
-        "flex min-h-8 min-w-0 items-center gap-1.5 overflow-hidden px-2.5 py-1.5 text-[0.8125rem] whitespace-nowrap text-muted-foreground",
-        className,
-      )}
+      className={cn(trayLine, className)}
     >
       {children}
     </div>
