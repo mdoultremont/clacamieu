@@ -51,7 +51,7 @@ export function Meter({
   let start = scale.min;
   return (
     <div className={cn("relative h-1.5", className)} aria-hidden>
-      <div className="flex h-full gap-0.5 overflow-hidden rounded-full">
+      <div className="flex h-full gap-1">
         {scale.zones.map((zone) => {
           const width = (zone.until - start) / span;
           start = zone.until;
@@ -59,7 +59,7 @@ export function Meter({
             <div
               key={zone.until}
               className={cn(
-                "h-full transition-opacity",
+                "h-full rounded-full transition-opacity",
                 zone === active ? "opacity-100" : "opacity-30",
                 levelClass[zone.level],
               )}
