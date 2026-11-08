@@ -148,7 +148,9 @@ export function App({
       </div>
     );
   const room =
-    route.screen === "room" ? buildRoomView(hass, config, route.areaId) : null;
+    route.screen === "room"
+      ? buildRoomView(hass, config, route.areaId, now)
+      : null;
   const tabs = [
     { key: "home", label: t.home, icon: House },
     { key: "rooms", label: t.rooms, icon: LayoutGrid },

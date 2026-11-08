@@ -223,7 +223,7 @@ export function buildSecurityView(
   };
 }
 
-function relativeTime(changed: number, now: Date, language: string): string {
+export function relativeTime(changed: number, now: Date, language: string): string {
   // A device clock slightly ahead of ours must not read as a future change.
   const seconds = Math.min(0, (changed - now.getTime()) / 1000);
   const [unit, divisor]: [Intl.RelativeTimeFormatUnit, number] =

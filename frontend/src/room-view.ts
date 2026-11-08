@@ -2,6 +2,7 @@ import { numeric } from "./home-view";
 import { locale, messages } from "./i18n";
 import { airLevel } from "./room-lighting";
 import { areaSensor, entityArea, resolveRoomSensors } from "./room-sensors";
+import { relativeTime } from "./security-view";
 import type {
   DashboardConfig,
   HassEntity,
@@ -23,6 +24,38 @@ export interface RoomLight extends RoomEntity {
 }
 export type ClimateLabel = "temperature" | "humidity" | "co2" | "pm25";
 
+const deviceDomains = [
+  "switch",
+  "fan",
+  "cover",
+  "media_player",
+  "input_boolean",
+] as const;
+export type DeviceDomain = (typeof deviceDomains)[number];
+export interface RoomDevice extends RoomEntity {
+  domain: DeviceDomain;
+  /** Cover position from 0 (closed) to 100 (open). */
+  position: number | null;
+  actions: ServiceAction[];
+}
+
+/** Whether an "on" state is worth surfacing, by binary sensor class. */
+const alertWhenOn = {
+  door: true,
+  window: true,
+  garage_door: true,
+  moisture: true,
+  motion: false,
+  occupancy: false,
+} as const;
+export type SensorClass = keyof typeof alertWhenOn;
+export interface RoomSensor extends RoomEntity {
+  deviceClass: SensorClass;
+  alert: boolean;
+  /** When the state last changed, relative to now. */
+  changed: string | null;
+}
+
 export interface RoomView {
   id: string;
   name: string;
@@ -37,14 +70,15 @@ export interface RoomView {
   air: "good" | "fair" | "poor" | null;
   lights: RoomLight[];
   scenes: RoomEntity[];
-  devices: (RoomEntity & { actions: ServiceAction[] })[];
-  sensors: RoomEntity[];
+  devices: RoomDevice[];
+  sensors: RoomSensor[];
 }
 
 export function buildRoomView(
   hass: HassLike,
   config: DashboardConfig,
   areaId: string,
+  now: Date,
 ): RoomView | null {
   const area = hass.areas[areaId];
   if (!area) return null;
@@ -158,17 +192,17 @@ export function buildRoomView(
     scenes: entities
       .filter((entity) => entity.entity_id.startsWith("scene."))
       .map(entityView),
-    devices: entities
-      .filter((entity) =>
-        ["switch", "fan", "cover", "media_player", "input_boolean"].includes(
-          entity.entity_id.split(".")[0],
-        ),
-      )
-      .map((entity) => {
-        const view = entityView(entity);
-        return {
+    devices: entities.flatMap((entity): RoomDevice[] => {
+      const domain = entity.entity_id.split(".")[0] as DeviceDomain;
+      if (!deviceDomains.includes(domain)) return [];
+      const view = entityView(entity);
+      const cover = domain === "cover";
+      return [
+        {
           ...view,
-          actions: entity.entity_id.startsWith("cover.")
+          domain,
+          position: cover ? numeric(entity.attributes.current_position) : null,
+          actions: cover
             ? [
                 {
                   domain: "cover",
@@ -191,22 +225,28 @@ export function buildRoomView(
                   label: view.name,
                 },
               ],
-        };
-      }),
-    sensors: entities
-      .filter(
-        (entity) =>
-          entity.entity_id.startsWith("binary_sensor.") &&
-          [
-            "door",
-            "window",
-            "garage_door",
-            "moisture",
-            "motion",
-            "occupancy",
-          ].includes(entity.attributes.device_class ?? ""),
+        },
+      ];
+    }),
+    sensors: entities.flatMap((entity): RoomSensor[] => {
+      const deviceClass = entity.attributes.device_class as SensorClass;
+      if (
+        !entity.entity_id.startsWith("binary_sensor.") ||
+        !Object.hasOwn(alertWhenOn, deviceClass)
       )
-      .map(entityView),
+        return [];
+      const changed = Date.parse(entity.last_changed);
+      return [
+        {
+          ...entityView(entity),
+          deviceClass,
+          alert: alertWhenOn[deviceClass] && entity.state === "on",
+          changed: Number.isFinite(changed)
+            ? relativeTime(changed, now, language)
+            : null,
+        },
+      ];
+    }),
   };
 }
 
