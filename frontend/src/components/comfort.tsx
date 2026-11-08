@@ -46,7 +46,7 @@ export function Comfort({
         onValueChange={(value) => setFilter(value as ComfortFilter)}
       >
         {filters.map(({ key, label }) => (
-          <SegmentedItem key={key} value={key} className="min-h-10 flex-none">
+          <SegmentedItem key={key} value={key} className="min-h-11 flex-none">
             {label}
           </SegmentedItem>
         ))}

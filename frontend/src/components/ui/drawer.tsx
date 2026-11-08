@@ -6,7 +6,15 @@ import { Drawer as DrawerPrimitive } from "vaul";
 function Drawer({
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />;
+  // vaul's iOS touch lock reads the shadow host as the touch target and
+  // would cancel every swipe inside the panel.
+  return (
+    <DrawerPrimitive.Root
+      data-slot="drawer"
+      disablePreventScroll={false}
+      {...props}
+    />
+  );
 }
 
 function DrawerTrigger({
@@ -49,22 +57,6 @@ function DrawerOverlay({
   );
 }
 
-/**
- * The dialog's scroll lock listens on the document, where the shadow root
- * retargets every event to the panel host, so it cancels scrolling inside the
- * drawer too. Scroll gestures that start in the drawer stop at its edge.
- */
-function keepScrollInside(node: HTMLDivElement | null) {
-  if (!node) return;
-  const stop = (event: Event) => event.stopPropagation();
-  node.addEventListener("wheel", stop);
-  node.addEventListener("touchmove", stop);
-  return () => {
-    node.removeEventListener("wheel", stop);
-    node.removeEventListener("touchmove", stop);
-  };
-}
-
 function DrawerContent({
   className,
   children,
@@ -74,7 +66,6 @@ function DrawerContent({
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
       <DrawerPrimitive.Content
-        ref={keepScrollInside}
         data-slot="drawer-content"
         className={cn(
           "group/drawer-content fixed z-50 flex h-auto flex-col bg-background",
@@ -90,6 +81,23 @@ function DrawerContent({
         {children}
       </DrawerPrimitive.Content>
     </DrawerPortal>
+  );
+}
+
+/**
+ * The drawer's scrolling area. Radix's scroll lock checks events on the
+ * document, where the shadow root retargets them to the panel host, so it
+ * cancels them as outside the drawer; they stop here instead.
+ */
+function DrawerBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="drawer-body"
+      className={cn("config-drawer-body", className)}
+      onWheel={(event) => event.stopPropagation()}
+      onTouchMove={(event) => event.stopPropagation()}
+      {...props}
+    />
   );
 }
 
@@ -144,6 +152,7 @@ function DrawerDescription({
 
 export {
   Drawer,
+  DrawerBody,
   DrawerPortal,
   DrawerOverlay,
   DrawerTrigger,

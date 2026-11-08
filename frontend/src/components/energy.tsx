@@ -39,7 +39,7 @@ export function Energy({ hass }: { hass: HassLike }) {
         onValueChange={(value) => setPeriod(value as EnergyPeriod)}
       >
         {(["day", "week", "month", "year"] as const).map((value) => (
-          <SegmentedItem key={value} value={value} className="min-h-10">
+          <SegmentedItem key={value} value={value} className="min-h-11">
             {t.energyPeriods[value]}
           </SegmentedItem>
         ))}

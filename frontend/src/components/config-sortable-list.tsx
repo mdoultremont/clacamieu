@@ -131,7 +131,7 @@ function SortableRow({
       role="listitem"
       data-config-row={row.id}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={`relative flex items-center gap-1 border-b bg-card px-1 last:border-b-0 ${row.hidden ? "text-muted-foreground" : "text-card-foreground"} ${isDragging ? "z-10 shadow-lg" : ""}`}
+      className={`relative flex flex-wrap items-center gap-x-1 border-b bg-card px-1 last:border-b-0 ${row.hidden ? "text-muted-foreground" : "text-card-foreground"} ${isDragging ? "z-10 shadow-lg" : ""}`}
     >
       <Button
         ref={setActivatorNodeRef}
@@ -150,13 +150,13 @@ function SortableRow({
           type="button"
           onClick={onEdit}
           aria-label={`${t.editItem} ${row.title}`}
-          className="flex min-h-14 min-w-0 flex-1 items-center gap-2 rounded-md py-3 text-left outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-14 min-w-24 flex-1 items-center gap-2 rounded-md py-3 text-left outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring"
         >
           {text}
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
         </button>
       ) : (
-        <span className="flex min-h-14 min-w-0 flex-1 items-center py-3">
+        <span className="flex min-h-14 min-w-24 flex-1 items-center py-3">
           {text}
         </span>
       )}

@@ -293,7 +293,7 @@ export function Vacuum({
                       <dt className="text-xs text-pretty text-muted-foreground">
                         {stat.name}
                       </dt>
-                      <dd className="truncate text-xl font-semibold tracking-tight tabular-nums">
+                      <dd className="text-lg font-semibold tracking-tight text-pretty tabular-nums">
                         {stat.value}
                       </dd>
                     </div>
@@ -821,7 +821,12 @@ function CleaningTray({
     >
       <div className="tray-card space-y-2.5 p-3">
         {view.settings.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
+          <div
+            className={cn(
+              "grid gap-2",
+              view.settings.length > 1 && "grid-cols-2",
+            )}
+          >
             {view.settings.map((setting) => (
               <Select
                 key={setting.id}
@@ -834,10 +839,7 @@ function CleaningTray({
                   if (option) onAction(option.action);
                 }}
               >
-                <SelectTrigger
-                  aria-label={setting.label}
-                  className="h-auto min-h-12 w-full min-w-0 py-1.5 text-left"
-                >
+                <SelectTrigger className="h-auto min-h-12 w-full min-w-0 py-1.5 text-left">
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-xs text-muted-foreground">
                       {setting.label}

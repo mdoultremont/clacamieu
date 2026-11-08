@@ -48,6 +48,7 @@ import {
 import {
   Drawer,
   DrawerClose,
+  DrawerBody,
   DrawerContent,
   DrawerDescription,
   DrawerFooter,
@@ -302,7 +303,7 @@ export function Configuration({
                   : t.cardOptions}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="config-drawer-body">
+          <DrawerBody>
             {selection?.type === "add" && (
               <div className="divide-y rounded-xl border">
                 {cardTypes.map((type) => {
@@ -386,7 +387,7 @@ export function Configuration({
                 />
               </>
             )}
-          </div>
+          </DrawerBody>
           <DrawerFooter>
             <DrawerClose asChild>
               <Button variant="outline">{t.close}</Button>

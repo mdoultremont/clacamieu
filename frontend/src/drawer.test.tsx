@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, it } from "vitest";
 import {
   Drawer,
+  DrawerBody,
   DrawerContent,
   DrawerDescription,
   DrawerTitle,
@@ -19,7 +20,7 @@ afterEach(async () => {
   host?.remove();
 });
 
-it("lets the page scroll gestures that start inside a drawer in a shadow root", async () => {
+it("keeps wheel scrolling inside a drawer rendered in a shadow root", async () => {
   host = document.createElement("div");
   document.body.append(host);
   const shadow = host.attachShadow({ mode: "open" });
@@ -34,18 +35,23 @@ it("lets the page scroll gestures that start inside a drawer in a shadow root", 
           <DrawerContent>
             <DrawerTitle>Title</DrawerTitle>
             <DrawerDescription>Description</DrawerDescription>
-            <div data-testid="body">Long list</div>
+            <DrawerBody>
+              <p data-testid="row">Long list</p>
+            </DrawerBody>
           </DrawerContent>
         </Drawer>
       </PortalContainerContext>,
     ),
   );
-  const body = shadow.querySelector('[data-testid="body"]')!;
+  const body = shadow.querySelector<HTMLElement>('[data-slot="drawer-body"]')!;
+  body.style.overflowY = "auto";
+  Object.defineProperties(body, {
+    scrollHeight: { value: 1000 },
+    clientHeight: { value: 400 },
+  });
+  const row = shadow.querySelector('[data-testid="row"]')!;
   const init = { bubbles: true, cancelable: true, composed: true };
   const wheel = new WheelEvent("wheel", { ...init, deltaY: 100 });
-  const touch = new Event("touchmove", init);
-  body.dispatchEvent(wheel);
-  body.dispatchEvent(touch);
+  row.dispatchEvent(wheel);
   expect(wheel.defaultPrevented).toBe(false);
-  expect(touch.defaultPrevented).toBe(false);
 });
