@@ -175,6 +175,33 @@ describe("room views", () => {
       changed: expect.stringMatching(/^il y a 12\s+min$/),
     });
   });
+  it("describes the room's comfort and the outdoor temperature", () => {
+    const hass = fixture();
+    expect(buildRoomView(hass, config, "room_a", now)).toMatchObject({
+      comfort: "Confortable",
+      outdoor: null,
+    });
+    hass.states["weather.home"] = {
+      ...hass.states["sensor.temp"],
+      entity_id: "weather.home",
+      state: "cloudy",
+      attributes: { temperature: 8.24, temperature_unit: "°C" },
+    };
+    hass.states["sensor.room_thermal_perception"] = {
+      ...hass.states["sensor.temp"],
+      entity_id: "sensor.room_thermal_perception",
+      state: "somewhat_uncomfortable",
+      attributes: {},
+    };
+    hass.entities["sensor.room_thermal_perception"] = {
+      entity_id: "sensor.room_thermal_perception",
+      device_id: "device_a",
+    };
+    expect(buildRoomView(hass, config, "room_a", now)).toMatchObject({
+      comfort: "Légèrement inconfortable",
+      outdoor: "8,2°C",
+    });
+  });
   it("excludes hidden and category entities and honors entity areas over device areas", () => {
     const hass = fixture();
     hass.entities["light.member_a"].hidden = true;

@@ -23,12 +23,15 @@ const dotClass = {
 export function EntityRows({
   rows,
   onMoreInfo,
+  className = "rounded-xl border bg-card text-card-foreground",
 }: {
   rows: EntityRow[];
   onMoreInfo: (entityId: string) => void;
+  /** The list's surface; a bordered card unless a tray provides one. */
+  className?: string;
 }) {
   return (
-    <ul className="divide-y overflow-hidden rounded-xl border bg-card text-card-foreground">
+    <ul className={cn("divide-y overflow-hidden", className)}>
       {rows.map(({ icon: Icon, ...row }) => (
         <li key={row.id}>
           <button

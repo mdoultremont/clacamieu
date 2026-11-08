@@ -1,3 +1,4 @@
+import { formatClimate, roomPerception } from "./comfort-view";
 import { numeric } from "./home-view";
 import { locale, messages } from "./i18n";
 import { airLevel } from "./room-lighting";
@@ -68,6 +69,10 @@ export interface RoomView {
     unit: string;
   }[];
   air: "good" | "fair" | "poor" | null;
+  /** The room's comfort in words, such as "Comfortable". */
+  comfort: string | null;
+  /** The weather entity's temperature, such as "8,2°C". */
+  outdoor: string | null;
   lights: RoomLight[];
   scenes: RoomEntity[];
   devices: RoomDevice[];
@@ -161,6 +166,9 @@ export function buildRoomView(
       ];
     },
   );
+  const weather = Object.values(hass.states).find((entity) =>
+    entity.entity_id.startsWith("weather."),
+  );
   const lit = lights.filter((entity) => entity.state === "on");
   const litMembers = lit.filter(
     (entity) => !Array.isArray(entity.attributes.entity_id),
@@ -172,6 +180,18 @@ export function buildRoomView(
     lightsOn: litMembers || lit.length,
     climate,
     air,
+    comfort: climate.length
+      ? roomPerception(
+          hass,
+          areaId,
+          climate.find((sensor) => sensor.label === "humidity")?.raw ?? null,
+        )
+      : null,
+    outdoor: formatClimate(
+      numeric(weather?.attributes.temperature),
+      hass.language,
+      weather?.attributes.temperature_unit ?? "°C",
+    ),
     lights: orderedLights.map((entity) => {
       const brightness = numeric(entity.attributes.brightness);
       return {

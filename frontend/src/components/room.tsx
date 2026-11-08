@@ -15,7 +15,6 @@ import { messages } from "../i18n";
 import type {
   RoomDevice,
   RoomLight,
-  RoomSensor,
   RoomView,
 } from "../room-view";
 import type { HassLike, ServiceAction } from "../types";
@@ -64,8 +63,9 @@ export function Room({
   error: string | null;
 } & ActionProps) {
   const t = messages(language);
-  const alerts = view.sensors.filter((sensor) => sensor.alert);
-  const calm = view.sensors.filter((sensor) => !sensor.alert);
+  const sensors = [...view.sensors].sort(
+    (a, b) => Number(b.alert) - Number(a.alert),
+  );
   return (
     <>
       <header className="space-y-2">
@@ -134,7 +134,7 @@ export function Room({
           )}
         </>
       )}
-      {(view.devices.length > 0 || alerts.length > 0) && (
+      {view.devices.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {view.devices.map((device) => (
             <DeviceTile
@@ -144,14 +144,6 @@ export function Room({
               onMoreInfo={onMoreInfo}
               busy={busy}
               onAction={onAction}
-            />
-          ))}
-          {alerts.map((sensor) => (
-            <SensorTile
-              key={sensor.id}
-              sensor={sensor}
-              language={language}
-              onMoreInfo={onMoreInfo}
             />
           ))}
         </div>
@@ -166,25 +158,37 @@ export function Room({
               </>
             )
           }
+          info={
+            [view.comfort, view.outdoor && `${t.outside} ${view.outdoor}`]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
         >
           <Climate view={view} hass={hass} />
         </Tray>
       )}
-      {calm.length > 0 && (
+      {sensors.length > 0 && (
         <section className="space-y-2" aria-label={t.sensors}>
           <h2 className="px-1 text-xs font-medium text-muted-foreground">
             {t.sensors}
           </h2>
-          <EntityRows
-            onMoreInfo={onMoreInfo}
-            rows={calm.map((sensor) => ({
-              id: sensor.id,
-              name: sensor.name,
-              value: sensor.state,
-              icon: entityIcons[sensor.deviceClass],
-              unavailable: !sensor.available,
-            }))}
-          />
+          <Tray>
+            <EntityRows
+              className="tray-card"
+              onMoreInfo={onMoreInfo}
+              rows={sensors.map((sensor) => ({
+                id: sensor.id,
+                name: sensor.name,
+                value:
+                  sensor.alert && sensor.changed
+                    ? `${sensor.state} · ${sensor.changed}`
+                    : sensor.state,
+                icon: entityIcons[sensor.deviceClass],
+                alert: sensor.alert,
+                unavailable: !sensor.available,
+              }))}
+            />
+          </Tray>
         </section>
       )}
     </>
@@ -200,7 +204,6 @@ function Tile({
   name,
   description,
   badge,
-  alert,
   control,
   language,
   onMoreInfo,
@@ -209,13 +212,12 @@ function Tile({
   name: string;
   description: string;
   badge: ReactNode;
-  alert?: ReactNode;
   control?: ReactNode;
   language: string;
   onMoreInfo: (entityId: string) => void;
 }) {
   return (
-    <Tray alert={alert}>
+    <Tray>
       <div className="tray-card relative flex flex-1 flex-col gap-2 p-3">
         <button
           type="button"
@@ -313,33 +315,6 @@ function DeviceTile({
             />
           </span>
         )
-      }
-      language={language}
-      onMoreInfo={onMoreInfo}
-    />
-  );
-}
-
-function SensorTile({
-  sensor,
-  language,
-  onMoreInfo,
-}: {
-  sensor: RoomSensor;
-  language: string;
-  onMoreInfo: (entityId: string) => void;
-}) {
-  return (
-    <Tile
-      entityId={sensor.id}
-      name={sensor.name}
-      description={sensor.changed ?? ""}
-      alert={sensor.state}
-      badge={
-        <Badge
-          icon={entityIcons[sensor.deviceClass]}
-          className="bg-destructive/15 text-destructive"
-        />
       }
       language={language}
       onMoreInfo={onMoreInfo}
