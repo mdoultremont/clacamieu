@@ -839,7 +839,10 @@ function CleaningTray({
                   if (option) onAction(option.action);
                 }}
               >
-                <SelectTrigger className="h-auto min-h-12 w-full min-w-0 py-1.5 text-left">
+                <SelectTrigger
+                  aria-label={setting.label}
+                  className="h-auto min-h-12 w-full min-w-0 py-1.5 text-left"
+                >
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-xs text-muted-foreground">
                       {setting.label}

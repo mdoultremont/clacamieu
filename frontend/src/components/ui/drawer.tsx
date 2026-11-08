@@ -6,8 +6,8 @@ import { Drawer as DrawerPrimitive } from "vaul";
 function Drawer({
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  // vaul's iOS touch lock reads the shadow host as the touch target and
-  // would cancel every swipe inside the panel.
+  // false turns off vaul's iOS touch lock, which reads the shadow host as the
+  // touch target and would cancel every swipe inside the panel.
   return (
     <DrawerPrimitive.Root
       data-slot="drawer"
@@ -92,11 +92,11 @@ function DrawerContent({
 function DrawerBody({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
+      {...props}
       data-slot="drawer-body"
       className={cn("config-drawer-body", className)}
       onWheel={(event) => event.stopPropagation()}
       onTouchMove={(event) => event.stopPropagation()}
-      {...props}
     />
   );
 }
