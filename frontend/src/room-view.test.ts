@@ -266,4 +266,71 @@ describe("room views", () => {
       sensors: [],
     });
   });
+  it("orders each section by the saved list and resolves each element's display", () => {
+    const hass = fixture();
+    hass.states["sensor.plug_power"] = {
+      entity_id: "sensor.plug_power",
+      state: "0.42",
+      attributes: { device_class: "power", unit_of_measurement: "kW" },
+      last_changed: "",
+      last_updated: "",
+      context: { id: "test", parent_id: null, user_id: null },
+    };
+    hass.entities["sensor.plug_power"] = {
+      entity_id: "sensor.plug_power",
+      device_id: "device_a",
+    };
+    const room = buildRoomView(
+      hass,
+      {
+        home_cards: null,
+        rooms: [
+          {
+            area_id: "room_a",
+            entities: [
+              { entity_id: "switch.plug", display: "power" },
+              { entity_id: "light.member_b", display: "hidden" },
+              { entity_id: "light.member_a", display: "control" },
+              { entity_id: "cover.blind", display: "power" },
+              { entity_id: "binary_sensor.door", display: "hidden" },
+            ],
+          },
+        ],
+      },
+      "room_a",
+      now,
+    )!;
+    expect(room.lights.map((light) => [light.id, light.display])).toEqual([
+      ["light.member_b", "hidden"],
+      ["light.member_a", "control"],
+      ["light.group", "control"],
+    ]);
+    expect(room.devices.map((device) => [device.id, device.display])).toEqual([
+      ["switch.plug", "power"],
+      ["cover.blind", "control"],
+    ]);
+    expect(room.devices[0].power).toMatchObject({ id: "device_a", watts: 420 });
+    expect(room.devices[1].power).toBeNull();
+    expect(room.sensors[0].display).toBe("hidden");
+  });
+  it("shows a saved power display as a control once the plug stops measuring", () => {
+    const room = buildRoomView(
+      fixture(),
+      {
+        home_cards: null,
+        rooms: [
+          {
+            area_id: "room_a",
+            entities: [{ entity_id: "switch.plug", display: "power" }],
+          },
+        ],
+      },
+      "room_a",
+      now,
+    )!;
+    expect(room.devices.find((device) => device.id === "switch.plug")).toMatchObject({
+      display: "control",
+      power: null,
+    });
+  });
 });

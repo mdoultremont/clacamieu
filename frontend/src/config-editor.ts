@@ -1,5 +1,11 @@
 import { resolveDashboardConfig } from "./home-view";
-import type { DashboardConfig, HassLike, HomeCard, RoomConfig } from "./types";
+import type {
+  DashboardConfig,
+  HassLike,
+  HomeCard,
+  RoomConfig,
+  RoomEntityConfig,
+} from "./types";
 
 export interface ConfigEditorState {
   config: DashboardConfig;
@@ -34,6 +40,27 @@ export function createConfigEditor(
     { config: { ...config, rooms }, automatic },
     { type: "materialize" },
   );
+}
+
+/**
+ * The settings with one room's elements replaced. Automatic rooms become a
+ * saved list, as saving the Configuration screen does; Home cards stay as they are.
+ */
+export function withRoomEntities(
+  config: DashboardConfig,
+  hass: HassLike,
+  areaId: string,
+  entities: RoomEntityConfig[],
+): DashboardConfig {
+  const editor = createConfigEditor(config, hass);
+  const room = editorLists(editor).rooms.find(
+    (room) => room.area_id === areaId,
+  ) ?? { area_id: areaId };
+  const { rooms } = configEditorReducer(editor, {
+    type: "edit-room",
+    room: { ...room, entities },
+  }).config;
+  return { home_cards: config.home_cards, rooms };
 }
 
 export function editorLists(state: ConfigEditorState) {

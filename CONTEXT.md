@@ -25,6 +25,10 @@ The household dashboard that Clacamieu adds to the Home Assistant sidebar as a c
 Its Home screen, named Home in every language, contains ordered cards and room cards. A room card turns the room's lights on or off from its icon and opens the room page from the rest of the card. Home favorites are the rooms an admin picks and orders for Home in Configure Maison; the Pièces tab still shows every room. Each room represents a Home Assistant area and can override its climate sensors.
 Avoid: Home (for Maison itself), Lovelace dashboard
 
+**Room customization**
+An admin's choice, per room, of the order of the room page's lights, devices, and openings and sensors, and of each element's display. An element shows as a Control (Commande), a Power reading (Conso) for smart plugs that measure power, or Hidden (Masqué). Hidden elements fold into one collapsed line at the bottom of the room page. Admins open it with Customize room (Personnaliser la pièce) from the room page header.
+Avoid: room layout, room edit mode
+
 **Comfort**
 The Maison page that compares climate and air quality across its visible rooms.
 Its French name is Confort.

@@ -421,6 +421,35 @@ describe("dashboard configuration", () => {
       rooms: [],
     });
   });
+  it("parses a room's elements, dropping malformed and duplicate entries", () => {
+    expect(
+      parseDashboardConfig({
+        home_cards: null,
+        rooms: [
+          {
+            area_id: "room_a",
+            entities: [
+              { entity_id: "switch.oven", display: "power" },
+              { entity_id: "switch.oven", display: "hidden" },
+              { entity_id: "light.lamp", display: "future" },
+              { entity_id: "bad", display: "hidden" },
+              null,
+              { entity_id: "light.lamp", display: "hidden" },
+            ],
+          },
+          { area_id: "room_b", entities: "switch.oven" },
+        ],
+      }).rooms,
+    ).toEqual([
+      {
+        area_id: "room_a",
+        entities: [
+          { entity_id: "switch.oven", display: "power" },
+          { entity_id: "light.lamp", display: "hidden" },
+        ],
+      },
+    ]);
+  });
   it("resolves automatic cards in order using the first alarm and vacuum and the plug rule", () => {
     const hass = fixture();
     add(hass, entity("person.a", "home"));

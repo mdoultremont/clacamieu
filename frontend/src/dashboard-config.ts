@@ -1,4 +1,10 @@
-import type { DashboardConfig, HomeCard, RoomConfig } from "./types";
+import { isEntityDisplay } from "./room-display";
+import type {
+  DashboardConfig,
+  HomeCard,
+  RoomConfig,
+  RoomEntityConfig,
+} from "./types";
 
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -62,7 +68,24 @@ function parseRoom(value: unknown): RoomConfig | null {
     if (override !== null && !entityId(override)) return null;
     room[key] = override;
   }
+  if (value.entities !== undefined) {
+    const entities = parseList(
+      value.entities,
+      parseRoomEntity,
+      (entity) => entity.entity_id,
+    );
+    if (!entities) return null;
+    room.entities = entities;
+  }
   return room;
+}
+
+function parseRoomEntity(value: unknown): RoomEntityConfig | null {
+  return record(value) &&
+    entityId(value.entity_id) &&
+    isEntityDisplay(value.display)
+    ? { entity_id: value.entity_id, display: value.display }
+    : null;
 }
 
 function parseList<T>(

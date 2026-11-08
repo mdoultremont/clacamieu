@@ -6,6 +6,7 @@ import {
   editorLists,
   moveItem,
   newCardId,
+  withRoomEntities,
 } from "./config-editor";
 import type { DashboardConfig, HassLike, HomeCard } from "./types";
 
@@ -188,6 +189,32 @@ describe("configuration draft", () => {
       type: "entities",
       title: "Entities",
       entity_ids: [],
+    });
+  });
+});
+
+describe("room customization", () => {
+  it("saves one room's elements, materializing automatic rooms and leaving Home cards alone", () => {
+    const entities = [
+      { entity_id: "switch.oven", display: "power" as const },
+      { entity_id: "light.lamp", display: "hidden" as const },
+    ];
+    expect(
+      withRoomEntities({ home_cards: null, rooms: null }, hass, "b", entities),
+    ).toEqual({
+      home_cards: null,
+      rooms: [{ area_id: "a" }, { area_id: "b", entities }],
+    });
+    expect(withRoomEntities(config, hass, "b", entities)).toEqual({
+      home_cards: cards,
+      rooms: [
+        {
+          area_id: "b",
+          temperature_entity_id: "sensor.override",
+          entities,
+        },
+        { area_id: "a", hidden: true },
+      ],
     });
   });
 });

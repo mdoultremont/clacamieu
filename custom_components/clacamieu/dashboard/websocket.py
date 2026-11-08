@@ -27,6 +27,7 @@ COMMAND_UPDATE_CONFIG = f"{DOMAIN}/dashboard/config/update"
 MAX_CARDS = 100
 MAX_ROOMS = 500
 MAX_ENTITIES = 500
+ENTITY_DISPLAYS = ("control", "power", "hidden")
 
 
 def _unique(key: str) -> Callable[[list[dict[str, Any]]], list[dict[str, Any]]]:
@@ -98,10 +99,21 @@ CARD_SCHEMA = vol.Any(
         }
     ),
 )
+ROOM_ENTITY_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): cv.entity_id,
+        vol.Required("display"): vol.In(ENTITY_DISPLAYS),
+    }
+)
 ROOM_SCHEMA = vol.Schema(
     {
         vol.Required("area_id"): vol.All(str, vol.Length(min=1)),
         vol.Optional("hidden"): bool,
+        vol.Optional("entities"): vol.All(
+            [ROOM_ENTITY_SCHEMA],
+            vol.Length(max=MAX_ENTITIES),
+            _unique("entity_id"),
+        ),
         **{
             vol.Optional(key): vol.Any(None, cv.entity_id)
             for key in ("temperature_entity_id", "humidity_entity_id", "co2_entity_id")

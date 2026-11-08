@@ -2,7 +2,7 @@ import { locale } from "./i18n";
 import type { PlugReading } from "./types";
 
 /** Plugs drawing less than this are idle. */
-const runningWatts = 1;
+export const runningWatts = 1;
 /** Idle plugs that used less than this today stay out of the list. */
 const notableKwh = 0.01;
 const shownRows = 3;

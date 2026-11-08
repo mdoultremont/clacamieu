@@ -1,3 +1,5 @@
+import type { EntityDisplay } from "./room-display";
+
 export const en = {
   cameras: "Cameras",
   cameraLoading: "Loading image…",
@@ -195,6 +197,18 @@ export const en = {
   entityDetails: (name: string) => `${name} details`,
   roomLights: (name: string) => `${name} lights`,
   allLights: (count: number) => `All lights (${count})`,
+  customizeRoom: "Customize room",
+  customizeRoomDescription:
+    "Drag to reorder. Choose how each element shows on this page.",
+  openingsAndSensors: "Openings and sensors",
+  entityDisplays: {
+    control: "Control",
+    power: "Power",
+    hidden: "Hidden",
+  } satisfies Record<EntityDisplay, string>,
+  entityDisplay: (name: string) => `How ${name} shows`,
+  hiddenElements: (names: string[]) =>
+    `Hidden (${names.length}) · ${names.join(", ")}`,
   air: "Air",
   roomsToAirOut: (count: number) =>
     `${count} room${count === 1 ? "" : "s"} to air out`,
@@ -601,6 +615,17 @@ export const fr: Messages = {
   entityDetails: (name) => `Détails de ${name}`,
   roomLights: (name) => `Lumières ${name}`,
   allLights: (count) => `Toutes les lumières (${count})`,
+  customizeRoom: "Personnaliser la pièce",
+  customizeRoomDescription:
+    "Faites glisser pour réordonner. Choisissez l'affichage de chaque élément sur cette page.",
+  openingsAndSensors: "Ouvrants et capteurs",
+  entityDisplays: {
+    control: "Commande",
+    power: "Conso",
+    hidden: "Masqué",
+  },
+  entityDisplay: (name) => `Affichage de ${name}`,
+  hiddenElements: (names) => `Masqués (${names.length}) · ${names.join(", ")}`,
   air: "Air",
   roomsToAirOut: (count) =>
     `${count} pièce${count === 1 ? "" : "s"} à aérer`,

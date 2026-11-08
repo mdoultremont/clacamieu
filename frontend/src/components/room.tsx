@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Lightbulb,
   MoveRight,
+  SlidersHorizontal,
   Sun,
   TrendingDown,
   TrendingUp,
@@ -12,18 +13,27 @@ import {
 } from "lucide-react";
 import { Fragment, useState, type ReactNode } from "react";
 import { messages } from "../i18n";
+import { formatEnergy, formatWatts, runningWatts } from "../plug-power-view";
 import type {
   RoomDevice,
+  RoomElement,
   RoomLight,
   RoomView,
 } from "../room-view";
-import type { HassLike, ServiceAction } from "../types";
+import type {
+  HassLike,
+  PlugReading,
+  RoomEntityConfig,
+  ServiceAction,
+} from "../types";
+import { useEnergyToday } from "../use-energy";
 import { climateTrend, type ClimateTrend } from "../climate-trend";
 import { useClimateHistory } from "../use-climate-history";
 import type { RoomLighting } from "../room-lighting";
 import { AirMeter } from "./air-meter";
 import { activeIcons, entityIcons } from "./entity-icon";
-import { EntityRows } from "./entity-rows";
+import { EntityRows, type EntityRow } from "./entity-rows";
+import { RoomCustomization } from "./room-customization";
 import { cn } from "cn";
 import { BackLink } from "./back-link";
 import { Tray, trayLine } from "./tray";
@@ -54,6 +64,7 @@ export function Room({
   busy,
   onAction,
   error,
+  onCustomize,
 }: {
   view: RoomView;
   hass: HassLike;
@@ -61,16 +72,68 @@ export function Room({
   onMoreInfo: (entityId: string) => void;
   language: string;
   error: string | null;
+  /** Saves the room's element order and displays; absent for non-admins. */
+  onCustomize?: (entities: RoomEntityConfig[]) => Promise<void>;
 } & ActionProps) {
   const t = messages(language);
-  const sensors = [...view.sensors].sort(
+  const [customizing, setCustomizing] = useState(false);
+  const shown = <T extends RoomElement>(elements: T[]) =>
+    elements.filter((element) => element.display !== "hidden");
+  const lights = shown(view.lights);
+  const devices = shown(view.devices);
+  const sensors = shown(view.sensors).sort(
     (a, b) => Number(b.active) - Number(a.active),
   );
+  const today = useEnergyToday(
+    hass,
+    devices.flatMap((device) =>
+      device.display === "power" && device.power?.energyId
+        ? [device.power.energyId]
+        : [],
+    ),
+  );
+  const hidden: EntityRow[] = [
+    ...view.lights.map((light) => ({ ...light, icon: Lightbulb })),
+    ...view.devices.map((device) => ({
+      ...device,
+      icon: entityIcons[device.domain],
+    })),
+    ...view.sensors.map((sensor) => ({
+      ...sensor,
+      icon: entityIcons[sensor.deviceClass],
+    })),
+  ]
+    .filter((element) => element.display === "hidden")
+    .map((element) => ({
+      id: element.id,
+      name: element.name,
+      value: element.state,
+      icon: element.icon,
+      unavailable: !element.available,
+    }));
+  const customizable =
+    view.lights.length + view.devices.length + view.sensors.length > 0;
   return (
     <>
       <header className="space-y-2">
         <BackLink fallback={{ screen: "rooms" }} language={language} />
-        <h1 className="text-xl font-semibold tracking-tight">{view.name}</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight">
+            {view.name}
+          </h1>
+          {onCustomize && customizable && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-11 shrink-0 text-muted-foreground"
+              aria-label={t.customizeRoom}
+              title={t.customizeRoom}
+              onClick={() => setCustomizing(true)}
+            >
+              <SlidersHorizontal />
+            </Button>
+          )}
+        </div>
         <p className="text-muted-foreground">
           {[
             view.lightsOn ? t.lightsOn(view.lightsOn) : t.roomOff,
@@ -89,14 +152,14 @@ export function Room({
         <LightingTray
           name={view.name}
           lighting={lighting}
-          lights={view.lights}
+          lights={lights}
           language={language}
           busy={busy}
           onAction={onAction}
         />
       ) : (
         <>
-          {view.lights.length > 0 && (
+          {lights.length > 0 && (
             <Tray>
               <div
                 role="list"
@@ -104,7 +167,7 @@ export function Room({
                 className="tray-card overflow-hidden"
               >
                 <LightRows
-                  lights={view.lights}
+                  lights={lights}
                   language={language}
                   busy={busy}
                   onAction={onAction}
@@ -134,18 +197,33 @@ export function Room({
           )}
         </>
       )}
-      {view.devices.length > 0 && (
+      {devices.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
-          {view.devices.map((device) => (
-            <DeviceTile
-              key={device.id}
-              device={device}
-              language={language}
-              onMoreInfo={onMoreInfo}
-              busy={busy}
-              onAction={onAction}
-            />
-          ))}
+          {devices.map((device) =>
+            device.display === "power" && device.power ? (
+              <PowerTile
+                key={device.id}
+                device={device}
+                power={device.power}
+                energy={
+                  device.power.energyId && today
+                    ? (today[device.power.energyId] ?? null)
+                    : null
+                }
+                language={language}
+                onMoreInfo={onMoreInfo}
+              />
+            ) : (
+              <DeviceTile
+                key={device.id}
+                device={device}
+                language={language}
+                onMoreInfo={onMoreInfo}
+                busy={busy}
+                onAction={onAction}
+              />
+            ),
+          )}
         </div>
       )}
       {view.climate.length > 0 && (
@@ -190,6 +268,37 @@ export function Room({
             />
           </Tray>
         </section>
+      )}
+      {hidden.length > 0 && (
+        <Tray>
+          <details className="group">
+            <summary
+              className={cn(
+                trayLine,
+                "min-h-11 cursor-pointer list-none justify-between [&::-webkit-details-marker]:hidden",
+              )}
+            >
+              <span className="truncate">
+                {t.hiddenElements(hidden.map((row) => row.name))}
+              </span>
+              <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            <EntityRows
+              className="tray-card"
+              onMoreInfo={onMoreInfo}
+              rows={hidden}
+            />
+          </details>
+        </Tray>
+      )}
+      {onCustomize && (
+        <RoomCustomization
+          view={view}
+          language={language}
+          open={customizing}
+          onOpenChange={setCustomizing}
+          onSave={onCustomize}
+        />
       )}
     </>
   );
@@ -315,6 +424,53 @@ function DeviceTile({
             />
           </span>
         )
+      }
+      language={language}
+      onMoreInfo={onMoreInfo}
+    />
+  );
+}
+
+/** A plug shown as a reading: current draw and energy used today, no switch. */
+function PowerTile({
+  device,
+  power,
+  energy,
+  language,
+  onMoreInfo,
+}: {
+  device: RoomDevice;
+  power: PlugReading;
+  /** Energy used today in kWh, or null while loading or unknown. */
+  energy: number | null;
+  language: string;
+  onMoreInfo: (entityId: string) => void;
+}) {
+  const t = messages(language);
+  const { watts } = power;
+  return (
+    <Tile
+      entityId={device.id}
+      name={device.name}
+      description={
+        energy === null
+          ? device.state
+          : `${t.today} · ${formatEnergy(energy, language)}`
+      }
+      badge={
+        <Badge
+          icon={entityIcons.switch}
+          className={
+            (watts ?? 0) >= runningWatts
+              ? glowBadge
+              : "bg-muted text-muted-foreground"
+          }
+        />
+      }
+      control={
+        <span className="pointer-events-none text-lg font-semibold tracking-tight tabular-nums">
+          {watts === null ? "–" : formatWatts(watts, language)}
+        </span>
       }
       language={language}
       onMoreInfo={onMoreInfo}
