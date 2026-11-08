@@ -62,6 +62,7 @@ export const en = {
   roomCleaningNow: "Cleaning",
   roomNext: "Next",
   daysAgo: (count: number) => `${count} days ago`,
+  since: (duration: string) => `for ${duration}`,
   notCleanedRecently: (days: number) => `Not in ${days} days`,
   cleaningMode: "Cleaning mode",
   suctionLevel: "Suction",
@@ -208,8 +209,6 @@ export const en = {
     hidden: "Hidden",
   } satisfies Record<EntityDisplay, string>,
   entityDisplay: (name: string) => `How ${name} shows`,
-  hiddenElements: (names: string[]) =>
-    `Hidden (${names.length}) · ${names.join(", ")}`,
   air: "Air",
   roomsToAirOut: (count: number) =>
     `${count} room${count === 1 ? "" : "s"} to air out`,
@@ -493,6 +492,7 @@ export const fr: Messages = {
   roomCleaningNow: "En cours",
   roomNext: "Ensuite",
   daysAgo: (count) => `Il y a ${count} jours`,
+  since: (duration) => `depuis ${duration}`,
   notCleanedRecently: (days) => `Pas depuis ${days} jours`,
   cleaningMode: "Mode de nettoyage",
   suctionLevel: "Aspiration",
@@ -641,7 +641,6 @@ export const fr: Messages = {
     hidden: "Masqué",
   },
   entityDisplay: (name) => `Affichage de ${name}`,
-  hiddenElements: (names) => `Masqués (${names.length}) · ${names.join(", ")}`,
   air: "Air",
   roomsToAirOut: (count) =>
     `${count} pièce${count === 1 ? "" : "s"} à aérer`,

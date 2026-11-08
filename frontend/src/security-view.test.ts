@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildSecurityView } from "./security-view";
+import { buildSecurityView, elapsed } from "./security-view";
 import type { DashboardConfig, HassEntity, HassLike } from "./types";
 
 const now = new Date("2026-10-21T18:00:00Z");
@@ -262,7 +262,7 @@ describe("security view", () => {
     expect(view.openings.sensors.at(-1)?.id).toBe("binary_sensor.garage");
     expect(view.leaks.summary).toBe("Aucune fuite · 1 indisponible");
     expect(
-      view.leaks.sensors.find((sensor) => sensor.id === "binary_sensor.leak")
+      view.leaks.sensors.find((sensor) => sensor.id === "binary_sensor.leak"),
     ).toMatchObject({ state: "Indisponible", available: false });
   });
   it("handles missing timestamps, actors, and detector groups with English copy", () => {
@@ -282,5 +282,20 @@ describe("security view", () => {
     expect(view.detectors.sensors).toEqual([]);
     expect(view.alarm?.modes[1].label).toBe("Home");
     expect(view.leaks.summary).toBe("1 leak detected");
+  });
+});
+
+describe("elapsed", () => {
+  const ago = (seconds: number) => now.getTime() - seconds * 1000;
+  it("names how long ago a change happened in its largest whole unit", () => {
+    const text = (seconds: number, language: string) =>
+      elapsed(ago(seconds), now, language).replace(/\s/g, " ");
+    expect(text(30, "en")).toBe("30 sec");
+    expect(text(12 * 60 + 59, "en")).toBe("12 min");
+    expect(text(2 * 3600 + 120, "en")).toBe("2 hr");
+    expect(text(3 * 86400, "fr")).toBe("3 j");
+  });
+  it("reads a change stamped slightly in the future as just now", () => {
+    expect(elapsed(now.getTime() + 5000, now, "en")).toMatch(/^0\s+sec$/);
   });
 });

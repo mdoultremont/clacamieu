@@ -132,14 +132,13 @@ const switches = () =>
   );
 
 describe("room customization", () => {
-  it("shows a power reading in place of a toggle and folds hidden elements into one line", async () => {
+  it("shows a power reading in place of a toggle and leaves hidden elements out", async () => {
     await mount();
     expect(switches()).toEqual(["Lamp", "Kettle"]);
     expect(container.textContent).toContain("1,250 W");
     expect(container.textContent).toContain("Today · 450 Wh");
-    const summary = container.querySelector("summary")!;
-    expect(summary.textContent).toBe("Hidden (2) · Toaster, Window");
-    expect(container.querySelector("details")!.open).toBe(false);
+    expect(container.textContent).not.toContain("Toaster");
+    expect(container.textContent).not.toContain("Window");
     expect(
       container.querySelector('[aria-label="Customize room"]'),
     ).toBeNull();

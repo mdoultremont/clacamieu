@@ -239,3 +239,21 @@ export function relativeTime(changed: number, now: Date, language: string): stri
     style: "short",
   }).format(Math.trunc(seconds / divisor), unit);
 }
+
+/** How long ago a change happened, as a short duration such as "54 min". */
+export function elapsed(changed: number, now: Date, language: string): string {
+  const seconds = Math.max(0, (now.getTime() - changed) / 1000);
+  const [unit, divisor] =
+    seconds >= 86400
+      ? ["day", 86400]
+      : seconds >= 3600
+        ? ["hour", 3600]
+        : seconds >= 60
+          ? ["minute", 60]
+          : ["second", 1];
+  return new Intl.NumberFormat(language, {
+    style: "unit",
+    unit,
+    unitDisplay: "short",
+  }).format(Math.trunc(seconds / divisor));
+}

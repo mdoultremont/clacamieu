@@ -21,6 +21,7 @@ import {
   type ActivityTone,
 } from "../activity-view";
 import { navigate } from "../navigation";
+import { Tray } from "./tray";
 import { messages } from "../i18n";
 import { useActivity } from "../use-activity";
 import type {
@@ -288,71 +289,73 @@ function Activity({
           <ChevronRight className="size-3.5" />
         </a>
       </div>
-      <div className="rounded-xl border bg-card px-4 py-3 text-card-foreground">
-        {!days.length && (
-          <p className="py-1 text-sm text-muted-foreground">{t.noActivity}</p>
-        )}
-        {days.map((day) => (
-          <div key={day.label} className="not-first:mt-3">
-            <h3 className="mb-1 text-xs font-medium text-muted-foreground">
-              {day.label}
-            </h3>
-            <ol className="relative">
-              <span
-                aria-hidden
-                className="absolute top-3 bottom-3 left-[3px] w-px bg-border"
-              />
-              {day.events.map((event) => (
-                <li key={event.id}>
-                  <button
-                    type="button"
-                    onClick={() => onMoreInfo(event.entityId)}
-                    className="flex min-h-11 w-full items-center gap-3 rounded-md py-1.5 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-muted/60"
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "relative size-[7px] shrink-0 rounded-full ring-2 ring-card",
-                        toneDot[event.tone],
-                      )}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">{event.name}</span>
-                      {event.area && (
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {event.area}
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-right">
+      <Tray>
+        <div className="tray-card px-4 py-3">
+          {!days.length && (
+            <p className="py-1 text-sm text-muted-foreground">{t.noActivity}</p>
+          )}
+          {days.map((day) => (
+            <div key={day.label} className="not-first:mt-3">
+              <h3 className="mb-1 text-xs font-medium text-muted-foreground">
+                {day.label}
+              </h3>
+              <ol className="relative">
+                <span
+                  aria-hidden
+                  className="absolute top-3 bottom-3 left-[3px] w-px bg-border"
+                />
+                {day.events.map((event) => (
+                  <li key={event.id}>
+                    <button
+                      type="button"
+                      onClick={() => onMoreInfo(event.entityId)}
+                      className="flex min-h-11 w-full items-center gap-3 rounded-md py-1.5 text-left text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-muted/60"
+                    >
                       <span
+                        aria-hidden
                         className={cn(
-                          "block text-xs",
-                          event.tone === "alert" && "font-medium text-air-poor",
+                          "relative size-[7px] shrink-0 rounded-full ring-2 ring-card",
+                          toneDot[event.tone],
                         )}
-                      >
-                        {event.state}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{event.name}</span>
+                        {event.area && (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {event.area}
+                          </span>
+                        )}
                       </span>
-                      <span className="block text-xs tabular-nums text-muted-foreground">
-                        {event.time}
+                      <span className="shrink-0 text-right">
+                        <span
+                          className={cn(
+                            "block text-xs",
+                            event.tone === "alert" && "font-medium text-air-poor",
+                          )}
+                        >
+                          {event.state}
+                        </span>
+                        <span className="block text-xs tabular-nums text-muted-foreground">
+                          {event.time}
+                        </span>
                       </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </div>
-        ))}
-        {total > collapsedEvents && (
-          <Button
-            variant="ghost"
-            className="mt-1 min-h-11 w-full text-muted-foreground"
-            onClick={() => setExpanded((value) => !value)}
-          >
-            {expanded ? t.showLess : t.showMore(total - collapsedEvents)}
-          </Button>
-        )}
-      </div>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+          {total > collapsedEvents && (
+            <Button
+              variant="ghost"
+              className="mt-1 min-h-11 w-full text-muted-foreground"
+              onClick={() => setExpanded((value) => !value)}
+            >
+              {expanded ? t.showLess : t.showMore(total - collapsedEvents)}
+            </Button>
+          )}
+        </div>
+      </Tray>
     </section>
   );
 }

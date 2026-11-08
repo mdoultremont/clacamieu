@@ -1,12 +1,13 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "cn";
+import { Tray } from "./tray";
 
 export interface EntityRow {
   id: string;
   name: string;
   /** Short state or time shown on the right. */
   value: string;
-  /** A muted line under the value, such as when it changed. */
+  /** Muted text after the value, such as how long it has held. */
   detail?: string;
   /** A status dot before the name; none when absent. */
   dot?: "good" | "alert" | "off";
@@ -27,61 +28,53 @@ const dotClass = {
 export function EntityRows({
   rows,
   onMoreInfo,
-  className = "rounded-xl border bg-card text-card-foreground",
 }: {
   rows: EntityRow[];
   onMoreInfo: (entityId: string) => void;
-  /** The list's surface; a bordered card unless a tray provides one. */
-  className?: string;
 }) {
   return (
-    <ul className={cn("divide-y overflow-hidden", className)}>
-      {rows.map(({ icon: Icon, ...row }) => (
-        <li key={row.id}>
-          <button
-            type="button"
-            onClick={() => onMoreInfo(row.id)}
-            className="flex min-h-11 w-full items-center gap-3 px-4 py-2 text-left text-sm outline-none focus-visible:bg-muted/60 active:bg-muted/60"
-          >
-            {row.dot && (
-              <span
-                aria-hidden
-                className={cn("size-2 shrink-0 rounded-full", dotClass[row.dot])}
-              />
-            )}
-            {Icon && (
-              <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            )}
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate",
-                row.unavailable && "text-muted-foreground",
-                row.alert && "font-medium",
-              )}
+    <Tray>
+      <ul className="tray-card divide-y overflow-hidden">
+        {rows.map(({ icon: Icon, ...row }) => (
+          <li key={row.id}>
+            <button
+              type="button"
+              onClick={() => onMoreInfo(row.id)}
+              className="flex min-h-11 w-full items-center gap-3 px-4 py-2 text-left text-sm outline-none focus-visible:bg-muted/60 active:bg-muted/60"
             >
-              {row.name}
-            </span>
-            <span
-              className={cn(
-                "shrink-0 text-right text-xs tabular-nums",
-                row.alert ? "text-air-poor" : "text-muted-foreground",
+              {row.dot && (
+                <span
+                  aria-hidden
+                  className={cn("size-2 shrink-0 rounded-full", dotClass[row.dot])}
+                />
               )}
-            >
+              {Icon && (
+                <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+              )}
               <span
                 className={cn(
-                  "block",
-                  row.active && "font-semibold text-foreground",
+                  "min-w-0 flex-1 truncate",
+                  row.unavailable && "text-muted-foreground",
+                  row.alert && "font-medium",
                 )}
               >
-                {row.value}
+                {row.name}
               </span>
-              {row.detail && (
-                <span className="block text-[0.6875rem]">{row.detail}</span>
-              )}
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
+              <span
+                className={cn(
+                  "shrink-0 text-right text-xs tabular-nums",
+                  row.alert ? "text-air-poor" : "text-muted-foreground",
+                )}
+              >
+                <span className={cn(row.active && "font-semibold text-foreground")}>
+                  {row.value}
+                </span>
+                {row.detail && ` ${row.detail}`}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Tray>
   );
 }

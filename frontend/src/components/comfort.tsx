@@ -6,11 +6,12 @@ import {
   type ComfortFilter,
   type ComfortView,
 } from "../comfort-view";
+import { Tray } from "./tray";
 import { messages } from "../i18n";
 import { Meter, co2Scale, humidityScale } from "./air-meter";
 import { RouteLink } from "./route-link";
 import { BackLink } from "./back-link";
-import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import { Segmented, SegmentedItem } from "./ui/segmented";
 
 export function Comfort({
   view,
@@ -38,22 +39,18 @@ export function Comfort({
             t.noClimate}
         </p>
       </header>
-      <ToggleGroup
-        type="single"
-        variant="outline"
+      <Segmented
         className="max-w-full flex-wrap"
         aria-label={t.comfortFilter}
         value={filter}
-        onValueChange={(value) => {
-          if (value) setFilter(value as ComfortFilter);
-        }}
+        onValueChange={(value) => setFilter(value as ComfortFilter)}
       >
         {filters.map(({ key, label }) => (
-          <ToggleGroupItem key={key} value={key} className="min-h-11 px-2.5">
+          <SegmentedItem key={key} value={key} className="min-h-11 flex-none">
             {label}
-          </ToggleGroupItem>
+          </SegmentedItem>
         ))}
-      </ToggleGroup>
+      </Segmented>
       <section aria-label={t.rooms} className="flex flex-col gap-2">
         {sortComfortRooms(view.rooms, filter).map((room) => {
           const temperature = formatClimate(
@@ -88,58 +85,61 @@ export function Comfort({
                 .filter(Boolean)
                 .join(" · ");
           return (
-            <RouteLink
-              key={room.id}
-              route={{ screen: "room", areaId: room.id }}
-              className="flex flex-col gap-3 rounded-xl border bg-card p-4 text-card-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-muted/60"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium">{room.name}</p>
-                  {subtitle && (
-                    <p
-                      className={cn(
-                        "text-sm tabular-nums",
-                        room.problems.length
-                          ? "font-medium text-air-poor"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      {subtitle}
+            <Tray key={room.id}>
+              <RouteLink
+                route={{ screen: "room", areaId: room.id }}
+                className="tray-card flex flex-col gap-3 p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:bg-muted/60"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">{room.name}</p>
+                    {subtitle && (
+                      <p
+                        className={cn(
+                          "text-sm tabular-nums",
+                          room.problems.length
+                            ? "font-medium text-air-poor"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {subtitle}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    data-slot="comfort-headline"
+                    className="shrink-0 text-2xl font-semibold tracking-tight tabular-nums"
+                  >
+                    {headline ?? "—"}
+                  </span>
+                </div>
+                {room.co2 !== null && (
+                  <MeterRow
+                    label={t.co2}
+                    value={co2!}
+                    alert={room.co2 > 1200}
+                    meter={<Meter value={room.co2} scale={co2Scale} />}
+                  />
+                )}
+                {room.humidity !== null && (
+                  <MeterRow
+                    label={t.humidity}
+                    value={humidity!}
+                    alert={room.humidity > 70}
+                    meter={
+                      <Meter value={room.humidity} scale={humidityScale} />
+                    }
+                  />
+                )}
+                {room.temperature === null &&
+                  room.humidity === null &&
+                  room.co2 === null && (
+                    <p className="text-sm text-muted-foreground">
+                      {t.unavailable}
                     </p>
                   )}
-                </div>
-                <span
-                  data-slot="comfort-headline"
-                  className="shrink-0 text-2xl font-semibold tracking-tight tabular-nums"
-                >
-                  {headline ?? "—"}
-                </span>
-              </div>
-              {room.co2 !== null && (
-                <MeterRow
-                  label={t.co2}
-                  value={co2!}
-                  alert={room.co2 > 1200}
-                  meter={<Meter value={room.co2} scale={co2Scale} />}
-                />
-              )}
-              {room.humidity !== null && (
-                <MeterRow
-                  label={t.humidity}
-                  value={humidity!}
-                  alert={room.humidity > 70}
-                  meter={<Meter value={room.humidity} scale={humidityScale} />}
-                />
-              )}
-              {room.temperature === null &&
-                room.humidity === null &&
-                room.co2 === null && (
-                  <p className="text-sm text-muted-foreground">
-                    {t.unavailable}
-                  </p>
-                )}
-            </RouteLink>
+              </RouteLink>
+            </Tray>
           );
         })}
         {view.rooms.length === 0 && (

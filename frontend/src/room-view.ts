@@ -4,7 +4,7 @@ import { locale, messages } from "./i18n";
 import { displayOptions, type EntityDisplay } from "./room-display";
 import { airLevel } from "./room-lighting";
 import { areaSensor, entityArea, resolveRoomSensors } from "./room-sensors";
-import { relativeTime } from "./security-view";
+import { elapsed } from "./security-view";
 import type {
   DashboardConfig,
   HassEntity,
@@ -61,7 +61,7 @@ export type SensorClass = keyof typeof activeWhenOn;
 export interface RoomSensor extends RoomElement {
   deviceClass: SensorClass;
   active: boolean;
-  /** When the state last changed, relative to now. */
+  /** How long the sensor has held its state, such as "for 12 min". */
   changed: string | null;
 }
 
@@ -303,7 +303,7 @@ export function buildRoomView(
             deviceClass,
             active: activeWhenOn[deviceClass] && entity.state === "on",
             changed: Number.isFinite(changed)
-              ? relativeTime(changed, now, language)
+              ? messages(language).since(elapsed(changed, now, language))
               : null,
           },
         ];

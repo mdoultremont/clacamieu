@@ -8,7 +8,6 @@ import {
   MapPin,
   Pause,
   Play,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -48,7 +47,14 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Button } from "./ui/button";
-import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import { Segmented, SegmentedItem } from "./ui/segmented";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 type Act = (action: ServiceAction) => Promise<boolean>;
 
@@ -139,36 +145,35 @@ export function Vacuum({
           />
           {view.shortcuts.length > 0 && (
             <Section title={t.shortcuts}>
-              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-                {view.shortcuts.map((shortcut) => (
-                  <Tray
-                    key={shortcut.id}
-                    className="w-40 shrink-0"
-                    info={
-                      <span className="truncate">
-                        {shortcut.summary ?? "—"}
-                      </span>
-                    }
-                  >
-                    <div className="tray-card flex flex-1 flex-col gap-2 p-3">
-                      <div className="flex items-center justify-between">
-                        <IconSquare icon={Zap} />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="size-9"
-                          aria-label={shortcut.action.label}
-                          disabled={busy || !shortcut.available}
-                          onClick={() => onAction(shortcut.action)}
-                        >
-                          <Play />
-                        </Button>
+              <Tray>
+                <ul className="tray-card divide-y overflow-hidden">
+                  {view.shortcuts.map((shortcut) => (
+                    <li
+                      key={shortcut.id}
+                      className="flex min-h-14 items-center gap-3 py-2 pr-2 pl-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{shortcut.name}</p>
+                        {shortcut.summary && (
+                          <p className="truncate text-sm text-muted-foreground">
+                            {shortcut.summary}
+                          </p>
+                        )}
                       </div>
-                      <p className="truncate font-medium">{shortcut.name}</p>
-                    </div>
-                  </Tray>
-                ))}
-              </div>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="size-11 shrink-0 rounded-full"
+                        aria-label={shortcut.action.label}
+                        disabled={busy || !shortcut.available}
+                        onClick={() => onAction(shortcut.action)}
+                      >
+                        <Play />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </Tray>
             </Section>
           )}
           {(view.task || view.rooms.length > 0) && (
@@ -274,19 +279,26 @@ export function Vacuum({
           {view.statistics.length > 0 && (
             <Section title={t.statistics}>
               <Tray>
-                <div className="tray-card divide-y">
+                <dl
+                  className="tray-card grid divide-x p-4"
+                  style={{
+                    gridTemplateColumns: `repeat(${view.statistics.length}, minmax(0, 1fr))`,
+                  }}
+                >
                   {view.statistics.map((stat) => (
                     <div
                       key={stat.id}
-                      className="flex min-h-12 items-center justify-between gap-3 px-4 py-2.5"
+                      className="min-w-0 px-3 first:pl-0 last:pr-0"
                     >
-                      <span className="min-w-0 truncate">{stat.name}</span>
-                      <span className="shrink-0 tabular-nums">
+                      <dt className="text-xs text-pretty text-muted-foreground">
+                        {stat.name}
+                      </dt>
+                      <dd className="text-lg font-semibold tracking-tight text-pretty tabular-nums">
                         {stat.value}
-                      </span>
+                      </dd>
                     </div>
                   ))}
-                </div>
+                </dl>
               </Tray>
             </Section>
           )}
@@ -441,26 +453,17 @@ function RoomViewSwitch({
 }) {
   const t = messages(language);
   return (
-    <ToggleGroup
-      type="single"
-      size="sm"
+    <Segmented
       value={tab}
       aria-label={t.roomView}
-      className="rounded-lg bg-muted p-0.5"
-      onValueChange={(value) => {
-        if (value) onTab(value as "list" | "map");
-      }}
+      onValueChange={(value) => onTab(value as "list" | "map")}
     >
       {(["list", "map"] as const).map((value) => (
-        <ToggleGroupItem
-          key={value}
-          value={value}
-          className="h-7 rounded-md px-3 text-xs data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm"
-        >
+        <SegmentedItem key={value} value={value} className="h-7 px-3 text-xs">
           {value === "list" ? t.roomList : t.vacuumMap}
-        </ToggleGroupItem>
+        </SegmentedItem>
       ))}
-    </ToggleGroup>
+    </Segmented>
   );
 }
 
@@ -817,32 +820,49 @@ function CleaningTray({
       }
     >
       <div className="tray-card space-y-2.5 p-3">
-        {view.settings.map((setting) => (
-          <ToggleGroup
-            key={setting.id}
-            type="single"
-            value={setting.value}
-            aria-label={setting.label}
-            disabled={busy || !setting.available}
-            className="flex w-full rounded-lg bg-muted p-0.5"
-            onValueChange={(value) => {
-              const option = setting.options.find(
-                (option) => option.value === value,
-              );
-              if (option) onAction(option.action);
-            }}
+        {view.settings.length > 0 && (
+          <div
+            className={cn(
+              "grid gap-2",
+              view.settings.length > 1 && "grid-cols-2",
+            )}
           >
-            {setting.options.map((option) => (
-              <ToggleGroupItem
-                key={option.value}
-                value={option.value}
-                className="h-auto min-h-9 flex-1 shrink rounded-md px-1.5 py-1 text-xs leading-tight whitespace-normal data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+            {view.settings.map((setting) => (
+              <Select
+                key={setting.id}
+                value={setting.value}
+                disabled={busy || !setting.available}
+                onValueChange={(value) => {
+                  const option = setting.options.find(
+                    (option) => option.value === value,
+                  );
+                  if (option) onAction(option.action);
+                }}
               >
-                {option.label}
-              </ToggleGroupItem>
+                <SelectTrigger
+                  aria-label={setting.label}
+                  className="h-auto min-h-12 w-full min-w-0 py-1.5 text-left"
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-xs text-muted-foreground">
+                      {setting.label}
+                    </span>
+                    <span className="truncate font-medium">
+                      <SelectValue />
+                    </span>
+                  </span>
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  {setting.options.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ))}
-          </ToggleGroup>
-        ))}
+          </div>
+        )}
         {action && (
           <Button
             className="h-11 w-full"

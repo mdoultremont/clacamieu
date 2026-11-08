@@ -6,6 +6,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
+import { Tray } from "./tray";
 import { messages } from "../i18n";
 import { navigate } from "../navigation";
 import { buildSystemView, type SystemEntity } from "../system-view";
@@ -117,20 +118,19 @@ export function System({
       </header>
       <div className="grid grid-cols-2 gap-3">
         {stats.map(({ label, count, icon: Icon, problem }) => (
-          <div
-            key={label}
-            className="min-w-0 space-y-2 rounded-xl border bg-card p-4"
-          >
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Icon className="size-4 shrink-0" />
-              {label}
+          <Tray key={label}>
+            <div className="tray-card min-w-0 flex-1 space-y-2 p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Icon className="size-4 shrink-0" />
+                {label}
+              </div>
+              <p
+                className={`text-2xl font-semibold tabular-nums ${count && problem ? "text-destructive" : ""}`}
+              >
+                {count}
+              </p>
             </div>
-            <p
-              className={`text-2xl font-semibold tabular-nums ${count && problem ? "text-destructive" : ""}`}
-            >
-              {count}
-            </p>
-          </div>
+          </Tray>
         ))}
       </div>
       {repairsError && (
