@@ -6,6 +6,7 @@ import {
   History,
   Shield,
   Siren,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   useEffect,
@@ -22,7 +23,7 @@ import {
 } from "../activity-view";
 import { navigate } from "../navigation";
 import { Tray } from "./tray";
-import { messages } from "../i18n";
+import { messages, type Messages } from "../i18n";
 import { useActivity } from "../use-activity";
 import type {
   SecuritySensorGroup,
@@ -30,7 +31,8 @@ import type {
 } from "../security-view";
 import type { HassLike } from "../types";
 import { AlarmModes } from "./alarm-modes";
-import { EntityRows } from "./entity-rows";
+import { SecurityCustomization } from "./security-customization";
+import { SensorRows } from "./sensor-rows";
 import { Button } from "./ui/button";
 import { ItemSection } from "./item-section";
 import {
@@ -45,24 +47,46 @@ import {
 export function Security({
   view,
   hass,
+  now,
   onMoreInfo,
+  onCustomize,
 }: {
   view: SecurityView;
   hass: HassLike;
+  now: Date;
   onMoreInfo: (entityId: string) => void;
+  /** Saves the sensors left out of Security; absent for non-admins. */
+  onCustomize?: (hidden: string[]) => Promise<void>;
 }) {
   const t = messages(hass.language);
+  const [customizing, setCustomizing] = useState(false);
   return (
     <>
-      <header>
+      <header className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t.security}</h1>
+        {onCustomize && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="-my-2 size-11 shrink-0 text-muted-foreground"
+            aria-label={t.customizeSecurity}
+            title={t.customizeSecurity}
+            onClick={() => setCustomizing(true)}
+          >
+            <SlidersHorizontal />
+          </Button>
+        )}
       </header>
       {view.alarm && (
         <Alarm key={view.alarm.id} alarm={view.alarm} hass={hass} />
       )}
       {view.cameras.length > 0 && (
-        <ItemSection title={t.cameras}>
-          <div className="grid grid-cols-2 gap-4 p-4">
+        <section aria-label={t.cameras} className="space-y-2">
+          <h2 className="flex items-center gap-1.5 px-1 text-xs font-medium text-muted-foreground">
+            <Camera className="size-3.5" />
+            {t.cameras}
+          </h2>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,16rem),1fr))] gap-3">
             {view.cameras.map((camera) => (
               <CameraStill
                 key={camera.id}
@@ -72,32 +96,41 @@ export function Security({
               />
             ))}
           </div>
-        </ItemSection>
+        </section>
       )}
-      <SensorGroup
-        title={t.openings}
-        group={view.openings}
-        icon={DoorClosed}
-        onMoreInfo={onMoreInfo}
-      />
-      <SensorGroup
-        title={t.leaks}
-        group={view.leaks}
-        icon={Droplets}
-        onMoreInfo={onMoreInfo}
-      />
-      {view.detectors.sensors.length > 0 && (
-        <SensorGroup
-          title={t.detectors}
-          group={view.detectors}
-          icon={Siren}
-          onMoreInfo={onMoreInfo}
-        />
+      {sensorGroups(t).map(({ key, title, icon }) =>
+        key !== "detectors" || view.detectors.sensors.length > 0 ? (
+          <SensorGroup
+            key={key}
+            title={title}
+            group={view[key]}
+            icon={icon}
+            hass={hass}
+            now={now}
+            onMoreInfo={onMoreInfo}
+          />
+        ) : null,
       )}
       <Activity hass={hass} onMoreInfo={onMoreInfo} />
+      {onCustomize && (
+        <SecurityCustomization
+          view={view}
+          language={hass.language}
+          open={customizing}
+          onOpenChange={setCustomizing}
+          onSave={onCustomize}
+        />
+      )}
     </>
   );
 }
+
+export const sensorGroups = (t: Messages) =>
+  [
+    { key: "openings", title: t.openings, icon: DoorClosed },
+    { key: "leaks", title: t.leaks, icon: Droplets },
+    { key: "detectors", title: t.detectors, icon: Siren },
+  ] as const;
 
 function Alarm({
   alarm,
@@ -163,12 +196,13 @@ function CameraStill({
     ? `${source}${source.includes("?") ? "&" : "?"}_clacamieu=${refresh}`
     : null;
   return (
-    <button
-      type="button"
-      className="min-w-0 space-y-2 text-left focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-4"
-      onClick={onOpen}
-    >
-      <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground">
+    <Tray info={<span className="truncate">{camera.name}</span>}>
+      <button
+        type="button"
+        aria-label={camera.name}
+        className="tray-card relative flex aspect-video items-center justify-center overflow-hidden text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        onClick={onOpen}
+      >
         {image && failedSource !== image && (
           <img
             src={image}
@@ -189,9 +223,8 @@ function CameraStill({
               : messages(hass.language).unavailable}
           </span>
         )}
-      </div>
-      <p className="break-words text-sm font-medium">{camera.name}</p>
-    </button>
+      </button>
+    </Tray>
   );
 }
 
@@ -199,11 +232,15 @@ function SensorGroup({
   title,
   group,
   icon: Icon,
+  hass,
+  now,
   onMoreInfo,
 }: {
   title: string;
   group: SecuritySensorGroup;
   icon: ComponentType<{ className?: string }>;
+  hass: HassLike;
+  now: Date;
   onMoreInfo: (entityId: string) => void;
 }) {
   const id = useId();
@@ -219,21 +256,11 @@ function SensorGroup({
         </p>
       </div>
       {group.sensors.length > 0 && (
-        <EntityRows
+        <SensorRows
+          sensors={group.sensors}
+          hass={hass}
+          now={now}
           onMoreInfo={onMoreInfo}
-          rows={group.sensors.map((sensor) => ({
-            id: sensor.id,
-            name: sensor.name,
-            dot: !sensor.available ? "off" : sensor.active ? "alert" : "good",
-            alert: sensor.active,
-            unavailable: !sensor.available,
-            value:
-              sensor.active || !sensor.available
-                ? [sensor.state, sensor.active ? sensor.changed : null]
-                    .filter(Boolean)
-                    .join(" · ")
-                : (sensor.changed ?? sensor.state),
-          }))}
         />
       )}
     </section>

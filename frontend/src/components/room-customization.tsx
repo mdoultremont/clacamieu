@@ -5,23 +5,23 @@ import { displayOptions, type EntityDisplay } from "../room-display";
 import type { RoomElement, RoomView } from "../room-view";
 import type { RoomEntityConfig } from "../types";
 import { ConfigSortableList } from "./config-sortable-list";
-import { Button } from "./ui/button";
 import {
-  Drawer,
-  DrawerBody,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from "./ui/drawer";
+  CustomizationDrawer,
+  CustomizationSheet,
+} from "./customization-drawer";
+import { Input } from "./ui/input";
 import { Segmented, SegmentedItem } from "./ui/segmented";
 
 type Section = "lights" | "devices" | "sensors";
-type Draft = Record<
-  Section,
-  { id: string; name: string; display: EntityDisplay; options: readonly EntityDisplay[] }[]
->;
+interface DraftRow {
+  id: string;
+  defaultName: string;
+  /** The Maison name; empty keeps Home Assistant's. */
+  name: string;
+  display: EntityDisplay;
+  options: readonly EntityDisplay[];
+}
+type Draft = Record<Section, DraftRow[]>;
 
 const sections = ["lights", "devices", "sensors"] as const;
 
@@ -29,7 +29,8 @@ function draftFrom(view: RoomView): Draft {
   const rows = (elements: (RoomElement & { power?: unknown })[]) =>
     elements.map((element) => ({
       id: element.id,
-      name: element.name,
+      defaultName: element.defaultName,
+      name: element.name === element.defaultName ? "" : element.name,
       display: element.display,
       options: displayOptions(element),
     }));
@@ -40,7 +41,10 @@ function draftFrom(view: RoomView): Draft {
   };
 }
 
-/** A sheet where an admin orders a room's elements and picks how each shows. */
+/**
+ * A sheet where an admin orders a room's elements, names them, and picks how
+ * each shows.
+ */
 export function RoomCustomization({
   view,
   language,
@@ -55,23 +59,14 @@ export function RoomCustomization({
   onSave: (entities: RoomEntityConfig[]) => Promise<void>;
 }) {
   return (
-    <Drawer
-      open={open}
-      onOpenChange={onOpenChange}
-      shouldScaleBackground={false}
-      noBodyStyles
-    >
-      <DrawerContent className="config-drawer">
-        {open && (
-          <Sheet
-            view={view}
-            language={language}
-            onClose={() => onOpenChange(false)}
-            onSave={onSave}
-          />
-        )}
-      </DrawerContent>
-    </Drawer>
+    <CustomizationDrawer open={open} onOpenChange={onOpenChange}>
+      <Sheet
+        view={view}
+        language={language}
+        onClose={() => onOpenChange(false)}
+        onSave={onSave}
+      />
+    </CustomizationDrawer>
   );
 }
 
@@ -88,105 +83,105 @@ function Sheet({
 }) {
   const t = messages(language);
   const [draft, setDraft] = useState(() => draftFrom(view));
-  const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const titles: Record<Section, string> = {
     lights: t.lights,
     devices: t.devices,
     sensors: t.openingsAndSensors,
   };
-  async function save() {
-    setSaving(true);
-    setFailed(false);
-    try {
-      await onSave(
-        sections.flatMap((section) =>
-          draft[section].map((row) => ({
-            entity_id: row.id,
-            display: row.display,
-          })),
-        ),
-      );
-      onClose();
-    } catch {
-      setFailed(true);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const update = (section: Section, id: string, change: Partial<DraftRow>) =>
+    setDraft((current) => ({
+      ...current,
+      [section]: current[section].map((item) =>
+        item.id === id ? { ...item, ...change } : item,
+      ),
+    }));
   return (
-    <>
-      <DrawerHeader>
-        <DrawerTitle>{t.customizeRoom}</DrawerTitle>
-        <DrawerDescription>{t.customizeRoomDescription}</DrawerDescription>
-      </DrawerHeader>
-      <DrawerBody className="space-y-4" data-vaul-no-drag>
-        {sections
-          .filter((section) => draft[section].length > 0)
-          .map((section) => (
-            <section key={section} className="space-y-2" aria-label={titles[section]}>
-              <h3 className="px-1 text-xs font-medium text-muted-foreground">
-                {titles[section]}
-              </h3>
-              <div role="list" className="overflow-hidden rounded-xl border">
-                <ConfigSortableList
-                  language={language}
-                  onMove={(from, to) =>
-                    setDraft((current) => ({
-                      ...current,
-                      [section]: moveItem(current[section], from, to),
-                    }))
-                  }
-                  rows={draft[section].map((row) => ({
-                    id: row.id,
-                    title: row.name,
-                    hidden: row.display === "hidden",
-                    trailing: (
-                      <Segmented
-                        value={row.display}
-                        aria-label={t.entityDisplay(row.name)}
-                        className="my-1.5 ml-auto mr-1 shrink-0"
-                        onValueChange={(value) => {
-                          setDraft((current) => ({
-                            ...current,
-                            [section]: current[section].map((item) =>
-                              item.id === row.id
-                                ? { ...item, display: value as EntityDisplay }
-                                : item,
-                            ),
-                          }));
-                        }}
-                      >
-                        {row.options.map((display) => (
-                          <SegmentedItem
-                            key={display}
-                            value={display}
-                            className="min-h-11 flex-none px-2 text-xs"
-                          >
-                            {t.entityDisplays[display]}
-                          </SegmentedItem>
-                        ))}
-                      </Segmented>
-                    ),
-                  }))}
-                />
-              </div>
-            </section>
-          ))}
-        {failed && (
-          <p className="text-sm text-destructive" role="alert">
-            {t.saveError}
-          </p>
-        )}
-      </DrawerBody>
-      <DrawerFooter className="grid grid-cols-2">
-        <Button variant="outline" disabled={saving} onClick={onClose}>
-          {t.cancel}
-        </Button>
-        <Button disabled={saving} onClick={save}>
-          {saving ? t.saving : t.done}
-        </Button>
-      </DrawerFooter>
-    </>
+    <CustomizationSheet
+      title={t.customizeRoom}
+      description={t.customizeRoomDescription}
+      language={language}
+      onClose={onClose}
+      onSave={() =>
+        onSave(
+          sections.flatMap((section) =>
+            draft[section].map((row) => ({
+              entity_id: row.id,
+              display: row.display,
+              ...(row.name.trim() && { name: row.name.trim() }),
+            })),
+          ),
+        )
+      }
+    >
+      {sections
+        .filter((section) => draft[section].length > 0)
+        .map((section) => (
+          <section key={section} className="space-y-2" aria-label={titles[section]}>
+            <h3 className="px-1 text-xs font-medium text-muted-foreground">
+              {titles[section]}
+            </h3>
+            <div role="list" className="overflow-hidden rounded-xl border">
+              <ConfigSortableList
+                language={language}
+                onMove={(from, to) =>
+                  setDraft((current) => ({
+                    ...current,
+                    [section]: moveItem(current[section], from, to),
+                  }))
+                }
+                onEdit={(id) =>
+                  setEditing((current) => (current === id ? null : id))
+                }
+                rows={draft[section].map((row) => ({
+                  id: row.id,
+                  title: row.name.trim() || row.defaultName,
+                  description: row.name.trim() ? row.defaultName : undefined,
+                  hidden: row.display === "hidden",
+                  below: editing === row.id && (
+                    <Input
+                      autoFocus
+                      maxLength={100}
+                      aria-label={t.elementName(row.defaultName)}
+                      placeholder={row.defaultName}
+                      className="min-h-11 text-base"
+                      value={row.name}
+                      onChange={(event) =>
+                        update(section, row.id, { name: event.target.value })
+                      }
+                      onBlur={() => setEditing(null)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") setEditing(null);
+                      }}
+                    />
+                  ),
+                  trailing: (
+                    <Segmented
+                      value={row.display}
+                      aria-label={t.entityDisplay(row.defaultName)}
+                      className="my-1.5 ml-auto mr-1 shrink-0"
+                      onValueChange={(value) =>
+                        update(section, row.id, {
+                          display: value as EntityDisplay,
+                        })
+                      }
+                    >
+                      {row.options.map((display) => (
+                        <SegmentedItem
+                          key={display}
+                          value={display}
+                          className="min-h-11 flex-none px-2 text-xs"
+                        >
+                          {t.entityDisplays[display]}
+                        </SegmentedItem>
+                      ))}
+                    </Segmented>
+                  ),
+                }))}
+              />
+            </div>
+          </section>
+        ))}
+    </CustomizationSheet>
   );
 }

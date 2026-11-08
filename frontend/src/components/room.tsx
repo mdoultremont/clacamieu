@@ -34,8 +34,8 @@ import { climateTrend, type ClimateTrend } from "../climate-trend";
 import { useClimateHistory } from "../use-climate-history";
 import type { RoomLighting } from "../room-lighting";
 import { AirMeter } from "./air-meter";
-import { activeIcons, entityIcons } from "./entity-icon";
-import { EntityRows } from "./entity-rows";
+import { entityIcons } from "./entity-icon";
+import { SensorRows } from "./sensor-rows";
 import { RoomCustomization } from "./room-customization";
 import { cn } from "cn";
 import { BackLink } from "./back-link";
@@ -101,7 +101,7 @@ export function Room({
     hass,
     devices.flatMap((device) =>
       device.display === "cycle" && device.power
-        ? [{ entityId: device.id, plug: device.power }]
+        ? [{ entityId: device.id, plug: device.power, tracker: device.tracker }]
         : [],
     ),
     now,
@@ -255,20 +255,12 @@ export function Room({
           <h2 className="px-1 text-xs font-medium text-muted-foreground">
             {t.sensors}
           </h2>
-          <EntityRows
-              onMoreInfo={onMoreInfo}
-              rows={sensors.map((sensor) => ({
-                id: sensor.id,
-                name: sensor.name,
-                value: sensor.state,
-                detail: (sensor.available && sensor.changed) || undefined,
-                icon:
-                  (sensor.active && activeIcons[sensor.deviceClass]) ||
-                  entityIcons[sensor.deviceClass],
-                active: sensor.active,
-                unavailable: !sensor.available,
-              }))}
-            />
+          <SensorRows
+            sensors={sensors}
+            hass={hass}
+            now={now}
+            onMoreInfo={onMoreInfo}
+          />
         </section>
       )}
       {onCustomize && (

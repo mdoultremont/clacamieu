@@ -115,8 +115,12 @@ export function buildHomeView(
         ]
       : []),
   ];
-  const hiddenPlugs = hiddenPlugDevices(hass, config);
-  const plugs = plugReadings(hass).filter((plug) => !hiddenPlugs.has(plug.id));
+  const elements = plugElements(hass, config);
+  const plugs = plugReadings(hass).flatMap((plug) => {
+    const element = elements.get(plug.id);
+    if (element?.display === "hidden") return [];
+    return [{ ...plug, name: element?.name ?? plug.name }];
+  });
   const alarmView = (
     alarm: HassEntity | undefined,
   ): NonNullable<HomeData["alarm"]> => {
@@ -345,16 +349,14 @@ export function plugReadings(hass: HassLike): PlugReading[] {
   }));
 }
 
-/** Plugs whose switch an admin hid in its room. */
-function hiddenPlugDevices(hass: HassLike, config: DashboardConfig) {
-  return new Set(
+/** Each plug device's switch settings from its room. */
+function plugElements(hass: HassLike, config: DashboardConfig) {
+  return new Map(
     (config.rooms ?? []).flatMap((room) =>
       (room.entities ?? []).flatMap((element) => {
         const deviceId = hass.entities[element.entity_id]?.device_id;
-        return element.display === "hidden" &&
-          element.entity_id.startsWith("switch.") &&
-          deviceId
-          ? [deviceId]
+        return element.entity_id.startsWith("switch.") && deviceId
+          ? [[deviceId, element] as const]
           : [];
       }),
     ),

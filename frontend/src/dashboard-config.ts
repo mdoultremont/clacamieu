@@ -1,9 +1,13 @@
 import { isEntityDisplay } from "./room-display";
-import type {
-  DashboardConfig,
-  HomeCard,
-  RoomConfig,
-  RoomEntityConfig,
+import {
+  vacuumSections,
+  type DashboardConfig,
+  type HomeCard,
+  type RoomConfig,
+  type RoomEntityConfig,
+  type SecurityConfig,
+  type VacuumConfig,
+  type VacuumSection,
 } from "./types";
 
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -81,11 +85,39 @@ function parseRoom(value: unknown): RoomConfig | null {
 }
 
 function parseRoomEntity(value: unknown): RoomEntityConfig | null {
-  return record(value) &&
-    entityId(value.entity_id) &&
-    isEntityDisplay(value.display)
-    ? { entity_id: value.entity_id, display: value.display }
+  if (
+    !record(value) ||
+    !entityId(value.entity_id) ||
+    !isEntityDisplay(value.display)
+  )
+    return null;
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  return {
+    entity_id: value.entity_id,
+    display: value.display,
+    ...(name && { name }),
+  };
+}
+
+function parseSecurity(value: unknown): SecurityConfig | null {
+  const hidden = record(value)
+    ? parseList(value.hidden_entity_ids, (id) => (entityId(id) ? id : null), (id) => id)
     : null;
+  return hidden && { hidden_entity_ids: hidden };
+}
+
+function parseVacuum(value: unknown): VacuumConfig | null {
+  const sections = record(value)
+    ? parseList(
+        value.sections,
+        (section) =>
+          vacuumSections.includes(section as VacuumSection)
+            ? (section as VacuumSection)
+            : null,
+        (section) => section,
+      )
+    : null;
+  return sections && { sections };
 }
 
 function parseList<T>(
@@ -105,8 +137,12 @@ function parseList<T>(
 
 export function parseDashboardConfig(value: unknown): DashboardConfig {
   if (!record(value)) return { home_cards: null, rooms: null };
+  const security = parseSecurity(value.security);
+  const vacuum = parseVacuum(value.vacuum);
   return {
     home_cards: parseList(value.home_cards, parseCard, (card) => card.id),
     rooms: parseList(value.rooms, parseRoom, (room) => room.area_id),
+    ...(security && { security }),
+    ...(vacuum && { vacuum }),
   };
 }

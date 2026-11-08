@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   buildCycleChips,
   cycleDetail,
+  cycleTracker,
   detectCycle,
   formatElapsed,
   parseCycleDismissals,
   powerSamples,
+  trackedCycle,
   type CycleAppliance,
   type PowerSample,
 } from "./cycle-view";
+import type { HassLike } from "./types";
 
 const minute = 60_000;
 const start = Date.UTC(2026, 10, 8, 9, 0);
@@ -137,6 +140,7 @@ const appliance = (entityId: string): CycleAppliance => ({
     powerId: `sensor.${entityId}`,
     energyId: null,
   },
+  tracker: null,
 });
 
 describe("buildCycleChips", () => {
@@ -193,5 +197,93 @@ describe("parseCycleDismissals", () => {
       }),
     ).toEqual({ "switch.washer": Date.UTC(2026, 10, 8, 10, 15) });
     expect(parseCycleDismissals(null)).toEqual({});
+  });
+});
+
+describe("cycle trackers", () => {
+  const hour = 3_600_000;
+  const start = Date.parse("2026-11-08T18:31:00Z");
+  const at = (offset: number) => (start + offset) / 1000;
+  const samples = [
+    { at: start, watts: 2000 },
+    { at: start + hour, watts: 0 },
+  ];
+  it("keeps a cycle running through quiet phases until the tracker settles", () => {
+    const points = [
+      { s: "off", lu: at(-hour) },
+      { s: "starting", lu: at(0) },
+      { s: "running", lu: at(60_000) },
+      { s: "paused", lu: at(2 * hour) },
+    ];
+    expect(trackedCycle(points, samples, start + 3 * hour)).toEqual({
+      status: "running",
+      since: start,
+      watts: 0,
+      kwh: 2,
+    });
+  });
+  it("ends the cycle when the tracker leaves its running states", () => {
+    const points = [
+      { s: "starting", lu: at(0) },
+      { s: "ending", lu: at(3 * hour) },
+      { s: "unavailable", lu: at(3.1 * hour) },
+      { s: "finished", lu: at(3.5 * hour) },
+      { s: "off", lu: at(4 * hour) },
+    ];
+    expect(trackedCycle(points, samples, start + 4 * hour)).toEqual({
+      status: "finished",
+      startedAt: start,
+      endedAt: start + 3.5 * hour,
+      kwh: 2,
+    });
+    expect(trackedCycle(points, samples, start + 10 * hour)).toEqual({
+      status: "idle",
+    });
+  });
+  it("finds the WashData device of an appliance by room, then by name", () => {
+    const hass = {
+      states: Object.fromEntries(
+        ["sensor.washer_state", "sensor.dryer_state"].map((id) => [
+          id,
+          { entity_id: id, state: "off", attributes: {} },
+        ]),
+      ),
+      entities: {
+        "sensor.washer_state": {
+          entity_id: "sensor.washer_state",
+          device_id: "washer",
+          platform: "ha_washdata",
+          translation_key: "washer_state",
+        },
+        "sensor.washer_left": {
+          entity_id: "sensor.washer_left",
+          device_id: "washer",
+          platform: "ha_washdata",
+          translation_key: "time_remaining",
+        },
+        "sensor.dryer_state": {
+          entity_id: "sensor.dryer_state",
+          device_id: "dryer",
+          platform: "ha_washdata",
+          translation_key: "washer_state",
+        },
+      },
+      devices: {
+        washer: { id: "washer", area_id: "laundry", name: "Washer", name_by_user: null },
+        dryer: { id: "dryer", area_id: "laundry", name: "Dryer", name_by_user: null },
+      },
+    } as unknown as HassLike;
+    expect(cycleTracker(hass, "laundry", ["Washer plug"])).toEqual({
+      stateId: "sensor.washer_state",
+      programId: null,
+      remainingId: "sensor.washer_left",
+      progressId: null,
+    });
+    expect(cycleTracker(hass, "laundry", ["Kettle"])).toBeNull();
+    expect(cycleTracker(hass, "kitchen", ["Washer"])).toBeNull();
+    hass.devices.dryer.area_id = "cellar";
+    expect(cycleTracker(hass, "laundry", ["Kettle"])?.stateId).toBe(
+      "sensor.washer_state",
+    );
   });
 });

@@ -11,6 +11,9 @@ export interface EntityDisplayEntry {
   hidden?: boolean;
   entity_category?: string | null;
   name?: string | null;
+  /** The integration that provides the entity. */
+  platform?: string;
+  translation_key?: string | null;
 }
 
 export interface DeviceEntry {
@@ -79,11 +82,34 @@ export interface RoomConfig {
 export interface RoomEntityConfig {
   entity_id: string;
   display: EntityDisplay;
+  /** The element's name in Maison, in place of its Home Assistant name. */
+  name?: string;
 }
+
+export interface SecurityConfig {
+  /** Sensors left out of Security, such as spares that are not installed. */
+  hidden_entity_ids: string[];
+}
+
+export interface VacuumConfig {
+  /** The vacuum page's sections in order; missing ones follow in default order. */
+  sections: VacuumSection[];
+}
+
+export const vacuumSections = [
+  "shortcuts",
+  "rooms",
+  "maintenance",
+  "station",
+  "statistics",
+] as const;
+export type VacuumSection = (typeof vacuumSections)[number];
 
 export interface DashboardConfig {
   home_cards: HomeCard[] | null;
   rooms: RoomConfig[] | null;
+  security?: SecurityConfig | null;
+  vacuum?: VacuumConfig | null;
 }
 
 export interface PanelInfo {

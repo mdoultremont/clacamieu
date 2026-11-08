@@ -153,7 +153,12 @@ async def test_settings_default_and_round_trip(
     bedroom = ar.async_get(hass).async_create("Bedroom")
     await _setup_dashboard(hass)
     default = await _ws(hass, hass_ws_client, {"type": "clacamieu/dashboard/config"})
-    assert default["result"] == {"home_cards": None, "rooms": None}
+    assert default["result"] == {
+        "home_cards": None,
+        "rooms": None,
+        "security": None,
+        "vacuum": None,
+    }
     config = {
         "home_cards": [
             {
@@ -182,15 +187,21 @@ async def test_settings_default_and_round_trip(
                     {"entity_id": "switch.oven", "display": "power"},
                     {"entity_id": "light.missing", "display": "hidden"},
                     {"entity_id": "switch.kettle", "display": "control"},
-                    {"entity_id": "switch.washer", "display": "cycle"},
+                    {
+                        "entity_id": "switch.washer",
+                        "display": "cycle",
+                        "name": "Washer",
+                    },
                 ],
             },
         ],
+        "security": {"hidden_entity_ids": ["binary_sensor.spare_door"]},
+        "vacuum": {"sections": ["statistics", "shortcuts"]},
     }
     for saved in (
         config,
-        {"home_cards": [], "rooms": []},
-        {"home_cards": None, "rooms": None},
+        {"home_cards": [], "rooms": [], "security": None, "vacuum": None},
+        {"home_cards": None, "rooms": None, "security": None, "vacuum": None},
     ):
         updated = await _ws(
             hass, hass_ws_client, {"type": "clacamieu/dashboard/config/update", **saved}
@@ -228,6 +239,8 @@ async def test_settings_migrate_v1_store(
     assert result["result"] == {
         "home_cards": None,
         "rooms": [{"area_id": area_id} for area_id in area_ids] or None,
+        "security": None,
+        "vacuum": None,
     }
 
 
@@ -343,6 +356,20 @@ async def test_settings_migrate_v1_store(
             ]
         },
         {"home_cards": [{"id": "a", "type": "summary", "extra": True}]},
+        {
+            "rooms": [
+                {
+                    "area_id": "kitchen",
+                    "entities": [
+                        {"entity_id": "switch.oven", "display": "power", "name": " "}
+                    ],
+                }
+            ]
+        },
+        {"security": {"hidden_entity_ids": ["bad"]}},
+        {"security": {"hidden_entity_ids": ["binary_sensor.door"] * 2}},
+        {"vacuum": {"sections": ["map"]}},
+        {"vacuum": {"sections": ["rooms", "rooms"]}},
     ],
 )
 async def test_settings_reject_invalid_updates(
@@ -369,7 +396,12 @@ async def test_settings_reject_invalid_updates(
     assert result["success"] is False
     assert result["error"]["code"] == "invalid_format"
     read_back = await _ws(hass, hass_ws_client, {"type": "clacamieu/dashboard/config"})
-    assert read_back["result"] == {"home_cards": None, "rooms": None}
+    assert read_back["result"] == {
+        "home_cards": None,
+        "rooms": None,
+        "security": None,
+        "vacuum": None,
+    }
 
 
 async def test_settings_reject_unknown_areas_and_non_admins(
@@ -412,7 +444,12 @@ async def test_settings_reject_unknown_areas_and_non_admins(
         {"type": "clacamieu/dashboard/config"},
         hass_read_only_access_token,
     )
-    assert non_admin_read["result"] == {"home_cards": None, "rooms": None}
+    assert non_admin_read["result"] == {
+        "home_cards": None,
+        "rooms": None,
+        "security": None,
+        "vacuum": None,
+    }
 
 
 @pytest.mark.usefixtures("recorder_mock", "enable_custom_integrations")
@@ -459,6 +496,8 @@ async def test_any_user_dismisses_a_finished_cycle_for_every_device(
     assert hass_storage["clacamieu.dashboard"]["data"] == {
         "home_cards": [],
         "rooms": None,
+        "security": None,
+        "vacuum": None,
         "cycle_dismissals": expected["dismissed"],
     }
 

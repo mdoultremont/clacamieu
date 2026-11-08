@@ -95,7 +95,7 @@ export function securityFixture(): HassLike {
 
 describe("security view", () => {
   it("derives Alarmo state, actor, supported modes and confirmations", () => {
-    const view = buildSecurityView(securityFixture(), config, now);
+    const view = buildSecurityView(securityFixture(), config);
     expect(view.alarm).toMatchObject({
       id: "alarm_control_panel.example",
       title: "Alarme désarmée",
@@ -141,7 +141,6 @@ describe("security view", () => {
           },
         ],
       },
-      now,
     );
     expect(view.alarm?.id).toBe("alarm_control_panel.selected");
     expect(view.alarm?.modes.map((mode) => mode.state)).toEqual([
@@ -156,11 +155,11 @@ describe("security view", () => {
       const attributes = hass.states["alarm_control_panel.example"].attributes;
       attributes.code_format = format;
       attributes.code_arm_required = false;
-      let modes = buildSecurityView(hass, config, now).alarm!.modes;
+      let modes = buildSecurityView(hass, config).alarm!.modes;
       expect(modes[0]).toMatchObject({ state: "disarmed", needsCode: true });
       expect(modes.slice(1).some((mode) => mode.needsCode)).toBe(false);
       attributes.code_arm_required = true;
-      modes = buildSecurityView(hass, config, now).alarm!.modes;
+      modes = buildSecurityView(hass, config).alarm!.modes;
       expect(modes.every((mode) => mode.needsCode)).toBe(true);
     },
   );
@@ -169,7 +168,7 @@ describe("security view", () => {
     hass.states["alarm_control_panel.example"].attributes.code_arm_required =
       true;
     expect(
-      buildSecurityView(hass, config, now).alarm!.modes.some(
+      buildSecurityView(hass, config).alarm!.modes.some(
         (mode) => mode.needsCode,
       ),
     ).toBe(false);
@@ -183,14 +182,13 @@ describe("security view", () => {
         ],
         rooms: null,
       },
-      now,
     );
     expect(view.alarm?.id).toBe("alarm_control_panel.example");
   });
   it("omits the alarm group when no alarm exists", () => {
     const hass = securityFixture();
     delete hass.states["alarm_control_panel.example"];
-    expect(buildSecurityView(hass, config, now).alarm).toBeNull();
+    expect(buildSecurityView(hass, config).alarm).toBeNull();
   });
   it("shows one camera per device and leaves out vacuum maps", () => {
     const hass = securityFixture();
@@ -208,7 +206,7 @@ describe("security view", () => {
     add("camera.porch_clear", "idle", "porch");
     add("camera.robot_map", "idle", "robot");
     add("vacuum.robot", "docked", "robot");
-    const ids = buildSecurityView(hass, config, now).cameras.map(
+    const ids = buildSecurityView(hass, config).cameras.map(
       (camera) => camera.id,
     );
     expect(ids.filter((id) => id.startsWith("camera.porch"))).toEqual([
@@ -217,7 +215,7 @@ describe("security view", () => {
     expect(ids).not.toContain("camera.robot_map");
   });
   it("filters cameras and gives unavailable cameras a placeholder", () => {
-    const view = buildSecurityView(securityFixture(), config, now);
+    const view = buildSecurityView(securityFixture(), config);
     expect(view.cameras).toEqual([
       {
         id: "camera.entry",
@@ -227,15 +225,16 @@ describe("security view", () => {
       { id: "camera.offline", name: "camera.offline", picture: null },
     ]);
   });
-  it("sorts open openings and leaks first, with area and relative change time", () => {
-    const view = buildSecurityView(securityFixture(), config, now);
+  it("sorts open openings and leaks first, and marks only leaks and detections as alerts", () => {
+    const view = buildSecurityView(securityFixture(), config);
     expect(view.openings).toMatchObject({ summary: "1 ouverte", alert: true });
-    expect(view.openings.sensors[0]).toMatchObject({
+    expect(view.openings.sensors[0]).toEqual({
       id: "binary_sensor.door",
+      name: expect.any(String),
+      deviceClass: "door",
       state: "Ouvert",
       active: true,
-      area: "Room A",
-      changed: expect.stringMatching(/^il y a 3\s+h$/),
+      alert: false,
       available: true,
     });
     expect(view.leaks).toMatchObject({
@@ -245,25 +244,45 @@ describe("security view", () => {
     expect(view.leaks.sensors[0]).toMatchObject({
       id: "binary_sensor.leak",
       active: true,
+      alert: true,
     });
     expect(view.detectors.sensors).toHaveLength(4);
   });
-  it("shows closed counts and counts offline sensors separately", () => {
+  it("counts closed sensors out of the available ones and lists offline ones apart", () => {
     const hass = securityFixture();
     hass.states["binary_sensor.door"].state = "off";
     hass.states["binary_sensor.leak"].state = "off";
-    let view = buildSecurityView(hass, config, now);
+    let view = buildSecurityView(hass, config);
     expect(view.openings.summary).toBe("3 / 3 fermées");
     expect(view.leaks.summary).toBe("Aucune fuite");
     hass.states["binary_sensor.garage"].state = "unavailable";
     hass.states["binary_sensor.leak"].state = "unknown";
-    view = buildSecurityView(hass, config, now);
-    expect(view.openings.summary).toBe("2 / 3 fermées · 1 indisponible");
+    view = buildSecurityView(hass, config);
+    expect(view.openings.summary).toBe("2 / 2 fermées · 1 indisponible");
     expect(view.openings.sensors.at(-1)?.id).toBe("binary_sensor.garage");
     expect(view.leaks.summary).toBe("Aucune fuite · 1 indisponible");
     expect(
       view.leaks.sensors.find((sensor) => sensor.id === "binary_sensor.leak"),
     ).toMatchObject({ state: "Indisponible", available: false });
+  });
+  it("leaves sensors an admin hid out of the lists and the counts", () => {
+    const hass = securityFixture();
+    hass.states["binary_sensor.door"].state = "off";
+    hass.states["binary_sensor.garage"].state = "unavailable";
+    const view = buildSecurityView(hass, {
+      ...config,
+      security: {
+        hidden_entity_ids: ["binary_sensor.garage", "binary_sensor.not_loaded"],
+      },
+    });
+    expect(view.hiddenIds).toContain("binary_sensor.not_loaded");
+    expect(view.openings.summary).toBe("2 / 2 fermées");
+    expect(view.openings.sensors.map((sensor) => sensor.id)).not.toContain(
+      "binary_sensor.garage",
+    );
+    expect(view.openings.hidden).toEqual([
+      { id: "binary_sensor.garage", name: expect.any(String) },
+    ]);
   });
   it("handles missing timestamps, actors, and detector groups with English copy", () => {
     const hass = securityFixture();
@@ -272,13 +291,8 @@ describe("security view", () => {
     delete hass.states["alarm_control_panel.example"].attributes.changed_by;
     for (const id of ["smoke", "gas", "carbon_monoxide", "safety"])
       delete hass.states[`binary_sensor.${id}`];
-    hass.states["binary_sensor.door"].last_changed = "";
-    const view = buildSecurityView(hass, config, now);
+    const view = buildSecurityView(hass, config);
     expect(view.alarm?.description).toBe("");
-    expect(view.openings.sensors[0]).toMatchObject({
-      area: "Room A",
-      changed: null,
-    });
     expect(view.detectors.sensors).toEqual([]);
     expect(view.alarm?.modes[1].label).toBe("Home");
     expect(view.leaks.summary).toBe("1 leak detected");

@@ -150,7 +150,7 @@ export function App({
     );
   const room =
     route.screen === "room"
-      ? buildRoomView(hass, config, route.areaId, now)
+      ? buildRoomView(hass, config, route.areaId)
       : null;
   const tabs = [
     { key: "home", label: t.home, icon: House },
@@ -159,6 +159,13 @@ export function App({
     { key: "energy", label: t.energy, icon: Zap },
     { key: "more", label: t.more, icon: Ellipsis },
   ] as const;
+  const saveConfig = async (next: DashboardConfig) => {
+    const saved = await hass.callWS<unknown>({
+      type: "clacamieu/dashboard/config/update",
+      ...next,
+    });
+    setConfig(parseDashboardConfig(saved));
+  };
   function openConfiguration() {
     openedInPanel.current = true;
     navigate(routePath({ screen: "configuration" }));
@@ -181,11 +188,7 @@ export function App({
           config={config}
           onCancel={leaveConfiguration}
           onSave={async (draft) => {
-            const saved = await hass.callWS<unknown>({
-              type: "clacamieu/dashboard/config/update",
-              ...draft,
-            });
-            setConfig(parseDashboardConfig(saved));
+            await saveConfig(draft);
             leaveConfiguration();
             setError(null);
           }}
@@ -199,7 +202,7 @@ export function App({
                   view={buildHomeView(hass, config, now, controllers)}
                   now={now}
                   hass={hass}
-                  security={buildSecurityView(hass, config, now)}
+                  security={buildSecurityView(hass, config)}
                   vacuum={buildVacuumView(hass, config, { services, now })}
                   language={hass.language}
                   onAction={runAction}
@@ -207,9 +210,19 @@ export function App({
                 />
               ) : route.screen === "security" ? (
                 <Security
-                  view={buildSecurityView(hass, config, now)}
+                  view={buildSecurityView(hass, config)}
                   hass={hass}
+                  now={now}
                   onMoreInfo={openMoreInfo}
+                  onCustomize={
+                    hass.user.is_admin && configLoaded
+                      ? (hidden) =>
+                          saveConfig({
+                            ...config,
+                            security: { hidden_entity_ids: hidden },
+                          })
+                      : undefined
+                  }
                 />
               ) : route.screen === "rooms" ||
                 (route.screen === "room" && !room) ? (
@@ -237,18 +250,15 @@ export function App({
                   error={error}
                   onCustomize={
                     hass.user.is_admin && configLoaded
-                      ? async (entities) => {
-                          const saved = await hass.callWS<unknown>({
-                            type: "clacamieu/dashboard/config/update",
-                            ...withRoomEntities(
+                      ? (entities) =>
+                          saveConfig(
+                            withRoomEntities(
                               config,
                               hass,
                               route.areaId,
                               entities,
                             ),
-                          });
-                          setConfig(parseDashboardConfig(saved));
-                        }
+                          )
                       : undefined
                   }
                 />
@@ -263,6 +273,12 @@ export function App({
                   busy={busy}
                   error={error}
                   onMoreInfo={openMoreInfo}
+                  onCustomize={
+                    hass.user.is_admin && configLoaded
+                      ? (sections) =>
+                          saveConfig({ ...config, vacuum: { sections } })
+                      : undefined
+                  }
                 />
               ) : route.screen === "system" ? (
                 <System hass={hass} now={now} onMoreInfo={openMoreInfo} />

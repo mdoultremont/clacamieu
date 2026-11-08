@@ -14,7 +14,7 @@ import {
 } from "./ui/alert-dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import { Segmented, SegmentedItem } from "./ui/segmented";
 
 export function AlarmModes({
   alarm,
@@ -56,14 +56,11 @@ export function AlarmModes({
   }
   return (
     <>
-      <ToggleGroup
-        type="single"
+      <Segmented
         value={alarm.state}
-        variant="outline"
-        spacing={2}
         aria-label={t.alarmLabel}
         disabled={busy || !alarm.available}
-        className={cn("flex w-full flex-wrap justify-start gap-2", className)}
+        className={cn("flex w-full", className)}
         onValueChange={(state) => {
           const mode = alarm.modes.find((mode) => mode.state === state);
           if (mode && mode.state !== alarm.state) {
@@ -74,15 +71,11 @@ export function AlarmModes({
         }}
       >
         {alarm.modes.map((mode) => (
-          <ToggleGroupItem
-            key={mode.state}
-            value={mode.state}
-            className="min-h-11 flex-1"
-          >
+          <SegmentedItem key={mode.state} value={mode.state} className="min-h-11">
             {mode.label}
-          </ToggleGroupItem>
+          </SegmentedItem>
         ))}
-      </ToggleGroup>
+      </Segmented>
       <AlertDialog
         open={!!selection}
         onOpenChange={(open) => {

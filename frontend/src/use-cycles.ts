@@ -5,6 +5,8 @@ import {
   detectCycle,
   parseCycleDismissals,
   powerSamples,
+  trackedCycle,
+  trackedProgress,
   type CycleAppliance,
   type CycleState,
   type PowerSample,
@@ -17,19 +19,26 @@ const refreshMs = 5 * 60_000;
 /**
  * Each appliance's cycle, by entity ID. Reads twelve hours of power history
  * every five minutes and records live readings in between, so a dip and its
- * recovery between two reads still count.
+ * recovery between two reads still count. An appliance with a cycle tracker
+ * takes its cycle from the tracker's states and only its energy from power.
  */
 export function useCycles(
   hass: HassLike,
-  appliances: Pick<CycleAppliance, "entityId" | "plug">[],
+  appliances: Pick<CycleAppliance, "entityId" | "plug" | "tracker">[],
   now: Date,
 ): Record<string, CycleState> {
   const [history, setHistory] = useState<Record<string, PowerSample[]>>({});
+  const [trackerHistory, setTrackerHistory] = useState<
+    Record<string, HistoryPoint[]>
+  >({});
   const [live, setLive] = useState<Record<string, PowerSample[]>>({});
   const latestHass = useRef(hass);
   latestHass.current = hass;
   const powerIds = [...new Set(appliances.map((item) => item.plug.powerId))];
-  const key = powerIds.join();
+  const trackerIds = appliances.flatMap((item) =>
+    item.tracker ? [item.tracker.stateId] : [],
+  );
+  const key = [...powerIds, ...trackerIds].join();
   useEffect(() => {
     if (!powerIds.length) return;
     let active = true;
@@ -38,7 +47,7 @@ export function useCycles(
         .callWS<Record<string, HistoryPoint[]>>({
           type: "history/history_during_period",
           start_time: new Date(Date.now() - cycleHistoryMs).toISOString(),
-          entity_ids: powerIds,
+          entity_ids: [...powerIds, ...trackerIds],
           minimal_response: true,
           no_attributes: true,
           significant_changes_only: false,
@@ -57,6 +66,11 @@ export function useCycles(
               ]),
             );
             setHistory(read);
+            setTrackerHistory(
+              Object.fromEntries(
+                trackerIds.map((id) => [id, result?.[id] ?? []]),
+              ),
+            );
             setLive((current) =>
               Object.fromEntries(
                 Object.entries(current).map(([id, samples]) => [
@@ -105,19 +119,32 @@ export function useCycles(
     );
   }, [liveKey]);
   return Object.fromEntries(
-    appliances.map(({ entityId, plug }) => {
+    appliances.map(({ entityId, plug, tracker }): [string, CycleState] => {
       const read = history[plug.powerId];
       if (!read) return [entityId, { status: "idle" }];
       const lastRead = read.at(-1)?.at ?? -Infinity;
+      const samples = [
+        ...read,
+        ...(live[plug.powerId] ?? []).filter((sample) => sample.at > lastRead),
+      ];
+      if (!tracker) return [entityId, detectCycle(samples, now.getTime())];
+      const current = hass.states[tracker.stateId];
+      const states = trackerHistory[tracker.stateId] ?? [];
+      const cycle = trackedCycle(
+        current
+          ? [
+              ...states,
+              { s: current.state, lu: Date.parse(current.last_changed) / 1000 },
+            ]
+          : states,
+        samples,
+        now.getTime(),
+      );
       return [
         entityId,
-        detectCycle(
-          [
-            ...read,
-            ...(live[plug.powerId] ?? []).filter((sample) => sample.at > lastRead),
-          ],
-          now.getTime(),
-        ),
+        cycle.status === "running"
+          ? { ...cycle, ...trackedProgress(hass, tracker) }
+          : cycle,
       ];
     }),
   );

@@ -1,10 +1,10 @@
 import { formatClimate, roomPerception } from "./comfort-view";
 import { numeric, plugReadings } from "./home-view";
+import { cycleTracker, type CycleTracker } from "./cycle-view";
 import { locale, messages } from "./i18n";
 import { displayOptions, type EntityDisplay } from "./room-display";
 import { airLevel } from "./room-lighting";
 import { areaSensor, entityArea, resolveRoomSensors } from "./room-sensors";
-import { elapsed } from "./security-view";
 import type {
   DashboardConfig,
   HassEntity,
@@ -16,6 +16,8 @@ import type {
 export interface RoomEntity {
   id: string;
   name: string;
+  /** Home Assistant's name, which a saved Maison name replaces. */
+  defaultName: string;
   state: string;
   on: boolean;
   available: boolean;
@@ -43,6 +45,8 @@ export interface RoomDevice extends RoomElement {
   domain: DeviceDomain;
   /** The smart plug reading of a switch whose device measures power. */
   power: PlugReading | null;
+  /** The device that recognizes the plugged appliance's cycles. */
+  tracker: CycleTracker | null;
   /** Cover position from 0 (closed) to 100 (open). */
   position: number | null;
   actions: ServiceAction[];
@@ -61,8 +65,8 @@ export type SensorClass = keyof typeof activeWhenOn;
 export interface RoomSensor extends RoomElement {
   deviceClass: SensorClass;
   active: boolean;
-  /** How long the sensor has held its state, such as "for 12 min". */
-  changed: string | null;
+  /** A leak: active and a problem. */
+  alert: boolean;
 }
 
 export interface RoomView {
@@ -92,7 +96,6 @@ export function buildRoomView(
   hass: HassLike,
   config: DashboardConfig,
   areaId: string,
-  now: Date,
 ): RoomView | null {
   const area = hass.areas[areaId];
   if (!area) return null;
@@ -106,21 +109,28 @@ export function buildRoomView(
       entityArea(hass, entity.entity_id) === areaId
     );
   });
-  const entityView = (entity: HassEntity): RoomEntity => ({
-    id: entity.entity_id,
-    name:
-      entity.attributes.friendly_name ??
-      hass.entities[entity.entity_id]?.name ??
-      entity.entity_id,
-    state:
-      hass.formatEntityState?.(entity) ?? fallbackState(entity, hass.language),
-    on: !["off", "unavailable", "unknown", "standby"].includes(entity.state),
-    available: !["unavailable", "unknown"].includes(entity.state),
-  });
   const roomConfig = config.rooms?.find((room) => room.area_id === areaId) ?? {
     area_id: areaId,
   };
   const saved = roomConfig.entities ?? [];
+  const savedNames = new Map(
+    saved.flatMap((entry) => (entry.name ? [[entry.entity_id, entry.name]] : [])),
+  );
+  const entityView = (entity: HassEntity): RoomEntity => {
+    const defaultName =
+      entity.attributes.friendly_name ??
+      hass.entities[entity.entity_id]?.name ??
+      entity.entity_id;
+    return {
+    id: entity.entity_id,
+    name: savedNames.get(entity.entity_id) ?? defaultName,
+    defaultName,
+    state:
+      hass.formatEntityState?.(entity) ?? fallbackState(entity, hass.language),
+    on: !["off", "unavailable", "unknown", "standby"].includes(entity.state),
+    available: !["unavailable", "unknown"].includes(entity.state),
+    };
+  };
   const position = new Map(saved.map((entry, index) => [entry.entity_id, index]));
   const savedDisplay = new Map(
     saved.map((entry) => [entry.entity_id, entry.display]),
@@ -253,12 +263,17 @@ export function buildRoomView(
         const deviceId = hass.entities[entity.entity_id]?.device_id;
         const power =
           (domain === "switch" && deviceId && plugs.get(deviceId)) || null;
+        const shown = display(view.id, power);
         return [
           {
             ...view,
-            display: display(view.id, power),
+            display: shown,
             domain,
             power,
+            tracker:
+              power && shown === "cycle"
+                ? cycleTracker(hass, areaId, [view.defaultName, power.name])
+                : null,
             position: cover ? numeric(entity.attributes.current_position) : null,
             actions: cover
               ? [
@@ -295,16 +310,14 @@ export function buildRoomView(
           !Object.hasOwn(activeWhenOn, deviceClass)
         )
           return [];
-        const changed = Date.parse(entity.last_changed);
+        const active = activeWhenOn[deviceClass] && entity.state === "on";
         return [
           {
             ...entityView(entity),
             display: display(entity.entity_id),
             deviceClass,
-            active: activeWhenOn[deviceClass] && entity.state === "on",
-            changed: Number.isFinite(changed)
-              ? messages(language).since(elapsed(changed, now, language))
-              : null,
+            active,
+            alert: active && deviceClass === "moisture",
           },
         ];
       }),
