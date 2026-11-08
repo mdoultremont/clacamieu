@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { cn } from "cn";
 
 export interface EntityRow {
@@ -7,6 +8,7 @@ export interface EntityRow {
   value: string;
   /** A status dot before the name; none when absent. */
   dot?: "good" | "alert" | "off";
+  icon?: LucideIcon;
   alert?: boolean;
   unavailable?: boolean;
 }
@@ -27,7 +29,7 @@ export function EntityRows({
 }) {
   return (
     <ul className="divide-y overflow-hidden rounded-xl border bg-card text-card-foreground">
-      {rows.map((row) => (
+      {rows.map(({ icon: Icon, ...row }) => (
         <li key={row.id}>
           <button
             type="button"
@@ -39,6 +41,9 @@ export function EntityRows({
                 aria-hidden
                 className={cn("size-2 shrink-0 rounded-full", dotClass[row.dot])}
               />
+            )}
+            {Icon && (
+              <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
             )}
             <span
               className={cn(
