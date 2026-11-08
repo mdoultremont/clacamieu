@@ -176,7 +176,14 @@ async def test_settings_default_and_round_trip(
                 "humidity_entity_id": None,
                 "co2_entity_id": "sensor.co2",
             },
-            {"area_id": kitchen.id},
+            {
+                "area_id": kitchen.id,
+                "entities": [
+                    {"entity_id": "switch.oven", "display": "power"},
+                    {"entity_id": "light.missing", "display": "hidden"},
+                    {"entity_id": "switch.kettle", "display": "control"},
+                ],
+            },
         ],
     }
     for saved in (
@@ -302,6 +309,35 @@ async def test_settings_migrate_v1_store(
         {"rooms": [{"area_id": "kitchen", "co2_entity_id": "bad"}]},
         {"rooms": [{"area_id": str(i)} for i in range(501)]},
         {"rooms": [{}]},
+        {"rooms": [{"area_id": "kitchen", "entities": "switch.oven"}]},
+        {"rooms": [{"area_id": "kitchen", "entities": [{"entity_id": "bad"}]}]},
+        {
+            "rooms": [
+                {
+                    "area_id": "kitchen",
+                    "entities": [{"entity_id": "switch.oven", "display": "cycle"}],
+                }
+            ]
+        },
+        {
+            "rooms": [
+                {
+                    "area_id": "kitchen",
+                    "entities": [{"entity_id": "switch.oven", "display": "power"}] * 2,
+                }
+            ]
+        },
+        {
+            "rooms": [
+                {
+                    "area_id": "kitchen",
+                    "entities": [
+                        {"entity_id": f"switch.plug_{i}", "display": "hidden"}
+                        for i in range(501)
+                    ],
+                }
+            ]
+        },
         {"home_cards": [{"id": "a", "type": "summary", "extra": True}]},
     ],
 )
