@@ -12,7 +12,13 @@ from homeassistant.helpers import config_validation as cv
 
 from custom_components.clacamieu.const import DOMAIN
 
-from .models import CONF_HOME_CARDS, CONF_ROOMS, DashboardConfig
+from .models import (
+    CONF_HOME_CARDS,
+    CONF_ROOMS,
+    CONF_SECURITY,
+    CONF_VACUUM,
+    DashboardConfig,
+)
 from .runtime import DashboardRuntime
 
 if TYPE_CHECKING:
@@ -30,6 +36,8 @@ MAX_CARDS = 100
 MAX_ROOMS = 500
 MAX_ENTITIES = 500
 ENTITY_DISPLAYS = ("control", "power", "cycle", "hidden")
+VACUUM_SECTIONS = ("shortcuts", "rooms", "maintenance", "station", "statistics")
+MAX_NAME_LENGTH = 100
 
 
 def _unique(key: str) -> Callable[[list[dict[str, Any]]], list[dict[str, Any]]]:
@@ -105,6 +113,25 @@ ROOM_ENTITY_SCHEMA = vol.Schema(
     {
         vol.Required("entity_id"): cv.entity_id,
         vol.Required("display"): vol.In(ENTITY_DISPLAYS),
+        vol.Optional("name"): vol.All(
+            str, vol.Strip, vol.Length(min=1, max=MAX_NAME_LENGTH)
+        ),
+    }
+)
+SECURITY_SCHEMA = vol.Schema(
+    {
+        vol.Required("hidden_entity_ids"): vol.All(
+            [cv.entity_id], vol.Length(max=MAX_ENTITIES), vol.Unique()
+        ),
+    }
+)
+VACUUM_SCHEMA = vol.Schema(
+    {
+        vol.Required("sections"): vol.All(
+            [vol.In(VACUUM_SECTIONS)],
+            vol.Length(max=len(VACUUM_SECTIONS)),
+            vol.Unique(),
+        ),
     }
 )
 ROOM_SCHEMA = vol.Schema(
@@ -156,6 +183,8 @@ def ws_get_config(
         vol.Required(CONF_ROOMS): vol.Any(
             None, vol.All([ROOM_SCHEMA], vol.Length(max=MAX_ROOMS), _unique("area_id"))
         ),
+        vol.Optional(CONF_SECURITY, default=None): vol.Any(None, SECURITY_SCHEMA),
+        vol.Optional(CONF_VACUUM, default=None): vol.Any(None, VACUUM_SCHEMA),
     }
 )
 @websocket_api.require_admin
