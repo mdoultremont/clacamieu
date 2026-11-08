@@ -6,6 +6,8 @@ export interface EntityRow {
   name: string;
   /** Short state or time shown on the right. */
   value: string;
+  /** Muted text after the value, such as when it changed. */
+  detail?: string;
   /** A status dot before the name; none when absent. */
   dot?: "good" | "alert" | "off";
   icon?: LucideIcon;
@@ -48,23 +50,13 @@ export function EntityRows({
               />
             )}
             {Icon && (
-              <span
-                aria-hidden
-                className={cn(
-                  "-mx-1.5 grid size-7 shrink-0 place-items-center rounded-md transition-colors",
-                  row.active
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground",
-                )}
-              >
-                <Icon className="size-4" />
-              </span>
+              <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
             )}
             <span
               className={cn(
                 "min-w-0 flex-1 truncate",
                 row.unavailable && "text-muted-foreground",
-                (row.alert || row.active) && "font-medium",
+                row.alert && "font-medium",
               )}
             >
               {row.name}
@@ -72,14 +64,13 @@ export function EntityRows({
             <span
               className={cn(
                 "shrink-0 text-right text-xs tabular-nums",
-                row.alert
-                  ? "text-air-poor"
-                  : row.active
-                    ? "font-medium text-foreground"
-                    : "text-muted-foreground",
+                row.alert ? "text-air-poor" : "text-muted-foreground",
               )}
             >
-              {row.value}
+              <span className={cn(row.active && "font-semibold text-foreground")}>
+                {row.value}
+              </span>
+              {row.detail && ` · ${row.detail}`}
             </span>
           </button>
         </li>

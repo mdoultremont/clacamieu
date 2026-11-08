@@ -179,10 +179,8 @@ export function Room({
               rows={sensors.map((sensor) => ({
                 id: sensor.id,
                 name: sensor.name,
-                value:
-                  sensor.active && sensor.changed
-                    ? `${sensor.state} · ${sensor.changed}`
-                    : sensor.state,
+                value: sensor.state,
+                detail: (sensor.active && sensor.changed) || undefined,
                 icon:
                   (sensor.active && activeIcons[sensor.deviceClass]) ||
                   entityIcons[sensor.deviceClass],
