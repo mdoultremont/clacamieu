@@ -1,5 +1,5 @@
+import type { SensorRow } from "./components/sensor-rows";
 import { locale, messages } from "./i18n";
-import { entityArea } from "./room-sensors";
 import type { DashboardConfig, HassEntity, HassLike } from "./types";
 
 const alarmModes = [
@@ -20,20 +20,12 @@ export type AlarmMode = (typeof alarmModes)[number] & {
   confirmation: string;
   needsCode: boolean;
 };
-export interface SecuritySensor {
-  id: string;
-  name: string;
-  area: string | null;
-  /** When the state last changed, relative to now. */
-  changed: string | null;
-  state: string;
-  active: boolean;
-  available: boolean;
-}
 export interface SecuritySensorGroup {
   summary: string;
   alert: boolean;
-  sensors: SecuritySensor[];
+  sensors: SensorRow[];
+  /** Sensors an admin left out of Security. */
+  hidden: { id: string; name: string }[];
 }
 export interface SecurityView {
   alarm: {
@@ -53,7 +45,6 @@ export interface SecurityView {
 export function buildSecurityView(
   hass: HassLike,
   config: DashboardConfig,
-  now: Date,
 ): SecurityView {
   const t = messages(hass.language);
   const language = locale(hass.language);
@@ -79,17 +70,20 @@ export function buildSecurityView(
     entity.attributes.friendly_name ??
     hass.entities[entity.entity_id]?.name ??
     entity.entity_id;
+  const hiddenIds = new Set(config.security?.hidden_entity_ids);
   const group = (
     classes: string[],
     activeSummary: (count: number) => string,
     safeSummary: (closed: number, total: number) => string,
     stateLabels: { on: string; off: string },
+    alertWhenOn: boolean,
   ): SecuritySensorGroup => {
-    const entities = visible.filter(
+    const all = visible.filter(
       (entity) =>
         entity.entity_id.startsWith("binary_sensor.") &&
         classes.includes(entity.attributes.device_class ?? ""),
     );
+    const entities = all.filter((entity) => !hiddenIds.has(entity.entity_id));
     const active = entities.filter((entity) => entity.state === "on").length;
     const closed = entities.filter((entity) => entity.state === "off").length;
     const unavailable = entities.length - active - closed;
@@ -97,12 +91,15 @@ export function buildSecurityView(
       ? t.noSensors
       : active
         ? activeSummary(active)
-        : safeSummary(closed, entities.length);
+        : safeSummary(closed, active + closed);
     return {
       summary: [summary, unavailable ? t.securityUnavailable(unavailable) : ""]
         .filter(Boolean)
         .join(" · "),
       alert: active > 0,
+      hidden: all
+        .filter((entity) => hiddenIds.has(entity.entity_id))
+        .map((entity) => ({ id: entity.entity_id, name: name(entity) })),
       sensors: entities
         .sort(
           (a, b) =>
@@ -110,24 +107,18 @@ export function buildSecurityView(
             Number(b.state === "off") - Number(a.state === "off") ||
             name(a).localeCompare(name(b), language),
         )
-        .map((entity) => {
-          const area = entityArea(hass, entity.entity_id);
-          const changed = Date.parse(entity.last_changed);
-          return {
-            id: entity.entity_id,
-            name: name(entity),
-            area: (area && hass.areas[area]?.name) || null,
-            changed: Number.isFinite(changed)
-              ? relativeTime(changed, now, language)
-              : null,
-            active: entity.state === "on",
-            available: ["on", "off"].includes(entity.state),
-            state: !["on", "off"].includes(entity.state)
-              ? t.unavailable
-              : (hass.formatEntityState?.(entity) ??
-                stateLabels[entity.state as "on" | "off"]),
-          };
-        }),
+        .map((entity) => ({
+          id: entity.entity_id,
+          name: name(entity),
+          deviceClass: entity.attributes.device_class ?? "",
+          active: entity.state === "on",
+          alert: alertWhenOn && entity.state === "on",
+          available: ["on", "off"].includes(entity.state),
+          state: !["on", "off"].includes(entity.state)
+            ? t.unavailable
+            : (hass.formatEntityState?.(entity) ??
+              stateLabels[entity.state as "on" | "off"]),
+        })),
     };
   };
   const changed = alarm ? Date.parse(alarm.last_changed) : NaN;
@@ -207,37 +198,23 @@ export function buildSecurityView(
       t.openingsOpen,
       t.securityClosed,
       { on: t.sensorOpen, off: t.sensorClosed },
+      false,
     ),
     leaks: group(
       ["moisture"],
       t.securityLeaks,
       (closed) => (closed > 0 ? t.securityNoLeak : ""),
       { on: t.leak, off: t.sensorDry },
+      true,
     ),
     detectors: group(
       ["smoke", "gas", "carbon_monoxide", "safety"],
       t.securityAlerts,
       (closed) => (closed > 0 ? t.securityNoAlert : ""),
       { on: t.securityDetected, off: t.securityClear },
+      true,
     ),
   };
-}
-
-export function relativeTime(changed: number, now: Date, language: string): string {
-  // A device clock slightly ahead of ours must not read as a future change.
-  const seconds = Math.min(0, (changed - now.getTime()) / 1000);
-  const [unit, divisor]: [Intl.RelativeTimeFormatUnit, number] =
-    Math.abs(seconds) >= 86400
-      ? ["day", 86400]
-      : Math.abs(seconds) >= 3600
-        ? ["hour", 3600]
-        : Math.abs(seconds) >= 60
-          ? ["minute", 60]
-          : ["second", 1];
-  return new Intl.RelativeTimeFormat(language, {
-    numeric: "auto",
-    style: "short",
-  }).format(Math.trunc(seconds / divisor), unit);
 }
 
 /** How long ago a change happened, as a short duration such as "54 min". */

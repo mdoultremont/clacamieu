@@ -70,11 +70,13 @@ export function CycleIslands({
   }, [open]);
   if (!chips.length) return null;
   return (
+    // Safari only re-sorts composited layers once a size transition ends, so
+    // the tray grain would cover the growing island; its own layer keeps it on top.
     <div
       ref={row}
       role="list"
       aria-label={t.appliances}
-      className="relative z-20 flex h-7 items-start gap-1.5 [overflow-x:clip] [overflow-clip-margin:2rem]"
+      className="relative z-20 flex h-7 transform-gpu items-start gap-1.5 [overflow-x:clip] [overflow-clip-margin:2rem]"
     >
       {chips.map((chip) => (
         <Island
@@ -194,7 +196,8 @@ function Island({
         <span className="truncate">{chip.name}</span>
         <span className="font-normal opacity-60">
           {chip.status === "running"
-            ? formatDuration(now.getTime() - chip.since, language)
+            ? (chip.remaining ??
+              formatDuration(now.getTime() - chip.since, language))
             : t.cycleFinishedChip}
         </span>
         <button
@@ -252,7 +255,7 @@ function IslandDetails({
           <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
             {running && <Wave />}
             {running
-              ? `${t.cycleRunning} · ${chip.areaName}`
+              ? `${chip.program ?? t.cycleRunning} · ${chip.areaName}`
               : `${chip.ago} · ${chip.areaName}`}
           </p>
         </div>
@@ -262,11 +265,28 @@ function IslandDetails({
           </p>
           <p className="text-xs text-muted-foreground">
             {running
-              ? [chip.watts, chip.kwh].filter(Boolean).join(" · ")
+              ? [chip.remaining ?? chip.watts, chip.kwh]
+                  .filter(Boolean)
+                  .join(" · ")
               : chip.kwh}
           </p>
         </div>
       </div>
+      {running && chip.progress !== null && (
+        <div
+          role="progressbar"
+          aria-valuenow={chip.progress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={chip.name}
+          className="mt-3 h-1 overflow-hidden rounded-full bg-running/15"
+        >
+          <div
+            className="h-full rounded-full bg-running transition-[width] duration-500"
+            style={{ width: `${Math.min(100, Math.max(0, chip.progress))}%` }}
+          />
+        </div>
+      )}
       <div className="mt-3 flex gap-1.5">
         {!running && (
           <Button size="sm" className="flex-1 rounded-xl" onClick={onDismiss}>

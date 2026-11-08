@@ -60,7 +60,7 @@ export function withRoomEntities(
     type: "edit-room",
     room: { ...room, entities },
   }).config;
-  return { home_cards: config.home_cards, rooms };
+  return { ...config, rooms };
 }
 
 export function editorLists(state: ConfigEditorState) {
@@ -101,7 +101,10 @@ export function configEditorReducer(
   action: ConfigEditorAction,
 ): ConfigEditorState {
   if (action.type === "reset")
-    return { ...state, config: { home_cards: null, rooms: null } };
+    return {
+      ...state,
+      config: { ...state.config, home_cards: null, rooms: null },
+    };
   const lists = editorLists(state);
   let { home_cards: cards, rooms } = lists;
   switch (action.type) {
@@ -162,7 +165,7 @@ export function configEditorReducer(
       );
       break;
   }
-  return { ...state, config: { home_cards: cards, rooms } };
+  return { ...state, config: { ...state.config, home_cards: cards, rooms } };
 }
 
 export function newCardId(): string {

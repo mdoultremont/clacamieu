@@ -561,7 +561,7 @@ it("navigates to Security and emits a composed camera event from the panel", asy
       Array.from(
         panel.shadowRoot!.querySelectorAll<HTMLButtonElement>("button"),
       )
-        .find((button) => button.textContent?.includes("Example camera"))!
+        .find((button) => button.ariaLabel === "Example camera")!
         .click();
     });
     expect(events).toHaveLength(1);

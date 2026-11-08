@@ -111,7 +111,7 @@ async function mount(
     root.render(
       <PortalContainerContext value={portal}>
         <Room
-          view={buildRoomView(hass, config, "kitchen", new Date())!}
+          view={buildRoomView(hass, config, "kitchen")!}
           hass={hass}
           now={new Date()}
           lighting={null}

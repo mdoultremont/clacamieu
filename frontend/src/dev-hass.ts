@@ -125,6 +125,8 @@ export interface CompactEntities {
     hb?: boolean;
     ec?: number;
     en?: string;
+    pl?: string;
+    tk?: string;
   }[];
 }
 
@@ -142,6 +144,8 @@ export function decodeEntities(
         entity_category:
           entry.ec == null ? undefined : result.entity_categories[entry.ec],
         name: entry.en,
+        platform: entry.pl,
+        translation_key: entry.tk,
       },
     ]),
   );

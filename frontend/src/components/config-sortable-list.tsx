@@ -28,6 +28,8 @@ type Row = {
   hidden?: boolean;
   /** A control in place of the visibility switch. */
   trailing?: ReactNode;
+  /** A full-width line under the row, such as a name field. */
+  below?: ReactNode;
 };
 
 export function ConfigSortableList({
@@ -169,6 +171,7 @@ function SortableRow({
           />
         </div>
       )}
+      {row.below && <div className="basis-full px-3 pb-3">{row.below}</div>}
     </div>
   );
 }

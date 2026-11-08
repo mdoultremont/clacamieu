@@ -2,6 +2,7 @@ import type { HistoryPoint } from "./climate-trend";
 import { numeric, plugReadings } from "./home-view";
 import { locale, messages } from "./i18n";
 import { displayOptions } from "./room-display";
+import { entityArea } from "./room-sensors";
 import type { DashboardConfig, HassLike, PlugReading } from "./types";
 
 /**
@@ -23,8 +24,32 @@ export interface PowerSample {
 
 export type CycleState =
   | { status: "idle" }
-  | { status: "running"; since: number; watts: number | null; kwh: number }
+  | ({
+      status: "running";
+      since: number;
+      watts: number | null;
+      kwh: number;
+    } & Partial<TrackedProgress>)
   | { status: "finished"; startedAt: number; endedAt: number; kwh: number };
+
+/** What a cycle tracker knows about the running program. */
+export interface TrackedProgress {
+  program: string | null;
+  remainingMs: number | null;
+  /** From 0 to 100. */
+  progress: number | null;
+}
+
+/**
+ * A WashData device, which recognizes an appliance's programs from its power
+ * profile, so it knows when a cycle with long quiet phases really ends.
+ */
+export interface CycleTracker {
+  stateId: string;
+  programId: string | null;
+  remainingId: string | null;
+  progressId: string | null;
+}
 
 /** A plug an admin set to the cycle display in a room. */
 export interface CycleAppliance {
@@ -33,6 +58,139 @@ export interface CycleAppliance {
   areaId: string;
   areaName: string;
   plug: PlugReading;
+  tracker: CycleTracker | null;
+}
+
+const trackerPlatform = "ha_washdata";
+const trackerRunning = new Set([
+  "starting",
+  "running",
+  "paused",
+  "user_paused",
+  "ending",
+  "delay_wait",
+  "anti_wrinkle",
+]);
+const plain = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+/**
+ * The WashData device of an appliance: the only one in its room, or the one
+ * whose name the appliance's names contain, as "Lave-vaisselle" in "Prise
+ * lave-vaisselle".
+ */
+export function cycleTracker(
+  hass: HassLike,
+  areaId: string,
+  names: string[],
+): CycleTracker | null {
+  const registry = Object.values(hass.entities);
+  const candidates = registry.filter(
+    (entry) =>
+      entry.platform === trackerPlatform &&
+      entry.translation_key === "washer_state" &&
+      !!entry.device_id &&
+      !!hass.states[entry.entity_id] &&
+      entityArea(hass, entry.entity_id) === areaId,
+  );
+  const tracker =
+    candidates.length === 1
+      ? candidates[0]
+      : candidates.find((entry) => {
+          const device = hass.devices[entry.device_id!];
+          const label = device?.name_by_user ?? device?.name;
+          return (
+            !!label && names.some((name) => plain(name).includes(plain(label)))
+          );
+        });
+  if (!tracker) return null;
+  const sibling = (key: string) =>
+    registry.find(
+      (entry) =>
+        entry.device_id === tracker.device_id && entry.translation_key === key,
+    )?.entity_id ?? null;
+  return {
+    stateId: tracker.entity_id,
+    programId: sibling("washer_program"),
+    remainingId: sibling("time_remaining"),
+    progressId: sibling("cycle_progress"),
+  };
+}
+
+/** The program, time left, and progress a tracker reports right now. */
+export function trackedProgress(
+  hass: HassLike,
+  tracker: CycleTracker,
+): TrackedProgress {
+  const value = (id: string | null) =>
+    id ? numeric(hass.states[id]?.state) : null;
+  const program = tracker.programId
+    ? hass.states[tracker.programId]?.state
+    : undefined;
+  const remaining = value(tracker.remainingId);
+  const unit = tracker.remainingId
+    ? hass.states[tracker.remainingId]?.attributes.unit_of_measurement
+    : undefined;
+  const unitMs = unit === "min" ? 60_000 : unit === "s" ? 1000 : 3_600_000;
+  return {
+    program:
+      program && !["off", "none", "unknown", "unavailable"].includes(program)
+        ? program
+        : null,
+    remainingMs: remaining === null ? null : remaining * unitMs,
+    progress: value(tracker.progressId),
+  };
+}
+
+/** Energy drawn between two times, holding each reading until the next. */
+function energyBetween(samples: PowerSample[], from: number, to: number) {
+  let wattMs = 0;
+  samples.forEach((sample, index) => {
+    if (sample.watts === null) return;
+    const start = Math.max(sample.at, from);
+    const end = Math.min(samples[index + 1]?.at ?? to, to);
+    if (end > start) wattMs += sample.watts * (end - start);
+  });
+  return wattMs / 3_600_000_000;
+}
+
+/**
+ * A cycle from a tracker's state history: it runs from the first running
+ * state to the next settled one, such as finished or off. Unavailable and
+ * unknown states neither start nor end it.
+ */
+export function trackedCycle(
+  points: HistoryPoint[],
+  samples: PowerSample[],
+  now: number,
+): CycleState {
+  let run: { start: number; end: number | null } | null = null;
+  for (const point of points) {
+    if (["unavailable", "unknown"].includes(point.s)) continue;
+    const at = point.lu * 1000;
+    if (trackerRunning.has(point.s)) {
+      if (!run || run.end !== null) run = { start: at, end: null };
+    } else if (run && run.end === null) run.end = at;
+  }
+  if (!run) return { status: "idle" };
+  if (run.end === null)
+    return {
+      status: "running",
+      since: run.start,
+      watts: samples.filter((sample) => sample.watts !== null).at(-1)?.watts ?? null,
+      kwh: energyBetween(samples, run.start, now),
+    };
+  return now - run.end < finishedForMs
+    ? {
+        status: "finished",
+        startedAt: run.start,
+        endedAt: run.end,
+        kwh: energyBetween(samples, run.start, run.end),
+      }
+    : { status: "idle" };
 }
 
 export function powerSamples(
@@ -131,16 +289,18 @@ export function cycleAppliances(
         !displayOptions({ power: plug }).includes("cycle")
       )
         return [];
+      const name =
+        entity.attributes.friendly_name ??
+        hass.entities[element.entity_id]?.name ??
+        element.entity_id;
       return [
         {
           entityId: element.entity_id,
-          name:
-            entity.attributes.friendly_name ??
-            hass.entities[element.entity_id]?.name ??
-            element.entity_id,
+          name: element.name ?? name,
           areaId: area.area_id,
           areaName: area.name,
           plug,
+          tracker: cycleTracker(hass, area.area_id, [name, plug.name]),
         },
       ];
     });
@@ -201,7 +361,10 @@ export function cycleDetail(
   switch (state.status) {
     case "running":
       return [
-        t.cycleSince(formatDuration(now - state.since, language)),
+        state.program,
+        state.remainingMs != null
+          ? t.cycleRemaining(formatDuration(state.remainingMs, language))
+          : t.cycleSince(formatDuration(now - state.since, language)),
         watts === null ? null : `${number(watts, 0, language)} W`,
         formatCycleEnergy(state.kwh, language),
       ]
@@ -220,7 +383,16 @@ export function cycleDetail(
 
 export type CycleChip = CycleAppliance &
   (
-    | { status: "running"; since: number; watts: string | null; kwh: string }
+    | {
+        status: "running";
+        since: number;
+        watts: string | null;
+        kwh: string;
+        program: string | null;
+        /** Such as "encore 1 h 26", from the cycle tracker. */
+        remaining: string | null;
+        progress: number | null;
+      }
     | {
         status: "finished";
         endedAt: number;
@@ -254,6 +426,14 @@ export function buildCycleChips(
               ? null
               : `${number(appliance.plug.watts, 0, language)} W`,
           kwh: formatCycleEnergy(state.kwh, language),
+          program: state.program ?? null,
+          remaining:
+            state.remainingMs == null
+              ? null
+              : messages(language).cycleRemaining(
+                  formatDuration(state.remainingMs, language),
+                ),
+          progress: state.progress ?? null,
         },
       ];
     if (

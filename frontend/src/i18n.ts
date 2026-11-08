@@ -1,4 +1,5 @@
 import type { EntityDisplay } from "./room-display";
+import type { VacuumSection } from "./types";
 
 export const en = {
   cameras: "Cameras",
@@ -63,6 +64,20 @@ export const en = {
   roomNext: "Next",
   daysAgo: (count: number) => `${count} days ago`,
   since: (duration: string) => `for ${duration}`,
+  sinceOver: (days: number) => `for over ${days} days`,
+  customizeSecurity: "Customize security",
+  customizeSecurityDescription:
+    "Turn off the sensors Security should neither count nor list, such as spares that aren't installed.",
+  customizeVacuum: "Customize vacuum page",
+  customizeVacuumDescription: "Drag the sections into the order you want.",
+  vacuumSections: {
+    shortcuts: "Shortcuts",
+    rooms: "Rooms",
+    maintenance: "Maintenance",
+    station: "Station",
+    statistics: "Statistics",
+  } satisfies Record<VacuumSection, string>,
+  elementName: (name: string) => `Name of ${name}`,
   notCleanedRecently: (days: number) => `Not in ${days} days`,
   cleaningMode: "Cleaning mode",
   suctionLevel: "Suction",
@@ -200,7 +215,7 @@ export const en = {
   allLights: (count: number) => `All lights (${count})`,
   customizeRoom: "Customize room",
   customizeRoomDescription:
-    "Drag to reorder. Choose how each element shows on this page.",
+    "Drag to reorder. Tap an element to rename it, and choose how each one shows on this page.",
   openingsAndSensors: "Openings and sensors",
   entityDisplays: {
     control: "Control",
@@ -338,6 +353,7 @@ export const en = {
   cycleFinishedChip: "done",
   cycleIdle: "Idle",
   cycleSince: (duration: string) => `For ${duration}`,
+  cycleRemaining: (duration: string) => `${duration} left`,
   cycleLength: (duration: string) => `${duration} cycle`,
   cycleFinishedIn: (room: string) => `Cycle done · ${room}`,
   cycleDuration: (hours: number, minutes: number) =>
@@ -421,7 +437,7 @@ export const en = {
   },
 };
 
-type Messages = {
+export type Messages = {
   [K in keyof typeof en]: (typeof en)[K] extends (...args: infer A) => string
     ? (...args: A) => string
     : (typeof en)[K] extends string
@@ -493,6 +509,20 @@ export const fr: Messages = {
   roomNext: "Ensuite",
   daysAgo: (count) => `Il y a ${count} jours`,
   since: (duration) => `depuis ${duration}`,
+  sinceOver: (days) => `depuis plus de ${days} j`,
+  customizeSecurity: "Personnaliser la sécurité",
+  customizeSecurityDescription:
+    "Désactivez les capteurs que Sécurité ne doit ni compter ni afficher, comme ceux qui ne sont pas encore installés.",
+  customizeVacuum: "Personnaliser l'aspirateur",
+  customizeVacuumDescription: "Faites glisser les sections dans l'ordre voulu.",
+  vacuumSections: {
+    shortcuts: "Raccourcis",
+    rooms: "Pièces",
+    maintenance: "Entretien",
+    station: "Station",
+    statistics: "Statistiques",
+  },
+  elementName: (name) => `Nom de ${name}`,
   notCleanedRecently: (days) => `Pas depuis ${days} jours`,
   cleaningMode: "Mode de nettoyage",
   suctionLevel: "Aspiration",
@@ -632,7 +662,7 @@ export const fr: Messages = {
   allLights: (count) => `Toutes les lumières (${count})`,
   customizeRoom: "Personnaliser la pièce",
   customizeRoomDescription:
-    "Faites glisser pour réordonner. Choisissez l'affichage de chaque élément sur cette page.",
+    "Faites glisser pour réordonner. Touchez un élément pour le renommer et choisissez l'affichage de chacun sur cette page.",
   openingsAndSensors: "Ouvrants et capteurs",
   entityDisplays: {
     control: "Commande",
@@ -772,6 +802,7 @@ export const fr: Messages = {
   cycleFinishedChip: "terminé",
   cycleIdle: "À l'arrêt",
   cycleSince: (duration) => `Depuis ${duration}`,
+  cycleRemaining: (duration) => `encore ${duration}`,
   cycleLength: (duration) => `cycle de ${duration}`,
   cycleFinishedIn: (room) => `Cycle terminé · ${room}`,
   cycleDuration: (hours, minutes) =>

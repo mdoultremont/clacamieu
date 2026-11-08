@@ -1,12 +1,15 @@
 import type { HistoryPoint } from "./climate-trend";
 import { numeric } from "./home-view";
 import { en, locale, messages, translatedState } from "./i18n";
-import type {
-  DashboardConfig,
-  HassEntity,
-  HassLike,
-  ServiceAction,
-  Tone,
+import {
+  vacuumSections,
+  type DashboardConfig,
+  type HassEntity,
+  type HassLike,
+  type ServiceAction,
+  type Tone,
+  type VacuumConfig,
+  type VacuumSection,
 } from "./types";
 
 export type ServiceCatalog = Record<string, Record<string, unknown>>;
@@ -922,4 +925,11 @@ function lastCleaned(state: string | undefined, language: string) {
         month: "short",
       }).format(time)
     : null;
+}
+
+/** The vacuum page's sections: the saved order, then any it lacks. */
+export function vacuumSectionOrder(
+  config: VacuumConfig | null | undefined,
+): VacuumSection[] {
+  return [...new Set([...(config?.sections ?? []), ...vacuumSections])];
 }

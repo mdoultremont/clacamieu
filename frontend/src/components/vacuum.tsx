@@ -8,9 +8,11 @@ import {
   MapPin,
   Pause,
   Play,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import {
+  Fragment,
   useEffect,
   useId,
   useRef,
@@ -21,13 +23,19 @@ import {
 import { cn } from "cn";
 import { energyTimeZone } from "../energy-view";
 import { messages } from "../i18n";
-import type { DashboardConfig, HassLike, ServiceAction } from "../types";
+import type {
+  DashboardConfig,
+  HassLike,
+  ServiceAction,
+  VacuumSection,
+} from "../types";
 import { useRoomHistory } from "../use-room-history";
 import {
   buildVacuumView,
   cleaningAction,
   roomLastCleaned,
   roomSelection,
+  vacuumSectionOrder,
   type MaintenanceItem,
   type ServiceCatalog,
   type VacuumRoom,
@@ -37,6 +45,7 @@ import { areaIcon } from "./area-icon";
 import { BackLink } from "./back-link";
 import { toneClass } from "./home-status";
 import { Tray } from "./tray";
+import { VacuumCustomization } from "./vacuum-customization";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -66,6 +75,7 @@ export function Vacuum({
   onAction,
   error,
   onMoreInfo,
+  onCustomize,
 }: {
   hass: HassLike;
   config: DashboardConfig;
@@ -74,6 +84,8 @@ export function Vacuum({
   onAction: Act;
   error: string | null;
   onMoreInfo: (entityId: string) => void;
+  /** Saves the order of the page's sections; absent for non-admins. */
+  onCustomize?: (sections: VacuumSection[]) => Promise<void>;
 }) {
   const t = messages(hass.language);
   const [services, setServices] = useState<ServiceCatalog>({});
@@ -115,13 +127,213 @@ export function Vacuum({
       if (!next.delete(id)) next.add(id);
       return next;
     });
+  const sections: Record<VacuumSection, ReactNode> | null = view
+    ? {
+        shortcuts: (
+          <>
+            {view.shortcuts.length > 0 && (
+              <Section title={t.shortcuts}>
+                <Tray>
+                  <ul className="tray-card divide-y overflow-hidden">
+                    {view.shortcuts.map((shortcut) => (
+                      <li
+                        key={shortcut.id}
+                        className="flex min-h-14 items-center gap-3 py-2 pr-2 pl-4"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">
+                            {shortcut.name}
+                          </p>
+                          {shortcut.summary && (
+                            <p className="truncate text-sm text-muted-foreground">
+                              {shortcut.summary}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="size-11 shrink-0 rounded-full"
+                          aria-label={shortcut.action.label}
+                          disabled={busy || !shortcut.available}
+                          onClick={() => onAction(shortcut.action)}
+                        >
+                          <Play />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </Tray>
+              </Section>
+            )}
+          </>
+        ),
+        rooms: (
+          <>
+            {(view.task || view.rooms.length > 0) && (
+              <Section
+                title={view.task ? t.taskRooms : t.rooms}
+                aside={
+                  view.pins && (
+                    <RoomViewSwitch
+                      tab={tab}
+                      onTab={setTab}
+                      language={hass.language}
+                    />
+                  )
+                }
+              >
+                {tab === "map" && view.camera && view.pins ? (
+                  <RoomMap camera={view.camera} language={hass.language}>
+                    {(size) =>
+                      !view.task && (
+                        <RoomPins
+                          pins={view.pins!}
+                          size={size}
+                          ranks={ranks}
+                          disabled={!view.available}
+                          onToggle={toggle}
+                        />
+                      )
+                    }
+                  </RoomMap>
+                ) : view.task ? (
+                  <TaskList view={view} language={hass.language} />
+                ) : (
+                  <RoomList
+                    view={view}
+                    ranks={ranks}
+                    lastCleaned={lastCleaned}
+                    language={hass.language}
+                    onToggle={toggle}
+                  />
+                )}
+              </Section>
+            )}
+            {view.camera && !view.pins && (
+              <PlainMap
+                camera={view.camera}
+                language={hass.language}
+                onMoreInfo={onMoreInfo}
+              />
+            )}
+            {!view.underway && (
+              <CleaningTray
+                view={view}
+                chosen={chosen}
+                language={hass.language}
+                busy={busy}
+                onAction={onAction}
+                onClear={() => setSelected(new Set())}
+              />
+            )}
+          </>
+        ),
+        maintenance: (
+          <>
+            {view.maintenance.items.length > 0 && (
+              <Section title={t.maintenance}>
+                <MaintenanceTray
+                  maintenance={view.maintenance}
+                  language={hass.language}
+                  busy={busy}
+                  onAction={onAction}
+                />
+              </Section>
+            )}
+          </>
+        ),
+        station: (
+          <>
+            {view.station && (
+              <Section title={t.station}>
+                <Tray
+                  alert={
+                    view.station.alert && (
+                      <span className="truncate">{view.station.alert}</span>
+                    )
+                  }
+                  info={
+                    view.station.info && (
+                      <span className="truncate">{view.station.info}</span>
+                    )
+                  }
+                >
+                  <div className="tray-card flex items-center gap-3 p-3">
+                    <IconSquare
+                      icon={view.station.ready ? CircleCheck : CircleAlert}
+                      className={cn(
+                        !view.station.ready && "bg-destructive text-white",
+                      )}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">
+                        {view.station.ready ? t.stationReady : t.stationCheck}
+                      </p>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {view.station.parts}
+                      </p>
+                    </div>
+                  </div>
+                </Tray>
+              </Section>
+            )}
+          </>
+        ),
+        statistics: (
+          <>
+            {view.statistics.length > 0 && (
+              <Section title={t.statistics}>
+                <Tray>
+                  <dl
+                    className="tray-card grid divide-x p-4"
+                    style={{
+                      gridTemplateColumns: `repeat(${view.statistics.length}, minmax(0, 1fr))`,
+                    }}
+                  >
+                    {view.statistics.map((stat) => (
+                      <div
+                        key={stat.id}
+                        className="min-w-0 px-3 first:pl-0 last:pr-0"
+                      >
+                        <dt className="text-xs text-pretty text-muted-foreground">
+                          {stat.name}
+                        </dt>
+                        <dd className="text-lg font-semibold tracking-tight text-pretty tabular-nums">
+                          {stat.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </Tray>
+              </Section>
+            )}
+          </>
+        ),
+      }
+    : null;
+  const [customizing, setCustomizing] = useState(false);
   return (
     <>
       <header className="space-y-2">
         <BackLink fallback={{ screen: "more" }} language={hass.language} />
-        <h1 className="text-xl font-semibold tracking-tight">
-          {view?.name ?? t.vacuumPage}
-        </h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight">
+            {view?.name ?? t.vacuumPage}
+          </h1>
+          {onCustomize && view && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-11 shrink-0 text-muted-foreground"
+              aria-label={t.customizeVacuum}
+              title={t.customizeVacuum}
+              onClick={() => setCustomizing(true)}
+            >
+              <SlidersHorizontal />
+            </Button>
+          )}
+        </div>
       </header>
       {error && (
         <p className="error" role="alert">
@@ -143,166 +355,19 @@ export function Vacuum({
             busy={busy}
             onAction={onAction}
           />
-          {view.shortcuts.length > 0 && (
-            <Section title={t.shortcuts}>
-              <Tray>
-                <ul className="tray-card divide-y overflow-hidden">
-                  {view.shortcuts.map((shortcut) => (
-                    <li
-                      key={shortcut.id}
-                      className="flex min-h-14 items-center gap-3 py-2 pr-2 pl-4"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{shortcut.name}</p>
-                        {shortcut.summary && (
-                          <p className="truncate text-sm text-muted-foreground">
-                            {shortcut.summary}
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="size-11 shrink-0 rounded-full"
-                        aria-label={shortcut.action.label}
-                        disabled={busy || !shortcut.available}
-                        onClick={() => onAction(shortcut.action)}
-                      >
-                        <Play />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </Tray>
-            </Section>
-          )}
-          {(view.task || view.rooms.length > 0) && (
-            <Section
-              title={view.task ? t.taskRooms : t.rooms}
-              aside={
-                view.pins && (
-                  <RoomViewSwitch
-                    tab={tab}
-                    onTab={setTab}
-                    language={hass.language}
-                  />
-                )
-              }
-            >
-              {tab === "map" && view.camera && view.pins ? (
-                <RoomMap camera={view.camera} language={hass.language}>
-                  {(size) =>
-                    !view.task && (
-                      <RoomPins
-                        pins={view.pins!}
-                        size={size}
-                        ranks={ranks}
-                        disabled={!view.available}
-                        onToggle={toggle}
-                      />
-                    )
-                  }
-                </RoomMap>
-              ) : view.task ? (
-                <TaskList view={view} language={hass.language} />
-              ) : (
-                <RoomList
-                  view={view}
-                  ranks={ranks}
-                  lastCleaned={lastCleaned}
-                  language={hass.language}
-                  onToggle={toggle}
-                />
-              )}
-            </Section>
-          )}
-          {view.camera && !view.pins && (
-            <PlainMap
-              camera={view.camera}
-              language={hass.language}
-              onMoreInfo={onMoreInfo}
-            />
-          )}
-          {!view.underway && (
-            <CleaningTray
-              view={view}
-              chosen={chosen}
-              language={hass.language}
-              busy={busy}
-              onAction={onAction}
-              onClear={() => setSelected(new Set())}
-            />
-          )}
-          {view.maintenance.items.length > 0 && (
-            <Section title={t.maintenance}>
-              <MaintenanceTray
-                maintenance={view.maintenance}
-                language={hass.language}
-                busy={busy}
-                onAction={onAction}
-              />
-            </Section>
-          )}
-          {view.station && (
-            <Section title={t.station}>
-              <Tray
-                alert={
-                  view.station.alert && (
-                    <span className="truncate">{view.station.alert}</span>
-                  )
-                }
-                info={
-                  view.station.info && (
-                    <span className="truncate">{view.station.info}</span>
-                  )
-                }
-              >
-                <div className="tray-card flex items-center gap-3 p-3">
-                  <IconSquare
-                    icon={view.station.ready ? CircleCheck : CircleAlert}
-                    className={cn(
-                      !view.station.ready && "bg-destructive text-white",
-                    )}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">
-                      {view.station.ready ? t.stationReady : t.stationCheck}
-                    </p>
-                    <p className="truncate text-sm text-muted-foreground">
-                      {view.station.parts}
-                    </p>
-                  </div>
-                </div>
-              </Tray>
-            </Section>
-          )}
-          {view.statistics.length > 0 && (
-            <Section title={t.statistics}>
-              <Tray>
-                <dl
-                  className="tray-card grid divide-x p-4"
-                  style={{
-                    gridTemplateColumns: `repeat(${view.statistics.length}, minmax(0, 1fr))`,
-                  }}
-                >
-                  {view.statistics.map((stat) => (
-                    <div
-                      key={stat.id}
-                      className="min-w-0 px-3 first:pl-0 last:pr-0"
-                    >
-                      <dt className="text-xs text-pretty text-muted-foreground">
-                        {stat.name}
-                      </dt>
-                      <dd className="text-lg font-semibold tracking-tight text-pretty tabular-nums">
-                        {stat.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </Tray>
-            </Section>
-          )}
+          {vacuumSectionOrder(config.vacuum).map((section) => (
+            <Fragment key={section}>{sections?.[section]}</Fragment>
+          ))}
         </>
+      )}
+      {onCustomize && (
+        <VacuumCustomization
+          order={vacuumSectionOrder(config.vacuum)}
+          language={hass.language}
+          open={customizing}
+          onOpenChange={setCustomizing}
+          onSave={onCustomize}
+        />
       )}
     </>
   );

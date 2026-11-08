@@ -69,11 +69,8 @@ async function mount(hass: HassLike) {
       <PortalContainerContext value={portal}>
         <Security
           hass={hass}
-          view={buildSecurityView(
-            hass,
-            { home_cards: null, rooms: null },
-            new Date(),
-          )}
+          now={new Date()}
+          view={buildSecurityView(hass, { home_cards: null, rooms: null })}
           onMoreInfo={onMoreInfo}
         />
       </PortalContainerContext>,
@@ -228,11 +225,8 @@ describe("security controls", () => {
         <PortalContainerContext value={portal}>
           <Security
             hass={hass}
-            view={buildSecurityView(
-              hass,
-              { home_cards: null, rooms: null },
-              new Date(),
-            )}
+            now={new Date()}
+            view={buildSecurityView(hass, { home_cards: null, rooms: null })}
             onMoreInfo={vi.fn()}
           />
         </PortalContainerContext>,
@@ -269,7 +263,7 @@ describe("security controls", () => {
     await act(async () => image.dispatchEvent(new Event("error")));
     expect(container.querySelector("img")).toBeNull();
     expect(container.textContent).toContain("Unavailable");
-    await act(async () => button(container, "UnavailableEntry camera").click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Entry camera"]')!.click());
     expect(onMoreInfo).toHaveBeenCalledOnce();
     await act(async () => vi.advanceTimersByTime(10_000));
     image = container.querySelector("img")!;

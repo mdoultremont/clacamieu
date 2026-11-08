@@ -5,6 +5,7 @@ import {
   resolveDashboardConfig,
 } from "./home-view";
 import { parseDashboardConfig } from "./dashboard-config";
+import { vacuumSectionOrder } from "./vacuum-view";
 import { en, fr } from "./i18n";
 import type { HassEntity, HassLike, HomeData } from "./types";
 
@@ -431,6 +432,40 @@ describe("home view", () => {
 });
 
 describe("dashboard configuration", () => {
+  it("parses element names, hidden security sensors, and the vacuum section order", () => {
+    expect(
+      parseDashboardConfig({
+        home_cards: null,
+        rooms: [
+          {
+            area_id: "kitchen",
+            entities: [
+              { entity_id: "switch.dishwasher", display: "cycle", name: " Dishwasher " },
+              { entity_id: "switch.oven", display: "power", name: "  " },
+            ],
+          },
+        ],
+        security: { hidden_entity_ids: ["binary_sensor.spare", "bad"] },
+        vacuum: { sections: ["statistics", "map", "shortcuts", "statistics"] },
+      }),
+    ).toEqual({
+      home_cards: null,
+      rooms: [
+        {
+          area_id: "kitchen",
+          entities: [
+            { entity_id: "switch.dishwasher", display: "cycle", name: "Dishwasher" },
+            { entity_id: "switch.oven", display: "power" },
+          ],
+        },
+      ],
+      security: { hidden_entity_ids: ["binary_sensor.spare"] },
+      vacuum: { sections: ["statistics", "shortcuts"] },
+    });
+    expect(
+      vacuumSectionOrder({ sections: ["statistics", "shortcuts"] }),
+    ).toEqual(["statistics", "shortcuts", "rooms", "maintenance", "station"]);
+  });
   it("parses valid entries while dropping unknown, malformed, and duplicate entries", () => {
     expect(
       parseDashboardConfig({
