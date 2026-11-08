@@ -14,7 +14,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "./ui/drawer";
-import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
+import { Segmented, SegmentedItem } from "./ui/segmented";
 
 type Section = "lights" | "devices" | "sensors";
 type Draft = Record<
@@ -141,15 +141,11 @@ function Sheet({
                     title: row.name,
                     hidden: row.display === "hidden",
                     trailing: (
-                      <ToggleGroup
-                        type="single"
-                        variant="outline"
-                        size="sm"
+                      <Segmented
                         value={row.display}
                         aria-label={t.entityDisplay(row.name)}
                         className="mr-1 shrink-0"
                         onValueChange={(value) => {
-                          if (!value) return;
                           setDraft((current) => ({
                             ...current,
                             [section]: current[section].map((item) =>
@@ -161,15 +157,15 @@ function Sheet({
                         }}
                       >
                         {row.options.map((display) => (
-                          <ToggleGroupItem
+                          <SegmentedItem
                             key={display}
                             value={display}
-                            className="min-h-11 px-2 text-xs"
+                            className="min-h-10 px-2 text-xs"
                           >
                             {t.entityDisplays[display]}
-                          </ToggleGroupItem>
+                          </SegmentedItem>
                         ))}
-                      </ToggleGroup>
+                      </Segmented>
                     ),
                   }))}
                 />

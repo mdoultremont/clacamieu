@@ -35,7 +35,7 @@ import { useClimateHistory } from "../use-climate-history";
 import type { RoomLighting } from "../room-lighting";
 import { AirMeter } from "./air-meter";
 import { activeIcons, entityIcons } from "./entity-icon";
-import { EntityRows, type EntityRow } from "./entity-rows";
+import { EntityRows } from "./entity-rows";
 import { RoomCustomization } from "./room-customization";
 import { cn } from "cn";
 import { BackLink } from "./back-link";
@@ -106,25 +106,6 @@ export function Room({
     ),
     now,
   );
-  const hidden: EntityRow[] = [
-    ...view.lights.map((light) => ({ ...light, icon: Lightbulb })),
-    ...view.devices.map((device) => ({
-      ...device,
-      icon: entityIcons[device.domain],
-    })),
-    ...view.sensors.map((sensor) => ({
-      ...sensor,
-      icon: entityIcons[sensor.deviceClass],
-    })),
-  ]
-    .filter((element) => element.display === "hidden")
-    .map((element) => ({
-      id: element.id,
-      name: element.name,
-      value: element.state,
-      icon: element.icon,
-      unavailable: !element.available,
-    }));
   const customizable =
     view.lights.length + view.devices.length + view.sensors.length > 0;
   return (
@@ -274,9 +255,7 @@ export function Room({
           <h2 className="px-1 text-xs font-medium text-muted-foreground">
             {t.sensors}
           </h2>
-          <Tray>
-            <EntityRows
-              className="tray-card"
+          <EntityRows
               onMoreInfo={onMoreInfo}
               rows={sensors.map((sensor) => ({
                 id: sensor.id,
@@ -290,30 +269,7 @@ export function Room({
                 unavailable: !sensor.available,
               }))}
             />
-          </Tray>
         </section>
-      )}
-      {hidden.length > 0 && (
-        <Tray>
-          <details className="group">
-            <summary
-              className={cn(
-                trayLine,
-                "min-h-11 cursor-pointer list-none justify-between [&::-webkit-details-marker]:hidden",
-              )}
-            >
-              <span className="truncate">
-                {t.hiddenElements(hidden.map((row) => row.name))}
-              </span>
-              <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" />
-            </summary>
-            <EntityRows
-              className="tray-card"
-              onMoreInfo={onMoreInfo}
-              rows={hidden}
-            />
-          </details>
-        </Tray>
       )}
       {onCustomize && (
         <RoomCustomization

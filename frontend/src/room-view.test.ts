@@ -172,7 +172,7 @@ describe("room views", () => {
     });
     expect(room.sensors[0]).toMatchObject({
       deviceClass: "door",
-      changed: expect.stringMatching(/^il y a 12\s+min$/),
+      changed: expect.stringMatching(/^depuis 12\s+min$/),
     });
   });
   it("describes the room's comfort and the outdoor temperature", () => {
