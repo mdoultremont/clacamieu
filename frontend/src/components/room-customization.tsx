@@ -141,6 +141,7 @@ function Sheet({
                   below: editing === row.id && (
                     <Input
                       autoFocus
+                      maxLength={100}
                       aria-label={t.elementName(row.defaultName)}
                       placeholder={row.defaultName}
                       className="min-h-11 text-base"

@@ -37,6 +37,8 @@ export interface SecurityView {
     modes: AlarmMode[];
   } | null;
   cameras: { id: string; name: string; picture: string | null }[];
+  /** Every sensor an admin hid, including ones Home Assistant doesn't list right now. */
+  hiddenIds: string[];
   openings: SecuritySensorGroup;
   leaks: SecuritySensorGroup;
   detectors: SecuritySensorGroup;
@@ -169,6 +171,7 @@ export function buildSecurityView(
             })),
         }
       : null,
+    hiddenIds: [...hiddenIds],
     cameras: visible
       .filter((entity) => entity.entity_id.startsWith("camera."))
       .sort(

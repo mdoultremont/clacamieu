@@ -30,52 +30,48 @@ export function lastStateChange(
 }
 
 /**
- * Each sensor's last real change from its history, read again whenever one of
- * them changes state. Absent until the history arrives.
+ * Each sensor's last real change. The history is read once per set of
+ * sensors; a change after that is newer than the history, so it reads as the
+ * live `last_changed`. Null until the history arrives.
  */
 export function useLastChanges(
   hass: HassLike,
   entities: HassEntity[],
 ): Record<string, number | null> | null {
-  const [changes, setChanges] = useState<Record<string, number | null> | null>(
+  const [history, setHistory] = useState<Record<string, HistoryPoint[]> | null>(
     null,
   );
-  const latest = useRef({ hass, entities });
-  latest.current = { hass, entities };
-  const key = entities
-    .map((entity) => `${entity.entity_id}=${entity.state}`)
-    .join();
+  const latestHass = useRef(hass);
+  latestHass.current = hass;
+  const ids = entities.map((entity) => entity.entity_id);
+  const key = ids.join();
   useEffect(() => {
-    const { hass, entities } = latest.current;
-    if (!entities.length) return;
+    if (!ids.length) return;
     let active = true;
-    hass
+    latestHass.current
       .callWS<Record<string, HistoryPoint[]>>({
         type: "history/history_during_period",
         start_time: new Date(
           Date.now() - sensorHistoryDays * 86_400_000,
         ).toISOString(),
-        entity_ids: entities.map((entity) => entity.entity_id),
+        entity_ids: ids,
         minimal_response: true,
         no_attributes: true,
         significant_changes_only: false,
       })
       .then(
-        (history) =>
-          active &&
-          setChanges(
-            Object.fromEntries(
-              entities.map((entity) => [
-                entity.entity_id,
-                lastStateChange(history?.[entity.entity_id] ?? [], entity),
-              ]),
-            ),
-          ),
-        () => active && setChanges({}),
+        (result) => active && setHistory(result ?? {}),
+        () => active && setHistory({}),
       );
     return () => {
       active = false;
     };
   }, [key]);
-  return changes;
+  if (!history) return null;
+  return Object.fromEntries(
+    entities.map((entity) => [
+      entity.entity_id,
+      lastStateChange(history[entity.entity_id] ?? [], entity),
+    ]),
+  );
 }

@@ -271,8 +271,11 @@ describe("security view", () => {
     hass.states["binary_sensor.garage"].state = "unavailable";
     const view = buildSecurityView(hass, {
       ...config,
-      security: { hidden_entity_ids: ["binary_sensor.garage"] },
+      security: {
+        hidden_entity_ids: ["binary_sensor.garage", "binary_sensor.not_loaded"],
+      },
     });
+    expect(view.hiddenIds).toContain("binary_sensor.not_loaded");
     expect(view.openings.summary).toBe("2 / 2 fermées");
     expect(view.openings.sensors.map((sensor) => sensor.id)).not.toContain(
       "binary_sensor.garage",

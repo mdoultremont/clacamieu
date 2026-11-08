@@ -52,12 +52,7 @@ function Sheet({
       (a, b) => a.name.localeCompare(b.name, language),
     ),
   }));
-  const [hidden, setHidden] = useState(
-    () =>
-      new Set(
-        groups.flatMap(({ key }) => view[key].hidden.map((sensor) => sensor.id)),
-      ),
-  );
+  const [hidden, setHidden] = useState(() => new Set(view.hiddenIds));
   return (
     <CustomizationSheet
       title={t.customizeSecurity}
