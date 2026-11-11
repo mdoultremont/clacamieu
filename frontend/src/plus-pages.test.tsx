@@ -259,8 +259,16 @@ const reorderCall = [
   { entity_id: "vacuum.example" },
 ];
 it("cleans rooms in tap order after the rewritten sequence has had time to reach the robot", async () => {
-  const { callService } = await mountReorderable(true);
-  await act(async () => vi.advanceTimersByTimeAsync(2500));
+  const { shadow, callService } = await mountReorderable(true);
+  await act(async () => vi.advanceTimersByTimeAsync(1500));
+  const button = (text: string) =>
+    [...shadow.querySelectorAll("button")].find((element) =>
+      element.textContent?.startsWith(text),
+    )!;
+  expect(button("Clear").disabled).toBe(true);
+  await act(async () => button("Hall").click());
+  expect(shadow.textContent).toContain("1 Kitchen, 2 Study");
+  await act(async () => vi.advanceTimersByTimeAsync(1000));
   expect(callService.mock.calls).toEqual([reorderCall]);
   await act(async () => vi.advanceTimersByTimeAsync(1000));
   expect(callService.mock.calls).toEqual([

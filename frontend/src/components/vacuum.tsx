@@ -904,7 +904,8 @@ function CleaningTray({
             </span>
             <button
               type="button"
-              className="-my-1.5 -mr-1 shrink-0 rounded-md px-1.5 py-1.5 font-medium text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="-my-1.5 -mr-1 shrink-0 rounded-md px-1.5 py-1.5 font-medium text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
+              disabled={busy}
               onClick={onClear}
             >
               {t.clearSelection}
