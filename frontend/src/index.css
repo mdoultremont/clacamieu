@@ -286,6 +286,7 @@ a {
   flex-direction: column;
   gap: 24px;
   overflow-wrap: anywhere;
+  overflow-x: clip;
 }
 .switch-target {
   width: 44px;

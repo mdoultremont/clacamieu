@@ -72,11 +72,13 @@ export function CycleIslands({
   return (
     // Safari only re-sorts composited layers once a size transition ends, so
     // the tray grain would cover the growing island; its own layer keeps it on top.
+    // iOS Safari cut the open card to the pill height while this row clipped its
+    // sides, so the page content clips pills that run past the edge instead.
     <div
       ref={row}
       role="list"
       aria-label={t.appliances}
-      className="relative z-20 flex h-7 transform-gpu items-start gap-1.5 [overflow-x:clip] [overflow-clip-margin:2rem]"
+      className="relative z-20 flex h-7 transform-gpu items-start gap-1.5"
     >
       {chips.map((chip) => (
         <Island
