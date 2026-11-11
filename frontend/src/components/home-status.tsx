@@ -141,6 +141,12 @@ export function VacuumCard({
     .filter(Boolean)
     .join(" · ");
   const low = vacuum?.maintenance.items.filter((item) => item.flagged) ?? [];
+  const alert = [
+    summary.tone === "alert" ? summary.state : null,
+    vacuum?.station?.alert,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <StatusCard
       icon={Bot}
@@ -148,11 +154,7 @@ export function VacuumCard({
       title={`${summary.name} · ${summary.state}`}
       description={description}
       route={{ screen: "vacuum" }}
-      alert={
-        summary.tone === "alert" && (
-          <span className="truncate">{summary.state}</span>
-        )
-      }
+      alert={alert && <span className="truncate">{alert}</span>}
       info={
         low.length > 0 && (
           <LineText
