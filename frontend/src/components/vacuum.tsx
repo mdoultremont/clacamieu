@@ -32,7 +32,8 @@ import type {
 import { useRoomHistory } from "../use-room-history";
 import {
   buildVacuumView,
-  cleaningAction,
+  cleaningActions,
+  followsOrder,
   roomLastCleaned,
   roomSelection,
   vacuumSectionOrder,
@@ -90,7 +91,11 @@ export function Vacuum({
   const t = messages(hass.language);
   const [services, setServices] = useState<ServiceCatalog>({});
   const [servicesError, setServicesError] = useState(false);
-  const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+  const [selected, setSelected] = useState<readonly number[]>([]);
+  const [orderError, setOrderError] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const latest = useRef(hass);
+  latest.current = hass;
   const [tab, setTab] = useState<"list" | "map">("list");
   useEffect(() => {
     let current = true;
@@ -119,14 +124,31 @@ export function Vacuum({
     energyTimeZone(hass),
     hass.language,
   );
-  const chosen = view ? roomSelection(view.rooms, selected) : [];
+  const chosen = view
+    ? roomSelection(view.rooms, selected, view.tapOrder)
+    : [];
+  // The integration shows the new sequence at once but sends it to the robot
+  // through a queue, while the clean goes out directly, so the clean waits for
+  // the write to leave the queue. A rejected write is only logged there.
+  const confirmOrder = async (ids: number[]) => {
+    setConfirming(true);
+    await new Promise((resolve) => window.setTimeout(resolve, 3_000));
+    setConfirming(false);
+    const sequence =
+      view && latest.current.states[view.id]?.attributes.cleaning_sequence;
+    if (Array.isArray(sequence) && followsOrder(sequence, ids)) return true;
+    setOrderError(true);
+    return false;
+  };
   const ranks = new Map(chosen.map((room, index) => [room.id, index + 1]));
-  const toggle = (id: number) =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+  const toggle = (id: number) => {
+    if (confirming) return;
+    setSelected((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  };
   const sections: Record<VacuumSection, ReactNode> | null = view
     ? {
         shortcuts: (
@@ -222,9 +244,13 @@ export function Vacuum({
                 view={view}
                 chosen={chosen}
                 language={hass.language}
-                busy={busy}
-                onAction={onAction}
-                onClear={() => setSelected(new Set())}
+                busy={busy || confirming}
+                onAction={(action) => {
+                  setOrderError(false);
+                  return onAction(action);
+                }}
+                onConfirmOrder={confirmOrder}
+                onClear={() => setSelected([])}
               />
             )}
           </>
@@ -335,9 +361,9 @@ export function Vacuum({
           )}
         </div>
       </header>
-      {error && (
+      {(error || orderError) && (
         <p className="error" role="alert">
-          {error}
+          {error ?? t.vacuumOrderError}
         </p>
       )}
       {servicesError && (
@@ -851,6 +877,7 @@ function CleaningTray({
   language,
   busy,
   onAction,
+  onConfirmOrder,
   onClear,
 }: {
   view: VacuumView;
@@ -858,10 +885,12 @@ function CleaningTray({
   language: string;
   busy: boolean;
   onAction: Act;
+  onConfirmOrder: (ids: number[]) => Promise<boolean>;
   onClear: () => void;
 }) {
   const t = messages(language);
-  const action = cleaningAction(view, chosen, language);
+  const actions = cleaningActions(view, chosen, language);
+  const action = actions.at(-1);
   if (!action && !view.settings.length) return null;
   return (
     <Tray
@@ -875,7 +904,8 @@ function CleaningTray({
             </span>
             <button
               type="button"
-              className="-my-1.5 -mr-1 shrink-0 rounded-md px-1.5 py-1.5 font-medium text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="-my-1.5 -mr-1 shrink-0 rounded-md px-1.5 py-1.5 font-medium text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
+              disabled={busy}
               onClick={onClear}
             >
               {t.clearSelection}
@@ -933,7 +963,15 @@ function CleaningTray({
             className="h-11 w-full"
             disabled={busy || !view.available}
             onClick={async () => {
-              if ((await onAction(action)) && chosen.length) onClear();
+              for (const step of actions) {
+                if (!(await onAction(step))) return;
+                if (
+                  step.service === "vacuum_set_cleaning_sequence" &&
+                  !(await onConfirmOrder(chosen.map((room) => room.id)))
+                )
+                  return;
+              }
+              if (chosen.length) onClear();
             }}
           >
             <Play />

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildVacuumView,
   calibrationTransform,
-  cleaningAction,
+  cleaningActions,
   roomLastCleaned,
   roomSelection,
 } from "./vacuum-view";
@@ -192,29 +192,90 @@ describe("vacuum view", () => {
     expect(view.rooms[0].icon).toBe("mdi:foot-print");
   });
 
-  it("ranks and cleans the chosen rooms in the robot's order, not tap order", () => {
+  it("ranks and cleans the chosen rooms in tap order", () => {
     const { hass } = fixture();
-    const view = buildVacuumView(hass, config, { services })!;
-    const tapped = new Set([1, 2, 3]);
-    expect(roomSelection(view.rooms, tapped).map(({ name }) => name)).toEqual([
-      "Hall",
-      "Kitchen",
+    const reorder = {
+      dreame_vacuum: {
+        vacuum_clean_segment: {},
+        vacuum_set_cleaning_sequence: {},
+      },
+    };
+    const view = buildVacuumView(hass, config, { services: reorder })!;
+    const tapped = roomSelection(view.rooms, [1, 2, 3], view.tapOrder);
+    expect(tapped.map(({ name }) => name)).toEqual([
       "Bathroom",
+      "Kitchen",
+      "Hall",
+    ]);
+    expect(cleaningActions(view, tapped, "en")).toEqual([
+      {
+        domain: "dreame_vacuum",
+        service: "vacuum_set_cleaning_sequence",
+        entityId: "vacuum.robot",
+        label: "Clean 3 rooms",
+        data: { cleaning_sequence: [1, 2, 3, 4, 5] },
+      },
+      {
+        domain: "dreame_vacuum",
+        service: "vacuum_clean_segment",
+        entityId: "vacuum.robot",
+        label: "Clean 3 rooms",
+        data: { segments: [1, 2, 3] },
+      },
     ]);
     expect(
-      cleaningAction(view, roomSelection(view.rooms, tapped), "en"),
-    ).toEqual({
-      domain: "dreame_vacuum",
-      service: "vacuum_clean_segment",
-      entityId: "vacuum.robot",
-      label: "Clean 3 rooms",
-      data: { segments: [3, 2, 1] },
-    });
+      cleaningActions(view, roomSelection(view.rooms, [3, 2], true), "en").map(
+        ({ service }) => service,
+      ),
+    ).toEqual(["vacuum_clean_segment"]);
     expect(
-      cleaningAction(view, roomSelection(view.rooms, new Set([4])), "fr")
-        ?.label,
+      cleaningActions(view, roomSelection(view.rooms, [4], true), "fr")[0].label,
     ).toBe("Nettoyer 1 pièce");
-    expect(cleaningAction(view, [], "en")).toBe(view.start);
+    expect(cleaningActions(view, [], "en")).toEqual([view.start]);
+  });
+
+  it("leaves the robot's order alone when it cannot be rewritten", () => {
+    const { hass } = fixture();
+    const plain = buildVacuumView(hass, config, { services })!;
+    expect(plain.tapOrder).toBe(false);
+    const ranked = roomSelection(plain.rooms, [1, 3], plain.tapOrder);
+    expect(ranked.map(({ name }) => name)).toEqual(["Hall", "Bathroom"]);
+    expect(cleaningActions(plain, ranked, "en")).toEqual([
+      expect.objectContaining({
+        service: "vacuum_clean_segment",
+        data: { segments: [3, 1] },
+      }),
+    ]);
+    const reorder = {
+      dreame_vacuum: {
+        vacuum_clean_segment: {},
+        vacuum_set_cleaning_sequence: {},
+      },
+    };
+    const robot = hass.states["vacuum.robot"];
+    robot.attributes.started = true;
+    expect(
+      buildVacuumView(hass, config, { services: reorder })!.reorderable,
+    ).toBe(false);
+    robot.attributes.started = false;
+    robot.state = "paused";
+    expect(
+      buildVacuumView(hass, config, { services: reorder })!.reorderable,
+    ).toBe(false);
+  });
+
+  it("keeps tap order for robots without a stored custom order", () => {
+    const { hass } = fixture();
+    hass.states["vacuum.robot"].attributes.cleaning_sequence = null;
+    const view = buildVacuumView(hass, config, { services })!;
+    expect(view).toMatchObject({ reorderable: false, tapOrder: true });
+    const tapped = roomSelection(view.rooms, [3, 1], view.tapOrder);
+    expect(cleaningActions(view, tapped, "en")).toEqual([
+      expect.objectContaining({
+        service: "vacuum_clean_segment",
+        data: { segments: [3, 1] },
+      }),
+    ]);
   });
 
   it("follows the running task's rooms in cleaning order", () => {

@@ -163,6 +163,14 @@ export interface VacuumView {
   camera: { id: string; picture: string | null } | null;
   /** Rooms the page can clean, in the robot's order. */
   rooms: VacuumRoom[];
+  /** Whether a selection can rewrite the robot's stored cleaning order first. */
+  reorderable: boolean;
+  /**
+   * Whether the robot cleans a selection in tap order: it has no stored
+   * custom order, so it follows the order rooms are sent in, or the page can
+   * rewrite that order.
+   */
+  tapOrder: boolean;
   /** Room pins in map image pixels, when the map can be calibrated. */
   pins: (VacuumRoom & { x: number; y: number })[] | null;
   /** The rooms of the running task, in cleaning order. */
@@ -259,6 +267,11 @@ export function buildVacuumView(
       !hass.entities[entity.entity_id]?.entity_category,
   );
   const rooms = services.dreame_vacuum?.vacuum_clean_segment ? mapRooms : [];
+  const reorderable =
+    !!services.dreame_vacuum?.vacuum_set_cleaning_sequence &&
+    Array.isArray(attributes.cleaning_sequence) &&
+    !phases[phase].underway &&
+    attributes.started !== true;
   const battery = numeric(
     attributes.battery ??
       attributes.battery_level ??
@@ -355,6 +368,8 @@ export function buildVacuumView(
         }
       : null,
     rooms,
+    reorderable,
+    tapOrder: reorderable || !Array.isArray(attributes.cleaning_sequence),
     pins: pins.length ? pins : null,
     task:
       underway && mapRooms.length
@@ -426,29 +441,74 @@ export function buildVacuumView(
   };
 }
 
-/** The selected rooms in the order the robot cleans them, so ranks match what it does. */
+/** The selected rooms in the order they get cleaned in. */
 export function roomSelection(
   rooms: VacuumRoom[],
-  selected: ReadonlySet<number>,
+  selected: readonly number[],
+  tapOrder: boolean,
 ): VacuumRoom[] {
-  return rooms.filter((room) => selected.has(room.id));
+  return tapOrder
+    ? selected.flatMap((id) => rooms.filter((room) => room.id === id))
+    : rooms.filter((room) => selected.includes(room.id));
 }
 
-/** Cleans the chosen rooms, or the whole home when none is chosen. */
-export function cleaningAction(
+/** Whether a cleaning sequence lists every one of the ids, in their order. */
+export function followsOrder(
+  sequence: readonly unknown[],
+  ids: readonly number[],
+): boolean {
+  const positions = ids.map((id) => sequence.indexOf(id));
+  return positions.every(
+    (position, index) => position >= 0 && position > (positions[index - 1] ?? -1),
+  );
+}
+
+/**
+ * The service calls that clean the chosen rooms in tap order, or the whole
+ * home when none is chosen. Robots with customized cleaning follow their
+ * stored sequence whatever order the segments arrive in, so a selection out of
+ * that order first moves the chosen rooms to the front of it.
+ */
+export function cleaningActions(
   view: VacuumView,
   chosen: VacuumRoom[],
   language: string,
-): ServiceAction | null {
-  return chosen.length
-    ? {
-        domain: "dreame_vacuum",
-        service: "vacuum_clean_segment",
-        entityId: view.id,
-        label: messages(language).cleanRooms(chosen.length),
-        data: { segments: chosen.map((room) => room.id) },
-      }
-    : view.start;
+): ServiceAction[] {
+  if (!chosen.length) return view.start ? [view.start] : [];
+  const label = messages(language).cleanRooms(chosen.length);
+  const ids = chosen.map((room) => room.id);
+  const clean: ServiceAction = {
+    domain: "dreame_vacuum",
+    service: "vacuum_clean_segment",
+    entityId: view.id,
+    label,
+    data: { segments: ids },
+  };
+  if (
+    !view.reorderable ||
+    followsOrder(
+      view.rooms.map((room) => room.id),
+      ids,
+    )
+  )
+    return [clean];
+  return [
+    {
+      domain: "dreame_vacuum",
+      service: "vacuum_set_cleaning_sequence",
+      entityId: view.id,
+      label,
+      data: {
+        cleaning_sequence: [
+          ...ids,
+          ...view.rooms
+            .map((room) => room.id)
+            .filter((id) => !ids.includes(id)),
+        ],
+      },
+    },
+    clean,
+  ];
 }
 
 /**

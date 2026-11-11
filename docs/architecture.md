@@ -140,9 +140,17 @@ built from realistic Home Assistant data:
   camera, and statistics for vacuums without Dreame entities.
   - Rooms come from the selected map in `cleaning_sequence` order, and
     selections clean through `dreame_vacuum.vacuum_clean_segment` when
-    `get_services` offers it. Robots with customized cleaning follow their
-    stored sequence whatever order the segments arrive in, so a selection is
-    ranked and sent in that order rather than in tap order.
+    `get_services` offers it. A selection is ranked and cleaned in tap order
+    unless the robot has a stored custom order (`cleaning_sequence`) the page
+    cannot rewrite; then it is ranked and sent in that stored order. Robots
+    with a custom order follow it whatever order the segments arrive in, so
+    when the service exists and no task has started (`started`), a selection
+    out of the stored order first calls
+    `dreame_vacuum.vacuum_set_cleaning_sequence` with the chosen rooms in
+    front, and the robot keeps that sequence. The integration updates
+    `cleaning_sequence` at once but sends the write through a queue and only
+    logs a rejection, while the clean goes out directly, so the page waits
+    three seconds and checks the sequence again before cleaning.
   - The map tab places room pins with the affine transform from the map
     camera's three `calibration_points`. It exists only while those points and
     the room centers do.
