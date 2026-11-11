@@ -163,6 +163,8 @@ export interface VacuumView {
   camera: { id: string; picture: string | null } | null;
   /** Rooms the page can clean, in the robot's order. */
   rooms: VacuumRoom[];
+  /** Whether a selection can rewrite the robot's stored cleaning order first. */
+  reorderable: boolean;
   /** Room pins in map image pixels, when the map can be calibrated. */
   pins: (VacuumRoom & { x: number; y: number })[] | null;
   /** The rooms of the running task, in cleaning order. */
@@ -355,6 +357,10 @@ export function buildVacuumView(
         }
       : null,
     rooms,
+    reorderable:
+      !!services.dreame_vacuum?.vacuum_set_cleaning_sequence &&
+      Array.isArray(attributes.cleaning_sequence) &&
+      !phases[phase].underway,
     pins: pins.length ? pins : null,
     task:
       underway && mapRooms.length
@@ -426,29 +432,57 @@ export function buildVacuumView(
   };
 }
 
-/** The selected rooms in the order the robot cleans them, so ranks match what it does. */
+/** The selected rooms in tap order, which is the order they get cleaned in. */
 export function roomSelection(
   rooms: VacuumRoom[],
-  selected: ReadonlySet<number>,
+  selected: readonly number[],
 ): VacuumRoom[] {
-  return rooms.filter((room) => selected.has(room.id));
+  return selected.flatMap((id) => rooms.filter((room) => room.id === id));
 }
 
-/** Cleans the chosen rooms, or the whole home when none is chosen. */
-export function cleaningAction(
+/**
+ * The service calls that clean the chosen rooms in tap order, or the whole
+ * home when none is chosen. Robots with customized cleaning follow their
+ * stored sequence whatever order the segments arrive in, so a selection out of
+ * that order first moves the chosen rooms to the front of it.
+ */
+export function cleaningActions(
   view: VacuumView,
   chosen: VacuumRoom[],
   language: string,
-): ServiceAction | null {
-  return chosen.length
-    ? {
-        domain: "dreame_vacuum",
-        service: "vacuum_clean_segment",
-        entityId: view.id,
-        label: messages(language).cleanRooms(chosen.length),
-        data: { segments: chosen.map((room) => room.id) },
-      }
-    : view.start;
+): ServiceAction[] {
+  if (!chosen.length) return view.start ? [view.start] : [];
+  const label = messages(language).cleanRooms(chosen.length);
+  const ids = chosen.map((room) => room.id);
+  const stored = view.rooms
+    .map((room) => room.id)
+    .filter((id) => ids.includes(id));
+  const clean: ServiceAction = {
+    domain: "dreame_vacuum",
+    service: "vacuum_clean_segment",
+    entityId: view.id,
+    label,
+    data: { segments: ids },
+  };
+  if (!view.reorderable || stored.every((id, index) => id === ids[index]))
+    return [clean];
+  return [
+    {
+      domain: "dreame_vacuum",
+      service: "vacuum_set_cleaning_sequence",
+      entityId: view.id,
+      label,
+      data: {
+        cleaning_sequence: [
+          ...ids,
+          ...view.rooms
+            .map((room) => room.id)
+            .filter((id) => !ids.includes(id)),
+        ],
+      },
+    },
+    clean,
+  ];
 }
 
 /**

@@ -32,7 +32,7 @@ import type {
 import { useRoomHistory } from "../use-room-history";
 import {
   buildVacuumView,
-  cleaningAction,
+  cleaningActions,
   roomLastCleaned,
   roomSelection,
   vacuumSectionOrder,
@@ -90,7 +90,7 @@ export function Vacuum({
   const t = messages(hass.language);
   const [services, setServices] = useState<ServiceCatalog>({});
   const [servicesError, setServicesError] = useState(false);
-  const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
+  const [selected, setSelected] = useState<readonly number[]>([]);
   const [tab, setTab] = useState<"list" | "map">("list");
   useEffect(() => {
     let current = true;
@@ -122,11 +122,11 @@ export function Vacuum({
   const chosen = view ? roomSelection(view.rooms, selected) : [];
   const ranks = new Map(chosen.map((room, index) => [room.id, index + 1]));
   const toggle = (id: number) =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+    setSelected((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
   const sections: Record<VacuumSection, ReactNode> | null = view
     ? {
         shortcuts: (
@@ -224,7 +224,7 @@ export function Vacuum({
                 language={hass.language}
                 busy={busy}
                 onAction={onAction}
-                onClear={() => setSelected(new Set())}
+                onClear={() => setSelected([])}
               />
             )}
           </>
@@ -861,7 +861,8 @@ function CleaningTray({
   onClear: () => void;
 }) {
   const t = messages(language);
-  const action = cleaningAction(view, chosen, language);
+  const actions = cleaningActions(view, chosen, language);
+  const action = actions.at(-1);
   if (!action && !view.settings.length) return null;
   return (
     <Tray
@@ -933,7 +934,9 @@ function CleaningTray({
             className="h-11 w-full"
             disabled={busy || !view.available}
             onClick={async () => {
-              if ((await onAction(action)) && chosen.length) onClear();
+              for (const step of actions)
+                if (!(await onAction(step))) return;
+              if (chosen.length) onClear();
             }}
           >
             <Play />

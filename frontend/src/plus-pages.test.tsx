@@ -198,3 +198,61 @@ it("refreshes the visible map every ten seconds and cleans up on leaving", async
   });
   expect(disconnect).toHaveBeenCalledOnce();
 });
+it("cleans rooms in tap order by moving them to the front of the robot's sequence", async () => {
+  const { panel, hass, shadow } = await mount("/plus/aspirateur");
+  const callService = vi.fn().mockResolvedValue(undefined);
+  await act(async () => {
+    panel.hass = {
+      ...hass,
+      states: {
+        "vacuum.example": {
+          ...hass.states["vacuum.example"],
+          attributes: {
+            supported_features: 8192,
+            rooms: [
+              { id: 1, name: "Study" },
+              { id: 2, name: "Kitchen" },
+              { id: 3, name: "Hall" },
+            ],
+            cleaning_sequence: [1, 2, 3],
+          },
+        },
+      },
+      callService,
+      callWS: vi.fn().mockImplementation(async ({ type }) =>
+        type === "get_services"
+          ? {
+              dreame_vacuum: {
+                vacuum_clean_segment: {},
+                vacuum_set_cleaning_sequence: {},
+              },
+            }
+          : type === "clacamieu/dashboard/config"
+            ? { home_cards: null, rooms: null }
+            : { value: {} },
+      ),
+    };
+  });
+  const button = (text: string) =>
+    [...shadow.querySelectorAll("button")].find((element) =>
+      element.textContent?.includes(text),
+    )!;
+  await act(async () => button("Kitchen").click());
+  await act(async () => button("Study").click());
+  expect(shadow.textContent).toContain("1 Kitchen, 2 Study");
+  await act(async () => button("Clean 2 rooms").click());
+  expect(callService.mock.calls).toEqual([
+    [
+      "dreame_vacuum",
+      "vacuum_set_cleaning_sequence",
+      { cleaning_sequence: [2, 1, 3] },
+      { entity_id: "vacuum.example" },
+    ],
+    [
+      "dreame_vacuum",
+      "vacuum_clean_segment",
+      { segments: [2, 1] },
+      { entity_id: "vacuum.example" },
+    ],
+  ]);
+});

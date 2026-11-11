@@ -139,6 +139,11 @@ export type ServiceAction = {
       service: "vacuum_clean_segment";
       data: { segments: number[] };
     }
+  | {
+      domain: "dreame_vacuum";
+      service: "vacuum_set_cleaning_sequence";
+      data: { cleaning_sequence: number[] };
+    }
   | { domain: "button"; service: "press" }
   | {
       domain: "select";
