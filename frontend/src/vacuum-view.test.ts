@@ -201,7 +201,7 @@ describe("vacuum view", () => {
       },
     };
     const view = buildVacuumView(hass, config, { services: reorder })!;
-    const tapped = roomSelection(view.rooms, [1, 2, 3]);
+    const tapped = roomSelection(view.rooms, [1, 2, 3], view.reorderable);
     expect(tapped.map(({ name }) => name)).toEqual([
       "Bathroom",
       "Kitchen",
@@ -224,12 +224,12 @@ describe("vacuum view", () => {
       },
     ]);
     expect(
-      cleaningActions(view, roomSelection(view.rooms, [3, 2]), "en").map(
+      cleaningActions(view, roomSelection(view.rooms, [3, 2], true), "en").map(
         ({ service }) => service,
       ),
     ).toEqual(["vacuum_clean_segment"]);
     expect(
-      cleaningActions(view, roomSelection(view.rooms, [4]), "fr")[0].label,
+      cleaningActions(view, roomSelection(view.rooms, [4], true), "fr")[0].label,
     ).toBe("Nettoyer 1 pièce");
     expect(cleaningActions(view, [], "en")).toEqual([view.start]);
   });
@@ -237,21 +237,31 @@ describe("vacuum view", () => {
   it("leaves the robot's order alone when it cannot be rewritten", () => {
     const { hass } = fixture();
     const plain = buildVacuumView(hass, config, { services })!;
-    expect(
-      cleaningActions(plain, roomSelection(plain.rooms, [1, 3]), "en").map(
-        ({ service }) => service,
-      ),
-    ).toEqual(["vacuum_clean_segment"]);
-    hass.states["vacuum.robot"].state = "paused";
-    const paused = buildVacuumView(hass, config, {
-      services: {
-        dreame_vacuum: {
-          vacuum_clean_segment: {},
-          vacuum_set_cleaning_sequence: {},
-        },
+    expect(plain.reorderable).toBe(false);
+    const ranked = roomSelection(plain.rooms, [1, 3], plain.reorderable);
+    expect(ranked.map(({ name }) => name)).toEqual(["Hall", "Bathroom"]);
+    expect(cleaningActions(plain, ranked, "en")).toEqual([
+      expect.objectContaining({
+        service: "vacuum_clean_segment",
+        data: { segments: [3, 1] },
+      }),
+    ]);
+    const reorder = {
+      dreame_vacuum: {
+        vacuum_clean_segment: {},
+        vacuum_set_cleaning_sequence: {},
       },
-    })!;
-    expect(paused.reorderable).toBe(false);
+    };
+    const robot = hass.states["vacuum.robot"];
+    robot.attributes.started = true;
+    expect(
+      buildVacuumView(hass, config, { services: reorder })!.reorderable,
+    ).toBe(false);
+    robot.attributes.started = false;
+    robot.state = "paused";
+    expect(
+      buildVacuumView(hass, config, { services: reorder })!.reorderable,
+    ).toBe(false);
   });
 
   it("follows the running task's rooms in cleaning order", () => {

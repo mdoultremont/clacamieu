@@ -360,7 +360,8 @@ export function buildVacuumView(
     reorderable:
       !!services.dreame_vacuum?.vacuum_set_cleaning_sequence &&
       Array.isArray(attributes.cleaning_sequence) &&
-      !phases[phase].underway,
+      !phases[phase].underway &&
+      attributes.started !== true,
     pins: pins.length ? pins : null,
     task:
       underway && mapRooms.length
@@ -432,12 +433,29 @@ export function buildVacuumView(
   };
 }
 
-/** The selected rooms in tap order, which is the order they get cleaned in. */
+/**
+ * The selected rooms in the order they get cleaned in: tap order when the
+ * page can rewrite the robot's sequence, the robot's own order otherwise.
+ */
 export function roomSelection(
   rooms: VacuumRoom[],
   selected: readonly number[],
+  tapOrder: boolean,
 ): VacuumRoom[] {
-  return selected.flatMap((id) => rooms.filter((room) => room.id === id));
+  return tapOrder
+    ? selected.flatMap((id) => rooms.filter((room) => room.id === id))
+    : rooms.filter((room) => selected.includes(room.id));
+}
+
+/** Whether a cleaning sequence lists every one of the ids, in their order. */
+export function followsOrder(
+  sequence: readonly unknown[],
+  ids: readonly number[],
+): boolean {
+  const positions = ids.map((id) => sequence.indexOf(id));
+  return positions.every(
+    (position, index) => position >= 0 && position > (positions[index - 1] ?? -1),
+  );
 }
 
 /**
@@ -454,9 +472,6 @@ export function cleaningActions(
   if (!chosen.length) return view.start ? [view.start] : [];
   const label = messages(language).cleanRooms(chosen.length);
   const ids = chosen.map((room) => room.id);
-  const stored = view.rooms
-    .map((room) => room.id)
-    .filter((id) => ids.includes(id));
   const clean: ServiceAction = {
     domain: "dreame_vacuum",
     service: "vacuum_clean_segment",
@@ -464,7 +479,13 @@ export function cleaningActions(
     label,
     data: { segments: ids },
   };
-  if (!view.reorderable || stored.every((id, index) => id === ids[index]))
+  if (
+    !view.reorderable ||
+    followsOrder(
+      view.rooms.map((room) => room.id),
+      ids,
+    )
+  )
     return [clean];
   return [
     {

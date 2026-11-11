@@ -33,6 +33,7 @@ import { useRoomHistory } from "../use-room-history";
 import {
   buildVacuumView,
   cleaningActions,
+  followsOrder,
   roomLastCleaned,
   roomSelection,
   vacuumSectionOrder,
@@ -91,6 +92,9 @@ export function Vacuum({
   const [services, setServices] = useState<ServiceCatalog>({});
   const [servicesError, setServicesError] = useState(false);
   const [selected, setSelected] = useState<readonly number[]>([]);
+  const [orderError, setOrderError] = useState(false);
+  const latest = useRef(hass);
+  latest.current = hass;
   const [tab, setTab] = useState<"list" | "map">("list");
   useEffect(() => {
     let current = true;
@@ -119,7 +123,21 @@ export function Vacuum({
     energyTimeZone(hass),
     hass.language,
   );
-  const chosen = view ? roomSelection(view.rooms, selected) : [];
+  const chosen = view
+    ? roomSelection(view.rooms, selected, view.reorderable)
+    : [];
+  // The integration queues the sequence write and never reports its outcome,
+  // so the clean waits until the robot's state shows the new order.
+  const confirmOrder = async (ids: number[]) => {
+    for (let waited = 0; waited < 30_000; waited += 500) {
+      const sequence =
+        view && latest.current.states[view.id]?.attributes.cleaning_sequence;
+      if (Array.isArray(sequence) && followsOrder(sequence, ids)) return true;
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
+    }
+    setOrderError(true);
+    return false;
+  };
   const ranks = new Map(chosen.map((room, index) => [room.id, index + 1]));
   const toggle = (id: number) =>
     setSelected((current) =>
@@ -223,7 +241,11 @@ export function Vacuum({
                 chosen={chosen}
                 language={hass.language}
                 busy={busy}
-                onAction={onAction}
+                onAction={(action) => {
+                  setOrderError(false);
+                  return onAction(action);
+                }}
+                onConfirmOrder={confirmOrder}
                 onClear={() => setSelected([])}
               />
             )}
@@ -335,9 +357,9 @@ export function Vacuum({
           )}
         </div>
       </header>
-      {error && (
+      {(error || orderError) && (
         <p className="error" role="alert">
-          {error}
+          {error ?? t.vacuumOrderError}
         </p>
       )}
       {servicesError && (
@@ -851,6 +873,7 @@ function CleaningTray({
   language,
   busy,
   onAction,
+  onConfirmOrder,
   onClear,
 }: {
   view: VacuumView;
@@ -858,8 +881,10 @@ function CleaningTray({
   language: string;
   busy: boolean;
   onAction: Act;
+  onConfirmOrder: (ids: number[]) => Promise<boolean>;
   onClear: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   const t = messages(language);
   const actions = cleaningActions(view, chosen, language);
   const action = actions.at(-1);
@@ -932,10 +957,18 @@ function CleaningTray({
         {action && (
           <Button
             className="h-11 w-full"
-            disabled={busy || !view.available}
+            disabled={busy || confirming || !view.available}
             onClick={async () => {
-              for (const step of actions)
+              for (const step of actions) {
                 if (!(await onAction(step))) return;
+                if (step.service !== "vacuum_set_cleaning_sequence") continue;
+                setConfirming(true);
+                const confirmed = await onConfirmOrder(
+                  chosen.map((room) => room.id),
+                );
+                setConfirming(false);
+                if (!confirmed) return;
+              }
               if (chosen.length) onClear();
             }}
           >

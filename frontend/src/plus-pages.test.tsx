@@ -198,26 +198,34 @@ it("refreshes the visible map every ten seconds and cleans up on leaving", async
   });
   expect(disconnect).toHaveBeenCalledOnce();
 });
-it("cleans rooms in tap order by moving them to the front of the robot's sequence", async () => {
+async function mountReorderable(confirms: boolean) {
   const { panel, hass, shadow } = await mount("/plus/aspirateur");
-  const callService = vi.fn().mockResolvedValue(undefined);
+  const robot = (sequence: number[]) => ({
+    ...hass.states["vacuum.example"],
+    attributes: {
+      supported_features: 8192,
+      rooms: [
+        { id: 1, name: "Study" },
+        { id: 2, name: "Kitchen" },
+        { id: 3, name: "Hall" },
+      ],
+      cleaning_sequence: sequence,
+      started: false,
+    },
+  });
+  const callService = vi.fn().mockImplementation(async (_domain, service, data) => {
+    if (service === "vacuum_set_cleaning_sequence" && confirms)
+      setTimeout(() => {
+        panel.hass = {
+          ...panel.hass!,
+          states: { "vacuum.example": robot(data.cleaning_sequence) },
+        };
+      }, 1000);
+  });
   await act(async () => {
     panel.hass = {
       ...hass,
-      states: {
-        "vacuum.example": {
-          ...hass.states["vacuum.example"],
-          attributes: {
-            supported_features: 8192,
-            rooms: [
-              { id: 1, name: "Study" },
-              { id: 2, name: "Kitchen" },
-              { id: 3, name: "Hall" },
-            ],
-            cleaning_sequence: [1, 2, 3],
-          },
-        },
-      },
+      states: { "vacuum.example": robot([1, 2, 3]) },
       callService,
       callWS: vi.fn().mockImplementation(async ({ type }) =>
         type === "get_services"
@@ -240,14 +248,22 @@ it("cleans rooms in tap order by moving them to the front of the robot's sequenc
   await act(async () => button("Kitchen").click());
   await act(async () => button("Study").click());
   expect(shadow.textContent).toContain("1 Kitchen, 2 Study");
+  vi.useFakeTimers();
   await act(async () => button("Clean 2 rooms").click());
+  return { shadow, callService };
+}
+const reorderCall = [
+  "dreame_vacuum",
+  "vacuum_set_cleaning_sequence",
+  { cleaning_sequence: [2, 1, 3] },
+  { entity_id: "vacuum.example" },
+];
+it("cleans rooms in tap order once the robot shows the rewritten sequence", async () => {
+  const { callService } = await mountReorderable(true);
+  expect(callService.mock.calls).toEqual([reorderCall]);
+  await act(async () => vi.advanceTimersByTimeAsync(1500));
   expect(callService.mock.calls).toEqual([
-    [
-      "dreame_vacuum",
-      "vacuum_set_cleaning_sequence",
-      { cleaning_sequence: [2, 1, 3] },
-      { entity_id: "vacuum.example" },
-    ],
+    reorderCall,
     [
       "dreame_vacuum",
       "vacuum_clean_segment",
@@ -255,4 +271,12 @@ it("cleans rooms in tap order by moving them to the front of the robot's sequenc
       { entity_id: "vacuum.example" },
     ],
   ]);
+});
+it("starts nothing when the robot never shows the rewritten sequence", async () => {
+  const { shadow, callService } = await mountReorderable(false);
+  await act(async () => vi.advanceTimersByTimeAsync(31_000));
+  expect(callService.mock.calls).toEqual([reorderCall]);
+  expect(shadow.querySelector('[role="alert"]')?.textContent).toBe(
+    "The robot didn't confirm the new cleaning order, so nothing started.",
+  );
 });
