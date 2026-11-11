@@ -258,10 +258,11 @@ const reorderCall = [
   { cleaning_sequence: [2, 1, 3] },
   { entity_id: "vacuum.example" },
 ];
-it("cleans rooms in tap order once the robot shows the rewritten sequence", async () => {
+it("cleans rooms in tap order after the rewritten sequence has had time to reach the robot", async () => {
   const { callService } = await mountReorderable(true);
+  await act(async () => vi.advanceTimersByTimeAsync(2500));
   expect(callService.mock.calls).toEqual([reorderCall]);
-  await act(async () => vi.advanceTimersByTimeAsync(1500));
+  await act(async () => vi.advanceTimersByTimeAsync(1000));
   expect(callService.mock.calls).toEqual([
     reorderCall,
     [
@@ -272,11 +273,12 @@ it("cleans rooms in tap order once the robot shows the rewritten sequence", asyn
     ],
   ]);
 });
-it("starts nothing when the robot never shows the rewritten sequence", async () => {
+it("starts nothing when the rewritten sequence doesn't hold", async () => {
   const { shadow, callService } = await mountReorderable(false);
-  await act(async () => vi.advanceTimersByTimeAsync(31_000));
+  await act(async () => vi.advanceTimersByTimeAsync(3500));
   expect(callService.mock.calls).toEqual([reorderCall]);
   expect(shadow.querySelector('[role="alert"]')?.textContent).toBe(
-    "The robot didn't confirm the new cleaning order, so nothing started.",
+    "The new cleaning order didn't apply, so nothing started.",
   );
+  expect(shadow.textContent).toContain("1 Kitchen, 2 Study");
 });

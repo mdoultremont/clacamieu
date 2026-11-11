@@ -93,6 +93,7 @@ export function Vacuum({
   const [servicesError, setServicesError] = useState(false);
   const [selected, setSelected] = useState<readonly number[]>([]);
   const [orderError, setOrderError] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const latest = useRef(hass);
   latest.current = hass;
   const [tab, setTab] = useState<"list" | "map">("list");
@@ -124,27 +125,30 @@ export function Vacuum({
     hass.language,
   );
   const chosen = view
-    ? roomSelection(view.rooms, selected, view.reorderable)
+    ? roomSelection(view.rooms, selected, view.tapOrder)
     : [];
-  // The integration queues the sequence write and never reports its outcome,
-  // so the clean waits until the robot's state shows the new order.
+  // The integration shows the new sequence at once but sends it to the robot
+  // through a queue, while the clean goes out directly, so the clean waits for
+  // the write to leave the queue. A rejected write is only logged there.
   const confirmOrder = async (ids: number[]) => {
-    for (let waited = 0; waited < 30_000; waited += 500) {
-      const sequence =
-        view && latest.current.states[view.id]?.attributes.cleaning_sequence;
-      if (Array.isArray(sequence) && followsOrder(sequence, ids)) return true;
-      await new Promise((resolve) => window.setTimeout(resolve, 500));
-    }
+    setConfirming(true);
+    await new Promise((resolve) => window.setTimeout(resolve, 3_000));
+    setConfirming(false);
+    const sequence =
+      view && latest.current.states[view.id]?.attributes.cleaning_sequence;
+    if (Array.isArray(sequence) && followsOrder(sequence, ids)) return true;
     setOrderError(true);
     return false;
   };
   const ranks = new Map(chosen.map((room, index) => [room.id, index + 1]));
-  const toggle = (id: number) =>
+  const toggle = (id: number) => {
+    if (confirming) return;
     setSelected((current) =>
       current.includes(id)
         ? current.filter((item) => item !== id)
         : [...current, id],
     );
+  };
   const sections: Record<VacuumSection, ReactNode> | null = view
     ? {
         shortcuts: (
@@ -240,7 +244,7 @@ export function Vacuum({
                 view={view}
                 chosen={chosen}
                 language={hass.language}
-                busy={busy}
+                busy={busy || confirming}
                 onAction={(action) => {
                   setOrderError(false);
                   return onAction(action);
@@ -884,7 +888,6 @@ function CleaningTray({
   onConfirmOrder: (ids: number[]) => Promise<boolean>;
   onClear: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
   const t = messages(language);
   const actions = cleaningActions(view, chosen, language);
   const action = actions.at(-1);
@@ -957,17 +960,15 @@ function CleaningTray({
         {action && (
           <Button
             className="h-11 w-full"
-            disabled={busy || confirming || !view.available}
+            disabled={busy || !view.available}
             onClick={async () => {
               for (const step of actions) {
                 if (!(await onAction(step))) return;
-                if (step.service !== "vacuum_set_cleaning_sequence") continue;
-                setConfirming(true);
-                const confirmed = await onConfirmOrder(
-                  chosen.map((room) => room.id),
-                );
-                setConfirming(false);
-                if (!confirmed) return;
+                if (
+                  step.service === "vacuum_set_cleaning_sequence" &&
+                  !(await onConfirmOrder(chosen.map((room) => room.id)))
+                )
+                  return;
               }
               if (chosen.length) onClear();
             }}

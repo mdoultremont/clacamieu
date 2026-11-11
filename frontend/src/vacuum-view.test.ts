@@ -201,7 +201,7 @@ describe("vacuum view", () => {
       },
     };
     const view = buildVacuumView(hass, config, { services: reorder })!;
-    const tapped = roomSelection(view.rooms, [1, 2, 3], view.reorderable);
+    const tapped = roomSelection(view.rooms, [1, 2, 3], view.tapOrder);
     expect(tapped.map(({ name }) => name)).toEqual([
       "Bathroom",
       "Kitchen",
@@ -237,8 +237,8 @@ describe("vacuum view", () => {
   it("leaves the robot's order alone when it cannot be rewritten", () => {
     const { hass } = fixture();
     const plain = buildVacuumView(hass, config, { services })!;
-    expect(plain.reorderable).toBe(false);
-    const ranked = roomSelection(plain.rooms, [1, 3], plain.reorderable);
+    expect(plain.tapOrder).toBe(false);
+    const ranked = roomSelection(plain.rooms, [1, 3], plain.tapOrder);
     expect(ranked.map(({ name }) => name)).toEqual(["Hall", "Bathroom"]);
     expect(cleaningActions(plain, ranked, "en")).toEqual([
       expect.objectContaining({
@@ -262,6 +262,20 @@ describe("vacuum view", () => {
     expect(
       buildVacuumView(hass, config, { services: reorder })!.reorderable,
     ).toBe(false);
+  });
+
+  it("keeps tap order for robots without a stored custom order", () => {
+    const { hass } = fixture();
+    hass.states["vacuum.robot"].attributes.cleaning_sequence = null;
+    const view = buildVacuumView(hass, config, { services })!;
+    expect(view).toMatchObject({ reorderable: false, tapOrder: true });
+    const tapped = roomSelection(view.rooms, [3, 1], view.tapOrder);
+    expect(cleaningActions(view, tapped, "en")).toEqual([
+      expect.objectContaining({
+        service: "vacuum_clean_segment",
+        data: { segments: [3, 1] },
+      }),
+    ]);
   });
 
   it("follows the running task's rooms in cleaning order", () => {

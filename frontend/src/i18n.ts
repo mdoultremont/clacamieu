@@ -144,7 +144,7 @@ export const en = {
   vacuumServicesError:
     "Unable to load room controls. Reopen this page to retry.",
   vacuumOrderError:
-    "The robot didn't confirm the new cleaning order, so nothing started.",
+    "The new cleaning order didn't apply, so nothing started.",
   unavailableEntities: "Unavailable",
   entityCount: (count: number) => `${count} entit${count === 1 ? "y" : "ies"}`,
   lowBatteries: "Low batteries",
@@ -593,7 +593,7 @@ export const fr: Messages = {
   vacuumServicesError:
     "Impossible de charger les commandes par pièce. Rouvrez cette page pour réessayer.",
   vacuumOrderError:
-    "Le robot n'a pas confirmé le nouvel ordre de nettoyage, rien n'a été lancé.",
+    "Le nouvel ordre de nettoyage ne s'est pas appliqué, donc rien n'a été lancé.",
   unavailableEntities: "Indisponibles",
   entityCount: (count) => `${count} entité${count === 1 ? "" : "s"}`,
   lowBatteries: "Piles faibles",

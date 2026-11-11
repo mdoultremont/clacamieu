@@ -165,6 +165,12 @@ export interface VacuumView {
   rooms: VacuumRoom[];
   /** Whether a selection can rewrite the robot's stored cleaning order first. */
   reorderable: boolean;
+  /**
+   * Whether the robot cleans a selection in tap order: it has no stored
+   * custom order, so it follows the order rooms are sent in, or the page can
+   * rewrite that order.
+   */
+  tapOrder: boolean;
   /** Room pins in map image pixels, when the map can be calibrated. */
   pins: (VacuumRoom & { x: number; y: number })[] | null;
   /** The rooms of the running task, in cleaning order. */
@@ -261,6 +267,11 @@ export function buildVacuumView(
       !hass.entities[entity.entity_id]?.entity_category,
   );
   const rooms = services.dreame_vacuum?.vacuum_clean_segment ? mapRooms : [];
+  const reorderable =
+    !!services.dreame_vacuum?.vacuum_set_cleaning_sequence &&
+    Array.isArray(attributes.cleaning_sequence) &&
+    !phases[phase].underway &&
+    attributes.started !== true;
   const battery = numeric(
     attributes.battery ??
       attributes.battery_level ??
@@ -357,11 +368,8 @@ export function buildVacuumView(
         }
       : null,
     rooms,
-    reorderable:
-      !!services.dreame_vacuum?.vacuum_set_cleaning_sequence &&
-      Array.isArray(attributes.cleaning_sequence) &&
-      !phases[phase].underway &&
-      attributes.started !== true,
+    reorderable,
+    tapOrder: reorderable || !Array.isArray(attributes.cleaning_sequence),
     pins: pins.length ? pins : null,
     task:
       underway && mapRooms.length
@@ -433,10 +441,7 @@ export function buildVacuumView(
   };
 }
 
-/**
- * The selected rooms in the order they get cleaned in: tap order when the
- * page can rewrite the robot's sequence, the robot's own order otherwise.
- */
+/** The selected rooms in the order they get cleaned in. */
 export function roomSelection(
   rooms: VacuumRoom[],
   selected: readonly number[],
