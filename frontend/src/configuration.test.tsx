@@ -146,6 +146,35 @@ describe("configuration flow", () => {
       shadow.querySelector('[aria-label="Open Example room"]'),
     ).not.toBeNull();
   });
+  it("shows the automatic room card size and saves the one an admin picks", async () => {
+    const { shadow, click, clickAndGoBack, hass } = await mount();
+    await click("More");
+    await click("Configure Maison");
+    await act(async () => {
+      (
+        shadow.querySelector(
+          '[aria-label="Edit Example room"]',
+        ) as HTMLButtonElement
+      ).click();
+    });
+    const size = (label: string) =>
+      Array.from(
+        shadow.querySelectorAll('[role="dialog"] [role="radio"]'),
+      ).find((item) => item.textContent === label) as HTMLButtonElement;
+    // Without a temperature reading the room defaults to a small tile.
+    expect(size("Small").getAttribute("aria-checked")).toBe("true");
+    await act(async () => {
+      size("Large").click();
+    });
+    expect(size("Large").getAttribute("aria-checked")).toBe("true");
+    await clickAndGoBack("Done");
+    expect(
+      vi
+        .mocked(hass.callWS)
+        .mock.calls.filter(([message]) => message.type.endsWith("/update"))
+        .map(([message]) => message.rooms),
+    ).toEqual([[{ area_id: "example", size: "large" }]]);
+  });
   it("hides both configuration entry points from non-admins", async () => {
     const { shadow, click } = await mount(false);
     expect(shadow.textContent).not.toContain("Edit");

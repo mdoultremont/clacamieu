@@ -16,14 +16,20 @@ import {
   type ConfigEditorAction,
 } from "../config-editor";
 import { numeric } from "../home-view";
-import { buildRoomCards, hasHomeContent } from "../room-card";
+import { buildRoomCards, hasHomeContent, roomCardSize } from "../room-card";
 import { locale, messages } from "../i18n";
 import {
   climateSensors,
   entityArea,
   resolveRoomSensors,
 } from "../room-sensors";
-import type { DashboardConfig, HassLike, HomeCard, RoomConfig } from "../types";
+import type {
+  DashboardConfig,
+  HassLike,
+  HomeCard,
+  RoomCardSize,
+  RoomConfig,
+} from "../types";
 import { ConfigSortableList } from "./config-sortable-list";
 import { ItemSection } from "./item-section";
 import {
@@ -66,6 +72,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { Segmented, SegmentedItem } from "./ui/segmented";
 
 type Selection =
   | { type: "card"; id: string }
@@ -599,6 +606,8 @@ function CardOptions({
   );
 }
 
+const roomCardSizes: RoomCardSize[] = ["large", "small"];
+
 function RoomOptions({
   room,
   hass,
@@ -611,6 +620,28 @@ function RoomOptions({
   const t = messages(hass.language);
   return (
     <>
+      <div className="space-y-2">
+        <p id="room-size" className="font-medium">
+          {t.roomCardSize}
+        </p>
+        <Segmented
+          aria-labelledby="room-size"
+          value={roomCardSize(hass, room)}
+          onValueChange={(size) =>
+            dispatch({
+              type: "edit-room",
+              room: { ...room, size: size as RoomCardSize },
+            })
+          }
+          className="flex w-full"
+        >
+          {roomCardSizes.map((size) => (
+            <SegmentedItem key={size} value={size} className="min-h-11">
+              {t.roomCardSizes[size]}
+            </SegmentedItem>
+          ))}
+        </Segmented>
+      </div>
       {climateSensors.map(({ key, deviceClass, label }) => {
         const sensors = Object.keys(hass.states)
           .filter(
