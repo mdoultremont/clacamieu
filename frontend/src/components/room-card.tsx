@@ -1,9 +1,11 @@
 import {
+  BatteryLow,
   CloudFog,
   Droplet,
   Lightbulb,
   LightbulbOff,
   Wind,
+  WifiOff,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -35,8 +37,6 @@ export function RoomCard({
   onAction: (action: ServiceAction) => unknown;
 }) {
   const t = messages(language);
-  const { lighting } = room;
-  const Icon = areaIcon(room.icon);
   return (
     <Tray className="relative">
       <RouteLink
@@ -46,41 +46,119 @@ export function RoomCard({
       />
       <div className="tray-card flex flex-1 flex-col gap-2 p-3">
         <div className="flex items-center justify-between gap-2">
-          {lighting ? (
-            <button
-              type="button"
-              aria-label={t.roomLights(room.name)}
-              aria-pressed={lighting.on}
-              disabled={busy || !lighting.available}
-              onClick={() => onAction(lighting.toggle)}
-              className={cn(
-                "relative z-20 grid size-9 place-items-center rounded-lg outline-none transition-[background-color,color,box-shadow,scale] duration-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-95 disabled:opacity-60",
-                lighting.on
-                  ? "bg-glow text-glow-foreground shadow-[0_6px_18px_-8px_var(--glow)]"
-                  : "bg-muted text-muted-foreground",
-              )}
-            >
-              {lighting.available ? (
-                <Icon className="size-[1.125rem]" />
-              ) : (
-                <LightbulbOff className="size-[1.125rem]" />
-              )}
-            </button>
-          ) : (
-            <span className="grid size-9 place-items-center rounded-lg bg-muted/60 text-muted-foreground">
-              <Icon className="size-[1.125rem]" />
-            </span>
-          )}
+          <RoomLightButton
+            room={room}
+            language={language}
+            busy={busy}
+            onAction={onAction}
+          />
           {room.temperature !== null && (
             <span className="text-xl font-semibold tracking-tight tabular-nums">
               {room.temperature}°
             </span>
           )}
         </div>
-        <p className="truncate font-medium">{room.name}</p>
+        <RoomName room={room} language={language} />
       </div>
       <RoomFooter items={buildRoomFooter(room, today, language)} />
     </Tray>
+  );
+}
+
+/** The room icon, which toggles the room's lights when it has any. */
+export function RoomLightButton({
+  room,
+  language,
+  busy,
+  onAction,
+}: {
+  room: RoomCardData;
+  language: string;
+  busy: boolean;
+  onAction: (action: ServiceAction) => unknown;
+}) {
+  const t = messages(language);
+  const { lighting } = room;
+  const Icon = areaIcon(room.icon);
+  if (!lighting)
+    return (
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted/60 text-muted-foreground">
+        <Icon className="size-[1.125rem]" />
+      </span>
+    );
+  return (
+    <button
+      type="button"
+      aria-label={t.roomLights(room.name)}
+      aria-pressed={lighting.on}
+      disabled={busy || !lighting.available}
+      onClick={() => onAction(lighting.toggle)}
+      className={cn(
+        "relative z-20 grid size-9 shrink-0 place-items-center rounded-lg outline-none transition-[background-color,color,box-shadow,scale] duration-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-95 disabled:opacity-60",
+        lighting.on
+          ? "bg-glow text-glow-foreground shadow-[0_6px_18px_-8px_var(--glow)]"
+          : "bg-muted text-muted-foreground",
+      )}
+    >
+      {lighting.available ? (
+        <Icon className="size-[1.125rem]" />
+      ) : (
+        <LightbulbOff className="size-[1.125rem]" />
+      )}
+    </button>
+  );
+}
+
+/** The room name, truncating before its offline and low battery marks. */
+export function RoomName({
+  room,
+  language,
+  className,
+}: {
+  room: RoomCardData;
+  language: string;
+  className?: string;
+}) {
+  const t = messages(language);
+  return (
+    <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
+      <p className="truncate font-medium">{room.name}</p>
+      {room.offline > 0 && (
+        <Mark
+          icon={WifiOff}
+          label={t.devicesOffline(room.offline)}
+          text={String(room.offline)}
+        />
+      )}
+      {room.battery && (
+        <Mark
+          icon={BatteryLow}
+          label={t.lowBattery(room.battery.value)}
+          text={room.battery.value}
+        />
+      )}
+    </div>
+  );
+}
+
+function Mark({
+  icon: Icon,
+  label,
+  text,
+}: {
+  icon: LucideIcon;
+  label: string;
+  text: string;
+}) {
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      className="flex shrink-0 items-center gap-0.5 text-[0.6875rem] font-normal tabular-nums text-muted-foreground"
+    >
+      <Icon className="size-3" aria-hidden />
+      <span aria-hidden>{text}</span>
+    </span>
   );
 }
 
