@@ -180,9 +180,11 @@ async def test_settings_default_and_round_trip(
                 "temperature_entity_id": "sensor.missing",
                 "humidity_entity_id": None,
                 "co2_entity_id": "sensor.co2",
+                "size": "small",
             },
             {
                 "area_id": kitchen.id,
+                "size": "large",
                 "entities": [
                     {"entity_id": "switch.oven", "display": "power"},
                     {"entity_id": "light.missing", "display": "hidden"},
@@ -324,6 +326,8 @@ async def test_settings_migrate_v1_store(
         {"rooms": [{"area_id": "kitchen", "temperature_entity_id": "bad"}]},
         {"rooms": [{"area_id": "kitchen", "humidity_entity_id": 42}]},
         {"rooms": [{"area_id": "kitchen", "co2_entity_id": "bad"}]},
+        {"rooms": [{"area_id": "kitchen", "size": "medium"}]},
+        {"rooms": [{"area_id": "kitchen", "size": None}]},
         {"rooms": [{"area_id": str(i)} for i in range(501)]},
         {"rooms": [{}]},
         {"rooms": [{"area_id": "kitchen", "entities": "switch.oven"}]},

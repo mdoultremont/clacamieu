@@ -466,6 +466,24 @@ describe("dashboard configuration", () => {
       vacuumSectionOrder({ sections: ["statistics", "shortcuts"] }),
     ).toEqual(["statistics", "shortcuts", "rooms", "maintenance", "station"]);
   });
+  it("keeps a large or small room card size and drops a room with any other size", () => {
+    expect(
+      parseDashboardConfig({
+        home_cards: null,
+        rooms: [
+          { area_id: "office", size: "large" },
+          { area_id: "kitchen", size: "small" },
+          { area_id: "hall", size: "medium" },
+          { area_id: "garage", size: null },
+          { area_id: "bedroom" },
+        ],
+      }).rooms,
+    ).toEqual([
+      { area_id: "office", size: "large" },
+      { area_id: "kitchen", size: "small" },
+      { area_id: "bedroom" },
+    ]);
+  });
   it("parses valid entries while dropping unknown, malformed, and duplicate entries", () => {
     expect(
       parseDashboardConfig({

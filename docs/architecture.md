@@ -17,8 +17,9 @@ every installed update. Unloading the entry removes the panel.
 
 `dashboard/runtime.py` stores version 2 settings in `clacamieu.dashboard`.
 `home_cards` selects ordered Home cards and `rooms` selects ordered
-areas with optional temperature, humidity, and CO₂ entity overrides and an
-ordered `entities` list for room customization. Cards and
+areas with optional temperature, humidity, and CO₂ entity overrides, an
+optional `size` of `large` or `small` for the room card on Pièces (absent means
+automatic), and an ordered `entities` list for room customization. Cards and
 rooms can retain their position and options with `hidden: true`. Absent or false
 means visible. A null list
 uses automatic configuration; an empty list hides every card or room. The Store

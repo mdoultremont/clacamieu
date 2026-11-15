@@ -62,6 +62,10 @@ function parseRoom(value: unknown): RoomConfig | null {
     return null;
   const room: RoomConfig = { area_id: value.area_id };
   if (value.hidden !== undefined) room.hidden = value.hidden;
+  if (value.size !== undefined) {
+    if (value.size !== "large" && value.size !== "small") return null;
+    room.size = value.size;
+  }
   for (const key of [
     "temperature_entity_id",
     "humidity_entity_id",

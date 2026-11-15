@@ -138,6 +138,7 @@ ROOM_SCHEMA = vol.Schema(
     {
         vol.Required("area_id"): vol.All(str, vol.Length(min=1)),
         vol.Optional("hidden"): bool,
+        vol.Optional("size"): vol.In(("large", "small")),
         vol.Optional("entities"): vol.All(
             [ROOM_ENTITY_SCHEMA],
             vol.Length(max=MAX_ENTITIES),
