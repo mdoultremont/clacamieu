@@ -112,7 +112,7 @@ describe("home view", () => {
     );
     expect(view(hass).rooms[0]).toMatchObject({
       temperature: "21,1",
-      humidity: "53",
+      humidity: { value: "53", percent: 53 },
       co2: { value: "900", ppm: 900, level: "fair" },
     });
     expect(view(hass).rooms[1].temperature).toBe("18,0");
@@ -661,7 +661,7 @@ describe("dashboard configuration", () => {
       rooms: [
         {
           temperature: "22,0",
-          humidity: "45",
+          humidity: { value: "45", percent: 45 },
           co2: { value: "700", ppm: 700, level: "good" },
         },
       ],
