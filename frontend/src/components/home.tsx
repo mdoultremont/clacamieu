@@ -23,7 +23,7 @@ import { buildCycleChips } from "../cycle-view";
 import { useCycleDismissals, useCycles } from "../use-cycles";
 import type { SecurityView } from "../security-view";
 import type { VacuumView } from "../vacuum-view";
-import { RoomGrid } from "./room-grid";
+import { RoomGrid, useRoomsEnergyToday } from "./room-grid";
 import { hasHomeContent } from "../room-card";
 import { cn } from "cn";
 
@@ -182,6 +182,7 @@ function RoomsSection({
   // Automatic selection skips rooms with nothing to show; favorites are explicit.
   const rooms = view.areaIds ? view.rooms : view.rooms.filter(hasHomeContent);
   const toAirOut = rooms.filter((room) => room.co2?.level === "poor").length;
+  const today = useRoomsEnergyToday(hass, rooms);
   if (!rooms.length) return null;
   return (
     <Section
@@ -191,7 +192,13 @@ function RoomsSection({
       }
       alert={toAirOut > 0}
     >
-      <RoomGrid rooms={rooms} hass={hass} busy={busy} onAction={onAction} />
+      <RoomGrid
+        rooms={rooms}
+        today={today}
+        language={hass.language}
+        busy={busy}
+        onAction={onAction}
+      />
     </Section>
   );
 }

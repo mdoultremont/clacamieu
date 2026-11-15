@@ -37,10 +37,12 @@ export const humidityScale: MeterScale = {
 export function Meter({
   value,
   scale,
+  size = "default",
   className,
 }: {
   value: number;
   scale: MeterScale;
+  size?: "default" | "sm";
   className?: string;
 }) {
   const span = scale.max - scale.min;
@@ -50,8 +52,11 @@ export function Meter({
     scale.zones.find((zone) => value < zone.until) ?? scale.zones.at(-1);
   let start = scale.min;
   return (
-    <div className={cn("relative h-1.5", className)} aria-hidden>
-      <div className="flex h-full gap-1">
+    <div
+      className={cn("relative", size === "sm" ? "h-1" : "h-1.5", className)}
+      aria-hidden
+    >
+      <div className={cn("flex h-full", size === "sm" ? "gap-0.5" : "gap-1")}>
         {scale.zones.map((zone) => {
           const width = (zone.until - start) / span;
           start = zone.until;
@@ -69,7 +74,10 @@ export function Meter({
         })}
       </div>
       <div
-        className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-foreground shadow-sm"
+        className={cn(
+          "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-foreground shadow-sm",
+          size === "sm" ? "size-2.5" : "size-3",
+        )}
         style={{ left: `${position * 100}%` }}
       />
     </div>
