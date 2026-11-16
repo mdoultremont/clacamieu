@@ -99,20 +99,20 @@ export function buildRoomFooter(
   return items;
 }
 
-const chipKinds: ReadonlySet<RoomFooterKind> = new Set([
+const largeCardFooterKinds: ReadonlySet<RoomFooterKind> = new Set([
   "pm25",
   "power",
   "lights",
 ]);
 
-/** The large card's readings that have no climate column, in display order. */
-export function buildRoomChips(
+/** The large card's tray line: readings that have no climate column, in display order. */
+export function buildLargeCardFooter(
   room: RoomCard,
   today: Record<string, number | null> | null,
   language: string,
 ): RoomFooterItem[] {
   return buildRoomFooter(room, today, language).filter((item) =>
-    chipKinds.has(item.kind),
+    largeCardFooterKinds.has(item.kind),
   );
 }
 

@@ -250,7 +250,7 @@ function RoomFooter({ items }: { items: RoomFooterItem[] }) {
   );
 }
 
-function FooterItem({ item }: { item: RoomFooterItem }) {
+export function FooterItem({ item }: { item: RoomFooterItem }) {
   const Icon = footerIcons[item.kind];
   return (
     <span

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fitFooterItems } from "./components/room-card";
 import {
   buildRoomCards,
-  buildRoomChips,
+  buildLargeCardFooter,
   buildRoomFooter,
   type RoomCard,
 } from "./room-card";
@@ -294,10 +294,10 @@ describe("room card device health", () => {
   });
 });
 
-describe("room chips", () => {
+describe("large card footer", () => {
   it("keeps PM2.5, power and lights on, leaving climate to the columns", () => {
     expect(
-      buildRoomChips(
+      buildLargeCardFooter(
         room({
           humidity: { value: "58", percent: 58 },
           co2: { value: "686", ppm: 686, level: "good" },
@@ -310,12 +310,12 @@ describe("room chips", () => {
         }),
         { "sensor.a": 1.2 },
         "en",
-      ).map((chip) => chip.text),
+      ).map((item) => item.text),
     ).toEqual(["8 µg/m³", "100 W · 1.2 kWh", "2 on"]);
   });
   it("is empty when the room has only climate or nothing lit", () => {
     expect(
-      buildRoomChips(room({ hasLights: true, temperature: "20.0" }), null, "en"),
+      buildLargeCardFooter(room({ hasLights: true, temperature: "20.0" }), null, "en"),
     ).toEqual([]);
   });
 });

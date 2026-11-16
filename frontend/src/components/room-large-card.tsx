@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 import { cn } from "cn";
 import { messages } from "../i18n";
-import { buildRoomChips, type RoomCard as RoomCardData } from "../room-card";
+import { buildLargeCardFooter, type RoomCard as RoomCardData } from "../room-card";
 import type { ServiceAction } from "../types";
 import { co2Scale, humidityScale, Meter } from "./air-meter";
-import { RoomLightButton, RoomName } from "./room-card";
+import { FooterItem, RoomLightButton, RoomName } from "./room-card";
 import { RouteLink } from "./route-link";
-import { Tray } from "./tray";
+import { Tray, TrayLine } from "./tray";
 
-/** A main room on Pièces: full width, with climate columns and every other reading as chips. */
+/** A main room on Pièces: full width, with climate columns and every other reading in its tray line. */
 export function RoomLargeCard({
   room,
   today,
@@ -23,7 +23,7 @@ export function RoomLargeCard({
   onAction: (action: ServiceAction) => unknown;
 }) {
   const t = messages(language);
-  const chips = buildRoomChips(room, today, language);
+  const footer = buildLargeCardFooter(room, today, language);
   const { status, humidity, co2 } = room;
   return (
     <Tray className="relative">
@@ -83,19 +83,14 @@ export function RoomLargeCard({
             {co2?.value}
           </Column>
         </dl>
-        {chips.length > 0 && (
-          <ul className="flex flex-wrap gap-1.5">
-            {chips.map((chip) => (
-              <li
-                key={chip.kind}
-                className="rounded-md bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
-              >
-                {chip.text}
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
+      {footer.length > 0 && (
+        <TrayLine className="flex-wrap gap-x-3 gap-y-1 whitespace-normal tabular-nums">
+          {footer.map((item) => (
+            <FooterItem key={item.kind} item={item} />
+          ))}
+        </TrayLine>
+      )}
     </Tray>
   );
 }
