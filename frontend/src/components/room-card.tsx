@@ -9,11 +9,12 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "cn";
 import { messages } from "../i18n";
 import {
   buildRoomFooter,
+  hasDeviceMarks,
   type RoomCard as RoomCardData,
   type RoomFooterItem,
   type RoomFooterKind,
@@ -58,9 +59,12 @@ export function RoomCard({
             </span>
           )}
         </div>
-        <RoomName room={room} language={language} />
+        <p className="truncate font-medium">{room.name}</p>
       </div>
-      <RoomFooter items={buildRoomFooter(room, today, language)} />
+      <RoomFooter
+        items={buildRoomFooter(room, today, language)}
+        marks={<RoomMarks room={room} language={language} />}
+      />
     </Tray>
   );
 }
@@ -109,8 +113,8 @@ export function RoomLightButton({
   );
 }
 
-/** The room name, truncating before its offline and low battery marks. */
-export function RoomName({
+/** The room's offline devices and low battery, at the end of its tray line. */
+export function RoomMarks({
   room,
   language,
   className,
@@ -120,9 +124,9 @@ export function RoomName({
   className?: string;
 }) {
   const t = messages(language);
+  if (!hasDeviceMarks(room)) return null;
   return (
-    <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
-      <p className="truncate font-medium">{room.name}</p>
+    <div className={cn("flex shrink-0 items-center gap-2.5", className)}>
       {room.offline > 0 && (
         <Mark
           icon={WifiOff}
@@ -154,9 +158,9 @@ function Mark({
     <span
       role="img"
       aria-label={label}
-      className="flex shrink-0 items-center gap-0.5 text-[0.6875rem] font-normal tabular-nums text-muted-foreground"
+      className="flex items-center gap-1"
     >
-      <Icon className="size-3" aria-hidden />
+      <Icon className="size-3.5" aria-hidden />
       <span aria-hidden>{text}</span>
     </span>
   );
@@ -197,7 +201,13 @@ export function fitFooterItems(
   return kept.sort((a, b) => a - b);
 }
 
-function RoomFooter({ items }: { items: RoomFooterItem[] }) {
+function RoomFooter({
+  items,
+  marks,
+}: {
+  items: RoomFooterItem[];
+  marks: ReactNode;
+}) {
   const line = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState<number[] | null>(null);
@@ -205,11 +215,6 @@ function RoomFooter({ items }: { items: RoomFooterItem[] }) {
   useLayoutEffect(() => {
     const fit = () => {
       if (!line.current || !ruler.current) return;
-      const style = getComputedStyle(line.current);
-      const available =
-        line.current.clientWidth -
-        parseFloat(style.paddingLeft) -
-        parseFloat(style.paddingRight);
       const widths = [...ruler.current.children].map(
         (child) => child.getBoundingClientRect().width,
       );
@@ -217,7 +222,7 @@ function RoomFooter({ items }: { items: RoomFooterItem[] }) {
         items.map((item) => item.alert),
         widths,
         parseFloat(getComputedStyle(ruler.current).columnGap) || 0,
-        available,
+        line.current.clientWidth,
       );
       setShown((current) =>
         current?.join() === next.join() ? current : next,
@@ -233,19 +238,22 @@ function RoomFooter({ items }: { items: RoomFooterItem[] }) {
     ? shown.map((index) => items[index]).filter(Boolean)
     : items;
   return (
-    <TrayLine ref={line} className="relative gap-3 tabular-nums">
-      <div
-        ref={ruler}
-        aria-hidden
-        className="invisible absolute flex gap-3 whitespace-nowrap"
-      >
-        {items.map((item, index) => (
-          <FooterItem key={index} item={item} />
+    <TrayLine className="gap-3 tabular-nums">
+      <div ref={line} className="relative flex min-w-0 flex-1 items-center gap-3">
+        <div
+          ref={ruler}
+          aria-hidden
+          className="invisible absolute flex gap-3 whitespace-nowrap"
+        >
+          {items.map((item, index) => (
+            <FooterItem key={index} item={item} />
+          ))}
+        </div>
+        {visible.map((item) => (
+          <FooterItem key={item.kind} item={item} />
         ))}
       </div>
-      {visible.map((item) => (
-        <FooterItem key={item.kind} item={item} />
-      ))}
+      {marks}
     </TrayLine>
   );
 }

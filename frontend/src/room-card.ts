@@ -116,6 +116,11 @@ export function buildLargeCardFooter(
   );
 }
 
+/** Whether the room's tray line carries an offline or low battery mark. */
+export function hasDeviceMarks(room: RoomCard) {
+  return room.offline > 0 || room.battery !== null;
+}
+
 /**
  * The saved size, or Large for an indoor room with a temperature reading.
  * The default follows the live reading, so a room whose sensor drops out

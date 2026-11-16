@@ -1,14 +1,18 @@
 import type { ReactNode } from "react";
 import { cn } from "cn";
 import { messages } from "../i18n";
-import { buildLargeCardFooter, type RoomCard as RoomCardData } from "../room-card";
+import {
+  buildLargeCardFooter,
+  hasDeviceMarks,
+  type RoomCard as RoomCardData,
+} from "../room-card";
 import type { ServiceAction } from "../types";
 import { co2Scale, humidityScale, Meter } from "./air-meter";
-import { FooterItem, RoomLightButton, RoomName } from "./room-card";
+import { FooterItem, RoomLightButton, RoomMarks } from "./room-card";
 import { RouteLink } from "./route-link";
 import { Tray, TrayLine } from "./tray";
 
-/** A main room on Pièces: full width, with climate columns and every other reading in its tray line. */
+/** A main room on Pièces: full width, with a column per climate reading and everything else in its tray line. */
 export function RoomLargeCard({
   room,
   today,
@@ -40,7 +44,7 @@ export function RoomLargeCard({
             busy={busy}
             onAction={onAction}
           />
-          <RoomName room={room} language={language} className="flex-1" />
+          <p className="min-w-0 flex-1 truncate font-medium">{room.name}</p>
           {status && (
             <p
               className={cn(
@@ -56,45 +60,56 @@ export function RoomLargeCard({
             </p>
           )}
         </div>
-        <dl className="grid grid-cols-3 divide-x">
-          <Column label={t.temperature}>
-            {room.temperature !== null && `${room.temperature}°`}
-          </Column>
-          <Column
-            label={t.humidity}
-            unit="%"
-            meter={
-              humidity && (
-                <Meter value={humidity.percent} scale={humidityScale} size="sm" />
-              )
-            }
-          >
-            {humidity?.value}
-          </Column>
-          <Column
-            label={t.co2}
-            unit="ppm"
-            valueClassName={cn(
-              co2?.level === "fair" && "text-air-fair",
-              co2?.level === "poor" && "text-air-poor",
+        {(room.temperature !== null || humidity || co2) && (
+          <dl className="flex divide-x">
+            {room.temperature !== null && (
+              <Column label={t.temperature}>{room.temperature}°</Column>
             )}
-            meter={co2 && <Meter value={co2.ppm} scale={co2Scale} size="sm" />}
-          >
-            {co2?.value}
-          </Column>
-        </dl>
+            {humidity && (
+              <Column
+                label={t.humidity}
+                unit="%"
+                meter={
+                  <Meter
+                    value={humidity.percent}
+                    scale={humidityScale}
+                    size="sm"
+                  />
+                }
+              >
+                {humidity.value}
+              </Column>
+            )}
+            {co2 && (
+              <Column
+                label={t.co2}
+                unit="ppm"
+                valueClassName={cn(
+                  co2.level === "fair" && "text-air-fair",
+                  co2.level === "poor" && "text-air-poor",
+                )}
+                meter={<Meter value={co2.ppm} scale={co2Scale} size="sm" />}
+              >
+                {co2.value}
+              </Column>
+            )}
+          </dl>
+        )}
       </div>
-      {footer.length > 0 && (
+      {(footer.length > 0 || hasDeviceMarks(room)) && (
         <TrayLine className="flex-wrap gap-x-3 gap-y-1 whitespace-normal tabular-nums">
           {footer.map((item) => (
             <FooterItem key={item.kind} item={item} />
           ))}
+          <RoomMarks room={room} language={language} className="ml-auto" />
         </TrayLine>
       )}
     </Tray>
   );
 }
 
+// Columns are thirds and the last one takes the rest, so a room without CO₂
+// keeps its columns aligned with the other cards and leaves no empty cell.
 function Column({
   label,
   unit,
@@ -108,20 +123,19 @@ function Column({
   valueClassName?: string;
   children: ReactNode;
 }) {
-  const known = children !== undefined && children !== null && children !== false;
   return (
-    <div className="flex min-w-0 flex-col gap-1 px-3 first:pl-0 last:pr-0">
+    <div className="flex w-1/3 min-w-0 flex-col gap-1 px-3 first:pl-0 last:w-auto last:flex-1 last:pr-0">
       <dt className="truncate text-[0.6875rem] text-muted-foreground">
         {label}
       </dt>
       <dd
         className={cn(
           "truncate text-[1.0625rem] leading-tight font-semibold tracking-tight tabular-nums",
-          known ? valueClassName : "text-muted-foreground",
+          valueClassName,
         )}
       >
-        {known ? children : "–"}
-        {known && unit && (
+        {children}
+        {unit && (
           <span className="ml-1 text-[0.6875rem] font-normal text-muted-foreground">
             {unit}
           </span>
