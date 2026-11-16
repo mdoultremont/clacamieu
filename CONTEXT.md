@@ -29,6 +29,10 @@ Avoid: Home (for Maison itself), Lovelace dashboard
 An admin's choice, per room, of the order of the room page's lights, devices, and openings and sensors, and of each element's display. An element shows as a Control (Commande), a Power reading (Conso) or a Cycle (Cycle) for smart plugs that measure power, or Hidden (Masqué). Hidden elements fold into one collapsed line at the bottom of the room page. Admins open it with Customize room (Personnaliser la pièce) from the room page header.
 Avoid: room layout, room edit mode
 
+**Room card size**
+An admin's choice, per room in Configure Maison, of Large (Grande) or Small (Petite). Without a choice, an indoor room with a temperature reading is Large and any other room is Small. On Pièces, a Large room shows as a full-width card with its temperature beside its name and, when the room measures CO₂, a CO₂ line with a meter, and a Small room as a tile under Other rooms (Autres pièces). Humidity and the other readings sit in the tray line of both. Home tiles keep their size. Room cards of both sizes mark offline devices and a battery below 20 % at the end of their tray line.
+Avoid: main room, featured room
+
 **Cycle appliance**
 A smart-plugged appliance that runs in cycles, such as a washing machine, dryer, or dishwasher, which an admin set to the Cycle display in its room. Maison shows whether it is running (En marche) or finished (Terminé) on its room page and as a chip under Home's date. Dismissing a finished cycle (Masquer) hides it on every device until the next cycle.
 Avoid: program, wash, job

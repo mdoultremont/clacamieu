@@ -370,6 +370,12 @@ export const en = {
         ? "1 device running"
         : `${count} devices running`,
   noRooms: "No rooms configured",
+  otherRooms: "Other rooms",
+  roomCardSize: "Card size",
+  roomCardSizes: { large: "Large", small: "Small" },
+  devicesOffline: (count: number) =>
+    `${count} ${count === 1 ? "device" : "devices"} offline`,
+  lowBattery: (value: string) => `Battery ${value}`,
   lightsOn: (count: number) =>
     count === 0 ? "No lights on" : `${count} light${count === 1 ? "" : "s"} on`,
   openingsClosed: (count: number) =>
@@ -821,6 +827,12 @@ export const fr: Messages = {
         ? "1 appareil en marche"
         : `${count} appareils en marche`,
   noRooms: "Aucune pièce configurée",
+  otherRooms: "Autres pièces",
+  roomCardSize: "Taille de la carte",
+  roomCardSizes: { large: "Grande", small: "Petite" },
+  devicesOffline: (count) =>
+    `${count} ${count === 1 ? "appareil" : "appareils"} hors ligne`,
+  lowBattery: (value) => `Batterie ${value}`,
   lightsOn: (count) =>
     count === 0
       ? "Aucune lumière allumée"

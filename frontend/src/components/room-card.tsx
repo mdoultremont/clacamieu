@@ -1,17 +1,20 @@
 import {
+  BatteryLow,
   CloudFog,
   Droplet,
   Lightbulb,
   LightbulbOff,
   Wind,
+  WifiOff,
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "cn";
 import { messages } from "../i18n";
 import {
   buildRoomFooter,
+  hasDeviceMarks,
   type RoomCard as RoomCardData,
   type RoomFooterItem,
   type RoomFooterKind,
@@ -35,8 +38,6 @@ export function RoomCard({
   onAction: (action: ServiceAction) => unknown;
 }) {
   const t = messages(language);
-  const { lighting } = room;
-  const Icon = areaIcon(room.icon);
   return (
     <Tray className="relative">
       <RouteLink
@@ -46,31 +47,12 @@ export function RoomCard({
       />
       <div className="tray-card flex flex-1 flex-col gap-2 p-3">
         <div className="flex items-center justify-between gap-2">
-          {lighting ? (
-            <button
-              type="button"
-              aria-label={t.roomLights(room.name)}
-              aria-pressed={lighting.on}
-              disabled={busy || !lighting.available}
-              onClick={() => onAction(lighting.toggle)}
-              className={cn(
-                "relative z-20 grid size-9 place-items-center rounded-lg outline-none transition-[background-color,color,box-shadow,scale] duration-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-95 disabled:opacity-60",
-                lighting.on
-                  ? "bg-glow text-glow-foreground shadow-[0_6px_18px_-8px_var(--glow)]"
-                  : "bg-muted text-muted-foreground",
-              )}
-            >
-              {lighting.available ? (
-                <Icon className="size-[1.125rem]" />
-              ) : (
-                <LightbulbOff className="size-[1.125rem]" />
-              )}
-            </button>
-          ) : (
-            <span className="grid size-9 place-items-center rounded-lg bg-muted/60 text-muted-foreground">
-              <Icon className="size-[1.125rem]" />
-            </span>
-          )}
+          <RoomLightButton
+            room={room}
+            language={language}
+            busy={busy}
+            onAction={onAction}
+          />
           {room.temperature !== null && (
             <span className="text-xl font-semibold tracking-tight tabular-nums">
               {room.temperature}°
@@ -79,8 +61,108 @@ export function RoomCard({
         </div>
         <p className="truncate font-medium">{room.name}</p>
       </div>
-      <RoomFooter items={buildRoomFooter(room, today, language)} />
+      <RoomFooter
+        items={buildRoomFooter(room, today, language)}
+        marks={<RoomMarks room={room} language={language} />}
+      />
     </Tray>
+  );
+}
+
+/** The room icon, which toggles the room's lights when it has any. */
+export function RoomLightButton({
+  room,
+  language,
+  busy,
+  onAction,
+}: {
+  room: RoomCardData;
+  language: string;
+  busy: boolean;
+  onAction: (action: ServiceAction) => unknown;
+}) {
+  const t = messages(language);
+  const { lighting } = room;
+  const Icon = areaIcon(room.icon);
+  if (!lighting)
+    return (
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted/60 text-muted-foreground">
+        <Icon className="size-[1.125rem]" />
+      </span>
+    );
+  return (
+    <button
+      type="button"
+      aria-label={t.roomLights(room.name)}
+      aria-pressed={lighting.on}
+      disabled={busy || !lighting.available}
+      onClick={() => onAction(lighting.toggle)}
+      className={cn(
+        "relative z-20 grid size-9 shrink-0 place-items-center rounded-lg outline-none transition-[background-color,color,box-shadow,scale] duration-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-95 disabled:opacity-60",
+        lighting.on
+          ? "bg-glow text-glow-foreground shadow-[0_6px_18px_-8px_var(--glow)]"
+          : "bg-muted text-muted-foreground",
+      )}
+    >
+      {lighting.available ? (
+        <Icon className="size-[1.125rem]" />
+      ) : (
+        <LightbulbOff className="size-[1.125rem]" />
+      )}
+    </button>
+  );
+}
+
+/** The room's offline devices and low battery, at the end of its tray line. */
+export function RoomMarks({
+  room,
+  language,
+  className,
+}: {
+  room: RoomCardData;
+  language: string;
+  className?: string;
+}) {
+  const t = messages(language);
+  if (!hasDeviceMarks(room)) return null;
+  return (
+    <div className={cn("flex shrink-0 items-center gap-2.5", className)}>
+      {room.offline > 0 && (
+        <Mark
+          icon={WifiOff}
+          label={t.devicesOffline(room.offline)}
+          text={String(room.offline)}
+        />
+      )}
+      {room.battery && (
+        <Mark
+          icon={BatteryLow}
+          label={t.lowBattery(room.battery.value)}
+          text={room.battery.value}
+        />
+      )}
+    </div>
+  );
+}
+
+function Mark({
+  icon: Icon,
+  label,
+  text,
+}: {
+  icon: LucideIcon;
+  label: string;
+  text: string;
+}) {
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      className="flex items-center gap-1"
+    >
+      <Icon className="size-3.5" aria-hidden />
+      <span aria-hidden>{text}</span>
+    </span>
   );
 }
 
@@ -119,7 +201,13 @@ export function fitFooterItems(
   return kept.sort((a, b) => a - b);
 }
 
-function RoomFooter({ items }: { items: RoomFooterItem[] }) {
+function RoomFooter({
+  items,
+  marks,
+}: {
+  items: RoomFooterItem[];
+  marks: ReactNode;
+}) {
   const line = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState<number[] | null>(null);
@@ -127,11 +215,6 @@ function RoomFooter({ items }: { items: RoomFooterItem[] }) {
   useLayoutEffect(() => {
     const fit = () => {
       if (!line.current || !ruler.current) return;
-      const style = getComputedStyle(line.current);
-      const available =
-        line.current.clientWidth -
-        parseFloat(style.paddingLeft) -
-        parseFloat(style.paddingRight);
       const widths = [...ruler.current.children].map(
         (child) => child.getBoundingClientRect().width,
       );
@@ -139,7 +222,7 @@ function RoomFooter({ items }: { items: RoomFooterItem[] }) {
         items.map((item) => item.alert),
         widths,
         parseFloat(getComputedStyle(ruler.current).columnGap) || 0,
-        available,
+        line.current.clientWidth,
       );
       setShown((current) =>
         current?.join() === next.join() ? current : next,
@@ -155,24 +238,27 @@ function RoomFooter({ items }: { items: RoomFooterItem[] }) {
     ? shown.map((index) => items[index]).filter(Boolean)
     : items;
   return (
-    <TrayLine ref={line} className="relative gap-3 tabular-nums">
-      <div
-        ref={ruler}
-        aria-hidden
-        className="invisible absolute flex gap-3 whitespace-nowrap"
-      >
-        {items.map((item, index) => (
-          <FooterItem key={index} item={item} />
+    <TrayLine className="gap-3 tabular-nums">
+      <div ref={line} className="relative flex min-w-0 flex-1 items-center gap-3">
+        <div
+          ref={ruler}
+          aria-hidden
+          className="invisible absolute flex gap-3 whitespace-nowrap"
+        >
+          {items.map((item, index) => (
+            <FooterItem key={index} item={item} />
+          ))}
+        </div>
+        {visible.map((item) => (
+          <FooterItem key={item.kind} item={item} />
         ))}
       </div>
-      {visible.map((item) => (
-        <FooterItem key={item.kind} item={item} />
-      ))}
+      {marks}
     </TrayLine>
   );
 }
 
-function FooterItem({ item }: { item: RoomFooterItem }) {
+export function FooterItem({ item }: { item: RoomFooterItem }) {
   const Icon = footerIcons[item.kind];
   return (
     <span

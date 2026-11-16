@@ -17,8 +17,9 @@ every installed update. Unloading the entry removes the panel.
 
 `dashboard/runtime.py` stores version 2 settings in `clacamieu.dashboard`.
 `home_cards` selects ordered Home cards and `rooms` selects ordered
-areas with optional temperature, humidity, and CO₂ entity overrides and an
-ordered `entities` list for room customization. Cards and
+areas with optional temperature, humidity, and CO₂ entity overrides, an
+optional `size` of `large` or `small` for the room card on Pièces (absent means
+automatic), and an ordered `entities` list for room customization. Cards and
 rooms can retain their position and options with `hidden: true`. Absent or false
 means visible. A null list
 uses automatic configuration; an empty list hides every card or room. The Store
@@ -164,9 +165,10 @@ built from realistic Home Assistant data:
     `binary_sensor.*_maintenance` lists, and estimates the next one from
     average daily cleaning time. Shortcuts, cleaning mode and suction selects,
     and station attributes appear only when the device exposes them.
-- `system-view.ts` reports a device as offline only when none of its entities
+- `device-health.ts` reports a device as offline only when none of its entities
   responds, because online devices often keep feature-gated entities
-  unavailable.
+  unavailable. Système and the room cards share that rule and the battery
+  readings through it.
 
 The development harness allows these read-only commands in addition to the
 registries, panels, user, and configuration: `clacamieu/dashboard/config`,

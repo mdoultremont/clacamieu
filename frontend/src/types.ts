@@ -69,12 +69,16 @@ export type HomeCard = { hidden?: boolean } & (
   | { id: string; type: "entities"; title: string; entity_ids: string[] }
 );
 
+export type RoomCardSize = "large" | "small";
+
 export interface RoomConfig {
   hidden?: boolean;
   area_id: string;
   temperature_entity_id?: string | null;
   humidity_entity_id?: string | null;
   co2_entity_id?: string | null;
+  /** The room card's size on Pièces; absent picks it from the room's climate. */
+  size?: RoomCardSize;
   /** The room page's elements in order, with how each one shows. */
   entities?: RoomEntityConfig[];
 }
