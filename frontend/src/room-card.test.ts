@@ -41,7 +41,7 @@ describe("room footer", () => {
     expect(
       footer(
         room({
-          humidity: { value: "58", percent: 58 },
+          humidity: "58",
           co2: { value: "686", ppm: 686, level: "good" },
           pm25: "8",
           hasLights: true,
@@ -65,7 +65,7 @@ describe("room footer", () => {
     expect(
       footer(
         room({
-          humidity: { value: "40", percent: 40 },
+          humidity: "40",
           co2: { value: "1,480", ppm: 1480, level: "poor" },
         }),
       ),
@@ -82,7 +82,7 @@ describe("room footer", () => {
     expect(footer(room({ hasLights: true }), null, "fr")).toEqual([
       "lightsOff:Lumières éteintes",
     ]);
-    expect(footer(room({ hasLights: true, humidity: { value: "50", percent: 50 } }))).toEqual([
+    expect(footer(room({ hasLights: true, humidity: "50" }))).toEqual([
       "humidity:50 %",
     ]);
     expect(footer(room({ hasLights: true, lightsOn: 1 }), null, "fr")).toEqual(
@@ -263,7 +263,7 @@ describe("room card status", () => {
     });
     const { office, kitchen } = cards();
     expect(office.status).toEqual({ text: "Dry", level: null });
-    expect(office.humidity).toEqual({ value: "35", percent: 35 });
+    expect(office.humidity).toBe("35");
     expect(kitchen.status).toBeNull();
   });
 });
@@ -295,11 +295,11 @@ describe("room card device health", () => {
 });
 
 describe("large card footer", () => {
-  it("keeps PM2.5, power and lights on, leaving climate to the columns", () => {
+  it("keeps humidity, PM2.5, power and lights on, leaving CO₂ to the card", () => {
     expect(
       buildLargeCardFooter(
         room({
-          humidity: { value: "58", percent: 58 },
+          humidity: "58",
           co2: { value: "686", ppm: 686, level: "good" },
           pm25: "8",
           hasLights: true,
@@ -311,9 +311,9 @@ describe("large card footer", () => {
         { "sensor.a": 1.2 },
         "en",
       ).map((item) => item.text),
-    ).toEqual(["8 µg/m³", "100 W · 1.2 kWh", "2 on"]);
+    ).toEqual(["58 %", "8 µg/m³", "100 W · 1.2 kWh", "2 on"]);
   });
-  it("is empty when the room has only climate or nothing lit", () => {
+  it("is empty when the room has only a temperature and nothing lit", () => {
     expect(
       buildLargeCardFooter(room({ hasLights: true, temperature: "20.0" }), null, "en"),
     ).toEqual([]);

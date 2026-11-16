@@ -25,7 +25,7 @@ export interface RoomCard {
   lighting: RoomLighting | null;
   size: RoomCardSize;
   temperature: string | null;
-  humidity: { value: string; percent: number } | null;
+  humidity: string | null;
   co2: { value: string; ppm: number; level: "good" | "fair" | "poor" } | null;
   /** Fair or poor air first, otherwise the room's comfort perception. */
   status: { text: string; level: "fair" | "poor" | null } | null;
@@ -73,7 +73,7 @@ export function buildRoomFooter(
   const items: RoomFooterItem[] = [];
   const add = (kind: RoomFooterKind, text: string, alert = false) =>
     items.push({ kind, text, alert });
-  if (room.humidity) add("humidity", `${room.humidity.value} %`);
+  if (room.humidity !== null) add("humidity", `${room.humidity} %`);
   if (room.co2)
     add("co2", `${room.co2.value} ppm`, room.co2.level === "poor");
   if (room.pm25 !== null) add("pm25", `${room.pm25} µg/m³`);
@@ -100,12 +100,13 @@ export function buildRoomFooter(
 }
 
 const largeCardFooterKinds: ReadonlySet<RoomFooterKind> = new Set([
+  "humidity",
   "pm25",
   "power",
   "lights",
 ]);
 
-/** The large card's tray line: readings that have no climate column, in display order. */
+/** The large card's tray line: every reading the card itself does not show, in display order. */
 export function buildLargeCardFooter(
   room: RoomCard,
   today: Record<string, number | null> | null,
@@ -187,8 +188,7 @@ function buildRoomCard(
     lighting: buildRoomLighting(hass, area.area_id, controllers),
     size: roomCardSize(hass, room, temperature),
     temperature: format(temperature, 1),
-    humidity:
-      humidity === null ? null : { value: format(humidity)!, percent: humidity },
+    humidity: format(humidity),
     co2:
       co2 === null || level === null
         ? null
