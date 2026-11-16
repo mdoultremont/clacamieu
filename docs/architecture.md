@@ -165,9 +165,10 @@ built from realistic Home Assistant data:
     `binary_sensor.*_maintenance` lists, and estimates the next one from
     average daily cleaning time. Shortcuts, cleaning mode and suction selects,
     and station attributes appear only when the device exposes them.
-- `system-view.ts` reports a device as offline only when none of its entities
+- `device-health.ts` reports a device as offline only when none of its entities
   responds, because online devices often keep feature-gated entities
-  unavailable.
+  unavailable. Système and the room cards share that rule and the battery
+  readings through it.
 
 The development harness allows these read-only commands in addition to the
 registries, panels, user, and configuration: `clacamieu/dashboard/config`,

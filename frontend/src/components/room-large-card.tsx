@@ -18,7 +18,7 @@ const levelText = {
 } satisfies Record<NonNullable<RoomCardData["co2"]>["level"], string | null>;
 
 /**
- * A main room on Pièces: full width, with the temperature where the tile
+ * A Large room on Pièces: full width, with the temperature where the tile
  * shows it, a CO₂ line when the room measures it, and every other reading
  * in its tray line.
  */

@@ -83,7 +83,7 @@ export function buildDeviceHealth(hass: HassLike): DeviceHealth {
 }
 
 /** Battery level below which a room card shows its lowest battery. */
-export const roomBatteryThreshold = 20;
+const roomBatteryThreshold = 20;
 
 export interface AreaHealth {
   offline: number;

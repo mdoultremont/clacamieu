@@ -30,7 +30,7 @@ An admin's choice, per room, of the order of the room page's lights, devices, an
 Avoid: room layout, room edit mode
 
 **Room card size**
-An admin's choice, per room in Configure Maison, of Large (Grande) or Small (Petite). Without a choice, an indoor room with a temperature reading is Large and any other room is Small. On Pièces, a Large room shows as a full-width card with its temperature beside its name and, when the room measures CO₂, a CO₂ line with a meter, and a Small room as a tile under Other rooms (Autres pièces). Humidity and the other readings sit in the tray line of both. Home tiles are unaffected. Room cards of both sizes mark offline devices and a battery below 20 % at the end of their tray line.
+An admin's choice, per room in Configure Maison, of Large (Grande) or Small (Petite). Without a choice, an indoor room with a temperature reading is Large and any other room is Small. On Pièces, a Large room shows as a full-width card with its temperature beside its name and, when the room measures CO₂, a CO₂ line with a meter, and a Small room as a tile under Other rooms (Autres pièces). Humidity and the other readings sit in the tray line of both. Home tiles keep their size. Room cards of both sizes mark offline devices and a battery below 20 % at the end of their tray line.
 Avoid: main room, featured room
 
 **Cycle appliance**
