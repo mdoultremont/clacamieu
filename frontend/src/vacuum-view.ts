@@ -67,25 +67,27 @@ type PartKey = keyof typeof en.vacuumParts;
 
 // Dreame names each consumable by the key its maintenance sensor lists and
 // its reset button uses; some percentage sensors add a qualifier to that key.
-const parts: [PartKey, string][] = [
-  ["main_brush", "main_brush"],
-  ["side_brush", "side_brush"],
-  ["filter", "filter"],
-  ["tank_filter", "tank_filter"],
-  ["sensor", "sensor_dirty"],
-  ["mop_pad", "mop_pad"],
-  ["silver_ion", "silver_ion"],
-  ["detergent", "detergent"],
-  ["squeegee", "squeegee"],
-  ["onboard_dirty_water_tank", "onboard_dirty_water_tank"],
-  ["dirty_water_channel", "dirty_water_channel_dirty"],
-  ["deodorizer", "deodorizer"],
-  ["wheel", "wheel_dirty"],
-  ["scale_inhibitor", "scale_inhibitor"],
-  ["fluffing_roller", "fluffing_roller_dirty"],
-  ["roller_mop_filter", "roller_mop_filter_dirty"],
-  ["water_outlet_filter", "water_outlet_filter_dirty"],
-  ["washboard_cleaning", "washboard_cleaning"],
+// Most parts wear with cleaning time, which Home Assistant may display in days;
+// the rest expire with calendar time.
+const parts: [PartKey, string, "use" | "calendar"][] = [
+  ["main_brush", "main_brush", "use"],
+  ["side_brush", "side_brush", "use"],
+  ["filter", "filter", "use"],
+  ["tank_filter", "tank_filter", "use"],
+  ["sensor", "sensor_dirty", "use"],
+  ["mop_pad", "mop_pad", "use"],
+  ["silver_ion", "silver_ion", "calendar"],
+  ["detergent", "detergent", "calendar"],
+  ["squeegee", "squeegee", "use"],
+  ["onboard_dirty_water_tank", "onboard_dirty_water_tank", "use"],
+  ["dirty_water_channel", "dirty_water_channel_dirty", "use"],
+  ["deodorizer", "deodorizer", "calendar"],
+  ["wheel", "wheel_dirty", "use"],
+  ["scale_inhibitor", "scale_inhibitor", "calendar"],
+  ["fluffing_roller", "fluffing_roller_dirty", "use"],
+  ["roller_mop_filter", "roller_mop_filter_dirty", "use"],
+  ["water_outlet_filter", "water_outlet_filter_dirty", "use"],
+  ["washboard_cleaning", "washboard_cleaning", "calendar"],
 ];
 
 const stationParts = [
@@ -395,7 +397,11 @@ export function buildVacuumView(
             .filter((option): option is string => typeof option === "string")
             .map((option) => {
               const text =
-                hass.formatEntityState?.(entity, option) ?? humanize(option);
+                (key === "cleaning_mode" && Object.hasOwn(t.cleaningModes, option)
+                  ? t.cleaningModes[option as keyof typeof t.cleaningModes]
+                  : null) ??
+                hass.formatEntityState?.(entity, option) ??
+                humanize(option);
               return {
                 value: option,
                 label: text,
@@ -785,7 +791,7 @@ function maintenance(
       percent > 100
     )
       return [];
-    const [item, key] = part;
+    const [item, key, clock] = part;
     const prefix = entity.entity_id.slice(
       "sensor.".length,
       -`_${key}_left`.length,
@@ -800,8 +806,10 @@ function maintenance(
           ? left
           : unit === "d"
             ? left * 24
-            : null;
-    if (left !== null && unit === "d") days.set(item, left);
+            : unit === "min"
+              ? left / 60
+              : null;
+    if (hours !== null && clock === "calendar") days.set(item, hours / 24);
     else if (hours !== null && usage) days.set(item, hours / usage);
     const reset = states.get(`button.${prefix}_reset_${item}`);
     const name = t.vacuumParts[item];
@@ -814,9 +822,9 @@ function maintenance(
         timeLeft:
           hours === null
             ? null
-            : unit === "d" && hours >= 24
+            : clock === "calendar"
               ? t.daysLeft(Math.round(hours / 24))
-              : t.hoursLeft(Math.round(hours)),
+              : t.usageLeft(Math.round(hours)),
         flagged: Array.isArray(flags) ? flags.includes(item) : percent < 10,
         reset:
           reset && reset.state !== "unavailable"
