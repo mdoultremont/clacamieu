@@ -29,6 +29,14 @@ import type {
   ServiceAction,
   VacuumSection,
 } from "../types";
+import {
+  fitted,
+  panBy,
+  toggleZoom,
+  zoomAt,
+  type MapZoom,
+  type Point,
+} from "../map-zoom";
 import { useRoomHistory } from "../use-room-history";
 import {
   buildVacuumView,
@@ -207,11 +215,12 @@ export function Vacuum({
               >
                 {tab === "map" && view.camera && view.pins ? (
                   <RoomMap camera={view.camera} language={hass.language}>
-                    {(size) =>
+                    {(size, scale) =>
                       !view.task && (
                         <RoomPins
                           pins={view.pins!}
                           size={size}
+                          scale={scale}
                           ranks={ranks}
                           disabled={!view.available}
                           onToggle={toggle}
@@ -789,20 +798,31 @@ function RoomMap({
 }: {
   camera: NonNullable<VacuumView["camera"]>;
   language: string;
-  children: (size: NaturalSize) => ReactNode;
+  children: (size: NaturalSize, scale: number) => ReactNode;
 }) {
   const t = messages(language);
   const ref = useRef<HTMLDivElement>(null);
   const picture = useCameraPicture(camera, ref);
+  const zoom = useMapZoom(ref, picture.src !== null);
   const [size, setSize] = useState<NaturalSize | null>(null);
   return (
     <Tray>
-      <div ref={ref} className="tray-card relative overflow-hidden">
+      <div
+        ref={ref}
+        className="tray-card relative overflow-hidden select-none"
+        style={{ touchAction: zoom.scale > 1 ? "none" : "pan-y" }}
+      >
         {picture.src ? (
-          <>
+          <div
+            className="relative origin-top-left"
+            style={{
+              transform: `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})`,
+            }}
+          >
             <img
               src={picture.src}
               alt={t.vacuumMap}
+              draggable={false}
               className="block w-full"
               onError={picture.onError}
               onLoad={(event) => {
@@ -815,8 +835,8 @@ function RoomMap({
                 );
               }}
             />
-            {size && children(size)}
-          </>
+            {size && children(size, zoom.scale)}
+          </div>
         ) : (
           <MapUnavailable language={language} />
         )}
@@ -825,15 +845,177 @@ function RoomMap({
   );
 }
 
+/**
+ * Pinch or Ctrl+scroll zooms the map inside its frame, a drag or scroll pans a
+ * zoomed map, and a double tap toggles between the fitted map and a closer look.
+ * A fitted map leaves vertical drags to the page.
+ */
+function useMapZoom(
+  ref: RefObject<HTMLElement | null>,
+  enabled: boolean,
+): MapZoom {
+  const [zoom, setZoom] = useState(fitted);
+  useEffect(() => {
+    const element = ref.current;
+    setZoom(fitted);
+    if (!element || !enabled) return;
+    let current = fitted;
+    const update = (next: (zoom: MapZoom) => MapZoom) => {
+      current = next(current);
+      setZoom(current);
+    };
+    const frame = () => ({
+      width: element.clientWidth,
+      height: element.clientHeight,
+    });
+    const local = (event: PointerEvent | WheelEvent): Point => {
+      const box = element.getBoundingClientRect();
+      return { x: event.clientX - box.left, y: event.clientY - box.top };
+    };
+    const pointers = new Map<number, Point>();
+    let start: Point | null = null;
+    let moved = false;
+    let lastTap: { time: number; point: Point } | null = null;
+
+    const down = (event: PointerEvent) => {
+      // A mouse released outside the frame never sent its pointerup here.
+      if (event.pointerType !== "touch") pointers.clear();
+      pointers.set(event.pointerId, local(event));
+      if (pointers.size === 1) {
+        start = local(event);
+        moved = false;
+      }
+    };
+    const move = (event: PointerEvent) => {
+      const previous = pointers.get(event.pointerId);
+      if (!previous) return;
+      if (event.pointerType !== "touch" && event.buttons === 0) {
+        up(event);
+        return;
+      }
+      const point = local(event);
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        pointers.set(event.pointerId, point);
+        const [c, d] = [...pointers.values()];
+        const before = Math.hypot(a.x - b.x, a.y - b.y);
+        const after = Math.hypot(c.x - d.x, c.y - d.y);
+        const from = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const to = { x: (c.x + d.x) / 2, y: (c.y + d.y) / 2 };
+        if (!moved) {
+          moved = true;
+          for (const id of pointers.keys()) element.setPointerCapture(id);
+        }
+        update((zoom) =>
+          panBy(
+            zoomAt(zoom, before ? after / before : 1, to, frame()),
+            { x: to.x - from.x, y: to.y - from.y },
+            frame(),
+          ),
+        );
+        return;
+      }
+      pointers.set(event.pointerId, point);
+      if (pointers.size !== 1 || current.scale === 1 || !start) return;
+      if (!moved) {
+        if (Math.hypot(point.x - start.x, point.y - start.y) < 6) return;
+        moved = true;
+        element.setPointerCapture(event.pointerId);
+      }
+      update((zoom) =>
+        panBy(
+          zoom,
+          { x: point.x - previous.x, y: point.y - previous.y },
+          frame(),
+        ),
+      );
+    };
+    const up = (event: PointerEvent) => {
+      if (!pointers.delete(event.pointerId) || pointers.size) return;
+      if (moved) window.setTimeout(() => (moved = false));
+      const tapped =
+        event.type === "pointerup" &&
+        !moved &&
+        !(event.target as Element).closest("button");
+      if (!tapped) return;
+      const point = local(event);
+      if (
+        lastTap &&
+        event.timeStamp - lastTap.time < 300 &&
+        Math.hypot(point.x - lastTap.point.x, point.y - lastTap.point.y) < 30
+      ) {
+        lastTap = null;
+        update((zoom) => toggleZoom(zoom, point, frame()));
+      } else lastTap = { time: event.timeStamp, point };
+    };
+    // A drag that ends on a room pin moves the map; it does not choose the room.
+    const click = (event: MouseEvent) => {
+      if (!moved) return;
+      event.stopPropagation();
+      event.preventDefault();
+    };
+    const wheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        update((zoom) =>
+          zoomAt(zoom, Math.exp(-event.deltaY / 100), local(event), frame()),
+        );
+      } else if (current.scale > 1) {
+        const next = panBy(
+          current,
+          { x: -event.deltaX, y: -event.deltaY },
+          frame(),
+        );
+        // At the map's edge the page scrolls instead.
+        if (next.x === current.x && next.y === current.y) return;
+        event.preventDefault();
+        update(() => next);
+      }
+    };
+    // Focusing an off-screen pin scrolls the clipped frame; pan there instead.
+    const scroll = () => {
+      const offset = { x: -element.scrollLeft, y: -element.scrollTop };
+      element.scrollLeft = 0;
+      element.scrollTop = 0;
+      update((zoom) => panBy(zoom, offset, frame()));
+    };
+    const resize = new ResizeObserver(() =>
+      update((zoom) => panBy(zoom, { x: 0, y: 0 }, frame())),
+    );
+    resize.observe(element);
+    element.addEventListener("scroll", scroll);
+    element.addEventListener("pointerdown", down);
+    element.addEventListener("pointermove", move);
+    element.addEventListener("pointerup", up);
+    element.addEventListener("pointercancel", up);
+    element.addEventListener("click", click, true);
+    element.addEventListener("wheel", wheel, { passive: false });
+    return () => {
+      resize.disconnect();
+      element.removeEventListener("scroll", scroll);
+      element.removeEventListener("pointerdown", down);
+      element.removeEventListener("pointermove", move);
+      element.removeEventListener("pointerup", up);
+      element.removeEventListener("pointercancel", up);
+      element.removeEventListener("click", click, true);
+      element.removeEventListener("wheel", wheel);
+    };
+  }, [ref, enabled]);
+  return zoom;
+}
+
 function RoomPins({
   pins,
   size,
+  scale,
   ranks,
   disabled,
   onToggle,
 }: {
   pins: NonNullable<VacuumView["pins"]>;
   size: NaturalSize;
+  /** The map's zoom, undone on each pin so pins keep their size. */
+  scale: number;
   ranks: ReadonlyMap<number, number>;
   disabled: boolean;
   onToggle: (id: number) => void;
@@ -851,6 +1033,7 @@ function RoomPins({
         style={{
           left: `${(pin.x / size.width) * 100}%`,
           top: `${(pin.y / size.height) * 100}%`,
+          scale: 1 / scale,
         }}
         className="absolute grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center outline-none focus-visible:[&>span]:ring-[3px] focus-visible:[&>span]:ring-ring/50"
       >

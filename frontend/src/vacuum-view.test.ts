@@ -368,11 +368,11 @@ describe("vacuum view", () => {
         flagged,
       ]),
     ).toEqual([
-      ["Sensors", "0 %", "0 h left", true],
-      ["Wheels", "3 %", "1 h left", true],
-      ["Filter", "59 %", "89 h left", false],
-      ["Tank filter", "70 %", "150 h left", false],
-      ["Main brush", "79 %", "239 h left", false],
+      ["Sensors", "0 %", "0 h of use left", true],
+      ["Wheels", "3 %", "1 h of use left", true],
+      ["Filter", "59 %", "89 h of use left", false],
+      ["Tank filter", "70 %", "150 h of use left", false],
+      ["Main brush", "79 %", "239 h of use left", false],
       ["Scale inhibitor", "82 %", "900 days left", false],
     ]);
     expect(items.map(({ reset }) => reset?.entityId ?? null)).toEqual([
@@ -403,6 +403,13 @@ describe("vacuum view", () => {
     expect(buildVacuumView(hass, config, { now })!.maintenance.next).toBe(
       "Next: filter, in about 9 months",
     );
+    // Home Assistant may display a part's hours of use in days.
+    hass.states["sensor.robot_wheel_dirty_left"].state = "92";
+    hass.states["sensor.robot_wheel_dirty_time_left"].state = "1.125";
+    expect(buildVacuumView(hass, config, { now })!.maintenance.next).toBe(
+      "Next: wheels, in about 3 months",
+    );
+    hass.states["sensor.robot_wheel_dirty_time_left"].state = "500";
     hass.states["sensor.robot_filter_time_left"].state = "10";
     expect(buildVacuumView(hass, config, { now })!.maintenance.next).toBe(
       "Next: filter, in about 5 weeks",
@@ -473,22 +480,23 @@ describe("vacuum view", () => {
     const [mode, suction] = buildVacuumView(hass, config)!.settings;
     expect(mode.id).toBe("select.robot_cleaning_mode");
     expect(mode.options.map(({ label }) => label)).toEqual([
-      "Sweeping",
-      "Mopping",
-      "Sweeping and mopping",
+      "Vacuum",
+      "Mop",
+      "Vacuum and mop",
     ]);
     expect(mode.options[1].action).toEqual({
       domain: "select",
       service: "select_option",
       entityId: "select.robot_cleaning_mode",
-      label: "Cleaning mode: Mopping",
+      label: "Cleaning mode: Mop",
       data: { option: "mopping" },
     });
     expect(suction.available).toBe(false);
     hass.formatEntityState = (entity, value) =>
       `${entity.entity_id}=${value ?? entity.state}`;
+    hass.states["select.robot_cleaning_mode"].attributes.options = ["turbo"];
     expect(buildVacuumView(hass, config)!.settings[0].options[0].label).toBe(
-      "select.robot_cleaning_mode=sweeping",
+      "select.robot_cleaning_mode=turbo",
     );
   });
 
