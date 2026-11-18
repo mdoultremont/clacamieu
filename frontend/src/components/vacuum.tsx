@@ -803,7 +803,7 @@ function RoomMap({
   const t = messages(language);
   const ref = useRef<HTMLDivElement>(null);
   const picture = useCameraPicture(camera, ref);
-  const zoom = useMapZoom(ref);
+  const zoom = useMapZoom(ref, picture.src !== null);
   const [size, setSize] = useState<NaturalSize | null>(null);
   return (
     <Tray>
@@ -850,11 +850,15 @@ function RoomMap({
  * zoomed map, and a double tap toggles between the fitted map and a closer look.
  * A fitted map leaves vertical drags to the page.
  */
-function useMapZoom(ref: RefObject<HTMLElement | null>): MapZoom {
+function useMapZoom(
+  ref: RefObject<HTMLElement | null>,
+  enabled: boolean,
+): MapZoom {
   const [zoom, setZoom] = useState(fitted);
   useEffect(() => {
     const element = ref.current;
-    if (!element) return;
+    setZoom(fitted);
+    if (!element || !enabled) return;
     let current = fitted;
     const update = (next: (zoom: MapZoom) => MapZoom) => {
       current = next(current);
@@ -874,6 +878,8 @@ function useMapZoom(ref: RefObject<HTMLElement | null>): MapZoom {
     let lastTap: { time: number; point: Point } | null = null;
 
     const down = (event: PointerEvent) => {
+      // A mouse released outside the frame never sent its pointerup here.
+      if (event.pointerType !== "touch") pointers.clear();
       pointers.set(event.pointerId, local(event));
       if (pointers.size === 1) {
         start = local(event);
@@ -883,6 +889,10 @@ function useMapZoom(ref: RefObject<HTMLElement | null>): MapZoom {
     const move = (event: PointerEvent) => {
       const previous = pointers.get(event.pointerId);
       if (!previous) return;
+      if (event.pointerType !== "touch" && event.buttons === 0) {
+        up(event);
+        return;
+      }
       const point = local(event);
       if (pointers.size === 2) {
         const [a, b] = [...pointers.values()];
@@ -962,6 +972,18 @@ function useMapZoom(ref: RefObject<HTMLElement | null>): MapZoom {
         update(() => next);
       }
     };
+    // Focusing an off-screen pin scrolls the clipped frame; pan there instead.
+    const scroll = () => {
+      const offset = { x: -element.scrollLeft, y: -element.scrollTop };
+      element.scrollLeft = 0;
+      element.scrollTop = 0;
+      update((zoom) => panBy(zoom, offset, frame()));
+    };
+    const resize = new ResizeObserver(() =>
+      update((zoom) => panBy(zoom, { x: 0, y: 0 }, frame())),
+    );
+    resize.observe(element);
+    element.addEventListener("scroll", scroll);
     element.addEventListener("pointerdown", down);
     element.addEventListener("pointermove", move);
     element.addEventListener("pointerup", up);
@@ -969,6 +991,8 @@ function useMapZoom(ref: RefObject<HTMLElement | null>): MapZoom {
     element.addEventListener("click", click, true);
     element.addEventListener("wheel", wheel, { passive: false });
     return () => {
+      resize.disconnect();
+      element.removeEventListener("scroll", scroll);
       element.removeEventListener("pointerdown", down);
       element.removeEventListener("pointermove", move);
       element.removeEventListener("pointerup", up);
@@ -976,7 +1000,7 @@ function useMapZoom(ref: RefObject<HTMLElement | null>): MapZoom {
       element.removeEventListener("click", click, true);
       element.removeEventListener("wheel", wheel);
     };
-  }, [ref]);
+  }, [ref, enabled]);
   return zoom;
 }
 
